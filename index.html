@@ -4,7 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>O Rei da Coxinha - Painel</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+
+// ==== FUNÇÃO AUSENTE CORRIGIDA ====
+async function deleteClientFromDB(phone) {
+    try {
+        await supabase.from('clients').delete().eq('phone', phone);
+        clients = clients.filter(c => c.phone !== phone);
+    } catch(e) {}
+}
+
+// ==== FAVORITOS INICIALIZAÇÃO SEGURA ====
+favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+
+});
+</script>
     <style>
         :root { --primary: #c75b24; --success: #25d366; --dark: #2d3436; --blue: #3498db; --danger: #e74c3c; --warning: #f1c40f; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -236,6 +250,8 @@
         </div>
     </div>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+
     // ==================== CONFIGURAÇÃO E FUNÇÕES (VERSÃO RESILIENTE) ====================
     const SUPABASE_URL = 'https://vpeyqgijajywgswmezlh.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_GeZbE2rC-vKlBh7T-0jEtw_jeHTfKyo';
@@ -497,6 +513,7 @@
         };
         
         await saveOrderToDB(orderObj);
+        orders.unshift(orderObj);
         const dbU = clients.find(x => x.phone === user.phone) || user;
         if(useCredit && creditDiscount > 0) dbU.debt += creditDiscount; 
         if(method === 'FIADO') dbU.debt += finalTotal; 
@@ -554,6 +571,7 @@
         const name = document.getElementById('newCName').value;
         const phone = "819" + document.getElementById('newCPhone').value.replace(/\D/g,'');
         const newClient = { name, phone, fiado: false, debt: 0 };
+        clients.push(newClient);
         await saveClientToDB(newClient);
         renderAdminClients();
     }
