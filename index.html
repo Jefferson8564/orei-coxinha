@@ -525,5 +525,108 @@
             </div>`).join(''); 
     }
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
+const SUPABASE_KEY = "COLE_SUA_ANON_KEY_AQUI"; // Pegue em Settings > API (anon public)
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Override products to use Supabase
+products = [];
+
+async function loadProducts() {
+    const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        console.error(error);
+        alert("Erro ao carregar produtos");
+        return;
+    }
+
+    products = data.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        img: p.image_url || ""
+    }));
+
+    render();
+}
+
+// Patch auth to load products after login
+const _auth = auth;
+auth = async function() {
+    _auth();
+    await loadProducts();
+};
+
+// Save product with Supabase + Storage
+async function saveProduct() {
+    const id = document.getElementById('editProductId').value;
+    const name = document.getElementById('newPName').value;
+    const price = parseFloat(document.getElementById('newPPrice').value);
+    const file = document.getElementById('newPImg').files[0];
+
+    if (!name || !price) return alert("Dados incompletos");
+
+    let imageUrl = null;
+
+    if (file) {
+        const fileName = Date.now() + "_" + file.name;
+
+        const { error: uploadError } = await supabase
+            .storage
+            .from("products")
+            .upload(fileName, file);
+
+        if (uploadError) {
+            alert("Erro ao enviar imagem");
+            return;
+        }
+
+        imageUrl = `${SUPABASE_URL}/storage/v1/object/public/products/${fileName}`;
+    }
+
+    if (id) {
+        await supabase
+            .from("products")
+            .update({
+                name,
+                price,
+                image_url: imageUrl
+            })
+            .eq("id", id);
+    } else {
+        await supabase
+            .from("products")
+            .insert({
+                name,
+                price,
+                image_url: imageUrl
+            });
+    }
+
+    resetProdForm();
+    loadProducts();
+}
+
+// Remove product from Supabase
+async function removeProduct(id) {
+    if (!confirm("Excluir?")) return;
+
+    await supabase
+        .from("products")
+        .delete()
+        .eq("id", id);
+
+    loadProducts();
+}
+</script>
+
 </body>
 </html>
