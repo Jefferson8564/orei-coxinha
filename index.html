@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>O Rei da Coxinha - Painel</title>
+    <style>
+        :root { --primary: #c75b24; --success: #25d366; --dark: #2d3436; --blue: #3498db; --danger: #e74c3c; --warning: #f1c40f; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #f5f5f5; padding-bottom: 120px; }
+
+        /* TELA DE LOGIN */
+        .login-container { background: white; padding: 30px; border-radius: 25px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .brand-name { font-family: 'Georgia', serif; color: var(--primary); font-size: 22px; font-weight: bold; margin-bottom: 20px; line-height: 1.2; }
+        
+        /* CABEÇALHO */
+        .header { background: var(--primary); padding: 15px; color: white; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; height: 70px; }
+        
+        .admin-trigger, .notif-trigger, .fav-load-btn { background: rgba(255,255,255,0.2); border: none; width: 45px; height: 45px; border-radius: 12px; color: white; cursor: pointer; font-size: 20px; transition: 0.2s; display: none; }
+        .admin-trigger:active, .notif-trigger:active, .fav-load-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.4); }
+        .fav-load-btn.active { display: block; color: var(--warning); }
+        
+        .products-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
+        .card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .card-img { height: 110px; background: #ffeaa7; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .card-img img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* CONTROLES DE QUANTIDADE */
+        .qty-input { width: 40px; border: none; background: transparent; text-align: center; font-weight: bold; font-size: 16px; -moz-appearance: textfield; }
+        .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* RODAPÉ */
+        .footer { position: fixed; bottom: 0; width: 100%; background: white; padding: 15px; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 900; }
+        .btn-pedir { flex: 2; background: #bdc3c7; color: white; border: none; padding: 12px; border-radius: 15px; font-weight: bold; pointer-events: none; transition: 0.3s; font-size: 14px; }
+        .btn-pedir.active { background: var(--success); pointer-events: auto; cursor: pointer; }
+        .btn-save-fav { flex: 1; background: #f1c40f; color: #000; border: none; padding: 12px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 14px; display: none; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 15px; }
+        .modal.active { display: flex !important; }
+        .modal-content { background: white; width: 100%; max-width: 500px; padding: 20px; border-radius: 20px; max-height: 90vh; overflow-y: auto; }
+        .input-text { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px; text-align: center; font-size: 16px; }
+        
+        .input-prefix-container { position: relative; display: flex; align-items: center; margin-bottom: 10px; }
+        .input-prefix-container span { position: absolute; left: 15px; font-weight: bold; color: #555; }
+        .input-prefix-container input { padding-left: 50px !important; margin-bottom: 0; }
+
+        .admin-tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; overflow-x: auto; }
+        .tab-btn { padding: 10px 15px; border: none; background: #eee; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .admin-section { display: none; }
+        .admin-section.active { display: block; }
+
+        .order-card, .client-card { background: #f9f9f9; border: 1px solid #eee; padding: 12px; border-radius: 15px; margin-bottom: 10px; }
+        .saldo-positivo { color: var(--blue) !important; font-weight: bold; }
+        .saldo-devedor { color: var(--danger) !important; font-weight: bold; }
+
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .pay-item { border: 2px solid #eee; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; font-weight: bold; }
+        .pay-item.selected { border-color: var(--success); background: #e8f5e9; color: var(--success); }
+        .pay-item.disabled { opacity: 0.3; pointer-events: none; }
+        
+        .credit-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; display: none; }
+        .credit-box.active { display: block; }
+        .credit-box h4 { margin-bottom: 10px; font-size: 14px; }
+        .credit-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 8px; cursor: pointer; }
+        .credit-toggle input { display: none; }
+        .credit-toggle-label { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .credit-toggle-check { width: 24px; height: 24px; border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .credit-toggle input:checked + .credit-toggle-label .credit-toggle-check { background: var(--success); border-color: var(--success); }
+        .credit-toggle-check::after { content: "✓"; display: none; }
+        .credit-toggle input:checked + .credit-toggle-label .credit-toggle-check::after { display: block; }
+        .credit-info { font-size: 12px; margin-top: 8px; opacity: 0.9; }
+        .final-total { background: #f0f0f0; padding: 15px; border-radius: 10px; margin-top: 15px; text-align: center; }
+        .final-total.original { text-decoration: line-through; color: #999; font-size: 14px; }
+        .final-total.discounted { color: var(--success); font-size: 24px; font-weight: bold; }
+        
+        .prod-item-admin { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px; border-radius: 10px; margin-bottom: 5px; border: 1px solid #eee; }
+        .btn-cobrar { background: #25d366; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen" style="position:fixed; inset:0; background:var(--primary); z-index:5000; display:flex; align-items:center; justify-content:center; padding:20px;">
+        <div class="login-container">
+            <div style="font-size: 60px; margin-bottom: 5px;">🍗</div>
+            <div class="brand-name">(bem-vindo<br>Coloque seu WhatsApp)</div>
+            <div class="input-prefix-container">
+                <span>819</span>
+                <input type="tel" id="userPhone" class="input-text" placeholder="Número do celular" maxlength="8">
+            </div>
+            <div id="adminPassBox" style="display:none;"><input type="password" id="adminPass" class="input-text" placeholder="Senha Admin"></div>
+            <div id="nameBox" style="display:none;"><input type="text" id="userName" class="input-text" placeholder="Qual seu nome?"></div>
+            <button onclick="auth()" style="width:100%; padding:15px; border:none; background:var(--success); color:white; border-radius:10px; font-weight:bold; cursor:pointer; font-size: 16px;">Entrar no Sistema</button>
+        </div>
+    </div>
+
+    <div id="app" style="display:none;">
+        <header class="header">
+            <div id="userInfoHeader" style="display:flex; flex-direction:column; justify-content:center; min-width: 100px;">
+                <h3 id="hi" style="font-size: 16px;">Olá!</h3>
+                <div id="headerBalance" style="font-size: 13px; margin-top: 2px;"></div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <button id="adminBtn" class="admin-trigger" onclick="openAdmin()">⚙️</button>
+                <button id="notifBtn" class="notif-trigger" onclick="openNotif()">🔔</button>
+                <button id="favBtnHeader" class="fav-load-btn" onclick="openFavoriteModal()" title="Ver Favorito">⭐</button>
+            </div>
+        </header>
+
+        <div id="grid" class="products-grid"></div>
+
+        <footer class="footer">
+            <div style="min-width: 80px;"><small style="color:#888;">TOTAL</small><h2 id="totalLabel" style="font-size: 18px;">R$ 0,00</h2></div>
+            <button class="btn-save-fav" id="btnSaveFav" onclick="saveAsFavorite()">⭐ Salvar</button>
+            <button class="btn-pedir" id="btnMain" onclick="showPayModal()">Finalizar</button>
+        </footer>
+    </div>
+    
+    <div id="favModal" class="modal">
+        <div class="modal-content">
+            <h3 style="text-align:center; margin-bottom:15px;">Seu Pedido Favorito ⭐</h3>
+            <div id="favDetails" style="background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 20px; line-height: 1.6;"></div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="document.getElementById('favModal').classList.remove('active')" style="flex:1; padding:12px; background:#eee; border:none; border-radius:10px; font-weight:bold;">Fechar</button>
+                <button onclick="loadFavorite()" style="flex:2; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; font-weight:bold;">Fazer Pedido Favorito</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notifModal" class="modal">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3>Últimos Pedidos</h3>
+                <button onclick="clearOrders()" style="color:red; background:none; border:none; font-size:12px; cursor:pointer; font-weight:bold;">Zerar Tudo</button>
+            </div>
+            <div id="orderList"></div>
+            <button onclick="document.getElementById('notifModal').classList.remove('active')" style="width:100%; margin-top:20px; padding:12px; border:none; background:#ddd; border-radius:10px; font-weight:bold;">Fechar</button>
+        </div>
+    </div>
+
+    <div id="payModal" class="modal">
+        <div class="modal-content">
+            <h3 style="text-align:center; margin-bottom:15px;">Como deseja pagar?</h3>
+            <div class="pay-grid">
+                <div id="btnPix" class="pay-item selected" onclick="setMethod('PIX', this)">💠 Pix</div>
+                <div id="btnDinheiro" class="pay-item" onclick="setMethod('DINHEIRO', this)">💵 Dinheiro</div>
+                <div id="fBtnModal" class="pay-item" onclick="setMethod('FIADO', this)">📝 Fiado</div>
+            </div>
+            
+            <div id="creditBox" class="credit-box">
+                <h4>💰 Você tem crédito disponível!</h4>
+                <label class="credit-toggle" onclick="toggleCreditDiscount()">
+                    <input type="checkbox" id="useCredit">
+                    <div class="credit-toggle-label">
+                        <span>Usar crédito no pedido</span>
+                        <div class="credit-toggle-check"></div>
+                    </div>
+                </label>
+                <div class="credit-info">
+                    Crédito disponível: <strong id="creditAvailable">R$ 0,00</strong><br>
+                    <span id="creditUsedText" style="display:none;">Será abatido: <strong id="creditUsed">R$ 0,00</strong></span>
+                </div>
+            </div>
+            
+            <div id="trocoBox" style="display:none;"><input type="number" id="trocoPara" class="input-text" placeholder="Troco para quanto?"></div>
+            
+            <div id="finalTotalBox" class="final-total" style="display:none;">
+                <div class="original" id="originalTotal">Total: R$ 0,00</div>
+                <div class="discounted" id="discountedTotal">A pagar: R$ 0,00</div>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="closePayModal()" style="flex:1; padding:12px; background:#eee; border:none; border-radius:10px; font-weight:bold;">Voltar</button>
+                <button onclick="confirmOrder()" style="flex:2; padding:12px; background:var(--success); color:white; border-radius:10px; font-weight:bold;">Confirmar Pedido</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminModal" class="modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchTab('tab-prods', this)">🍕 Salgados</button>
+                <button class="tab-btn" onclick="switchTab('tab-clients', this)">👥 Clientes</button>
+                <button class="tab-btn" onclick="switchTab('tab-msg', this)">💬 Mensagens</button>
+            </div>
+            <div id="tab-prods" class="admin-section active">
+                <div style="background:#fff3e0; padding:15px; border-radius:10px; margin-bottom:15px;">
+                    <h4 id="adminTitle">Cadastrar Salgado</h4>
+                    <input type="hidden" id="editProductId">
+                    <input type="text" id="newPName" class="input-text" placeholder="Ex: Coxinha de Carne">
+                    <input type="number" id="newPPrice" class="input-text" placeholder="Ex: 7.00">
+                    <input type="file" id="newPImg" class="input-text" accept="image/*">
+                    <div style="display:flex; gap:10px;">
+                        <button id="btnCancelEdit" onclick="resetProdForm()" style="display:none; flex:1; padding:10px; background:#ccc; border:none; border-radius:8px; font-weight:bold;">Cancelar</button>
+                        <button id="btnSaveProd" onclick="saveProduct()" style="flex:2; padding:10px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold;">Salvar Produto</button>
+                    </div>
+                </div>
+                <div id="adminProductList"></div>
+            </div>
+            <div id="tab-clients" class="admin-section">
+                <div style="background:#e3f2fd; padding:15px; border-radius:10px; margin-bottom:15px;">
+                    <h4>Novo Cadastro</h4>
+                    <input type="text" id="newCName" class="input-text" placeholder="Nome Completo">
+                    <div class="input-prefix-container">
+                        <span>819</span>
+                        <input type="tel" id="newCPhone" class="input-text" placeholder="Restante do número" maxlength="8">
+                    </div>
+                    <button onclick="adminAddClient()" style="width:100%; padding:10px; background:var(--blue); color:white; border:none; border-radius:8px; font-weight:bold;">Cadastrar Cliente</button>
+                </div>
+                <div id="clientList"></div>
+            </div>
+            <div id="tab-msg" class="admin-section">
+                <h4>Pedido (WhatsApp)</h4>
+                <textarea id="editTemplate" class="input-text" style="height:100px; text-align:left; font-family:monospace; margin-bottom: 20px;"></textarea>
+                <h4>Cobrança (WhatsApp)</h4>
+                <p style="font-size: 11px; color: #666; margin-bottom: 5px;">Use {nome} e {valor}</p>
+                <textarea id="editCobrancaTemplate" class="input-text" style="height:100px; text-align:left; font-family:monospace;"></textarea>
+                <button onclick="saveMsgTemplates()" style="width:100%; padding:10px; background:var(--success); color:white; border:none; border-radius:8px; font-weight:bold;">Salvar Sugestões</button>
+            </div>
+            <button onclick="document.getElementById('adminModal').classList.remove('active')" style="width:100%; margin-top:20px; padding:12px; border:none; background:#ddd; border-radius:10px; font-weight:bold;">Fechar Painel</button>
+        </div>
+    </div>
+<script>
+    const ADMIN_NUM = "81996603348";
+    const ADMIN_PASS = "8564";
+    
+    let products = JSON.parse(localStorage.getItem('salgados_p')) || [{id:1, name:'Coxinha Frango', price:6.50, img:''}];
+    let clients = JSON.parse(localStorage.getItem('salgados_c')) || [];
+    let orders = JSON.parse(localStorage.getItem('salgados_orders')) || [];
+    
+    let msgTemplate = localStorage.getItem('salgados_msg') || "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
+    let msgCobranca = localStorage.getItem('salgados_cobranca') || "Olá {nome}, tudo bem? Passando para lembrar do seu débito pendente no valor de *R$ {valor}*. Como prefere pagar?";
+    
+    let favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+    let user = null; 
+    let cart = {}; 
+    let method = "PIX";
+    let currentOrderTotal = 0; 
+    let creditDiscount = 0; 
+
+    document.getElementById('userPhone').addEventListener('input', (e) => {
+        const val = "819" + e.target.value.replace(/\D/g,'');
+        document.getElementById('adminPassBox').style.display = (val === ADMIN_NUM) ? 'block' : 'none';
+    });
+
+    function auth() {
+        const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
+        if(partialPhone.length < 8) return alert("Digite o número completo");
+        const phone = "819" + partialPhone;
+        if(phone === ADMIN_NUM && document.getElementById('adminPass').value !== ADMIN_PASS) return alert("Senha incorreta!");
+        user = clients.find(x => x.phone === phone);
+        if(!user) {
+            const nb = document.getElementById('nameBox');
+            if(nb.style.display === 'none') return nb.style.display = 'block';
+            const name = document.getElementById('userName').value;
+            if(!name) return;
+            user = { name, phone, fiado: false, debt: 0 };
+            clients.push(user); 
+            localStorage.setItem('salgados_c', JSON.stringify(clients));
+        }
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        atualizarCabecalho();
+        checkFavoriteBtn();
+        if(phone === ADMIN_NUM) {
+            document.getElementById('adminBtn').style.display = 'block';
+            document.getElementById('notifBtn').style.display = 'block';
+        }
+        render();
+    }
+
+    function atualizarCabecalho() {
+        const u = clients.find(x => x.phone === user.phone);
+        document.getElementById('hi').innerText = "Olá, " + u.name.split(' ')[0];
+        const hb = document.getElementById('headerBalance');
+        let saldoHtml = u.debt > 0 ? `Saldo: <span class="saldo-devedor">R$ -${u.debt.toFixed(2)}</span>` : (u.debt < 0 ? `Saldo: <span class="saldo-positivo">R$ +${Math.abs(u.debt).toFixed(2)}</span>` : `Saldo: R$ 0,00`);
+        hb.innerHTML = saldoHtml;
+    }
+
+    function render() {
+        const g = document.getElementById('grid');
+        g.innerHTML = products.map(p => `
+            <div class="card">
+                <div class="card-img">${p.img ? `<img src="${p.img}">` : '🥟'}</div>
+                <div style="padding:10px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div><strong>${p.name}</strong><br><span style="color:var(--primary); font-weight:bold;">R$ ${p.price.toFixed(2)}</span></div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f1f2f6; border-radius:20px; padding:4px; margin-top:10px;">
+                        <button onclick="qty(${p.id},-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--danger);color:white;">-</button>
+                        <input type="number" class="qty-input" value="${cart[p.id] || 0}" onchange="setQty(${p.id}, this.value)">
+                        <button onclick="qty(${p.id},1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--success);color:white;">+</button>
+                    </div>
+                </div>
+            </div>`).join('');
+        
+        let total = 0;
+        for(let id in cart) { const p = products.find(x => x.id == id); if(p) total += p.price * cart[id]; }
+        currentOrderTotal = total; 
+        document.getElementById('totalLabel').innerText = "R$ " + total.toFixed(2).replace('.',',');
+        const hasItems = total > 0;
+        document.getElementById('btnMain').className = hasItems ? "btn-pedir active" : "btn-pedir";
+        document.getElementById('btnSaveFav').style.display = hasItems ? "block" : "none";
+    }
+
+    function qty(id, d) { 
+        cart[id] = (cart[id] || 0) + d; 
+        if(cart[id] <= 0) delete cart[id]; 
+        render(); 
+    }
+
+    function setQty(id, val) {
+        let n = parseInt(val);
+        if(isNaN(n) || n <= 0) delete cart[id];
+        else cart[id] = n;
+        render();
+    }
+    
+    function showPayModal() { 
+        document.getElementById('payModal').classList.add('active'); 
+        const dbUser = clients.find(x => x.phone === user.phone); 
+        const fiadoBtn = document.getElementById('fBtnModal');
+        if(dbUser.fiado) {
+            fiadoBtn.classList.remove('disabled');
+            setMethod('FIADO', fiadoBtn);
+        } else {
+            fiadoBtn.classList.add('disabled');
+            setMethod('PIX', document.getElementById('btnPix'));
+        }
+        setupCreditOption(dbUser);
+    }
+    
+    function setupCreditOption(dbUser) {
+        const creditBox = document.getElementById('creditBox');
+        const creditAvailable = document.getElementById('creditAvailable');
+        const useCreditCheckbox = document.getElementById('useCredit');
+        if (dbUser.debt < 0) {
+            const creditValue = Math.abs(dbUser.debt);
+            creditBox.classList.add('active');
+            creditAvailable.innerText = "R$ " + creditValue.toFixed(2).replace('.', ',');
+            useCreditCheckbox.checked = true;
+            applyCreditCalculation(creditValue);
+        } else {
+            creditBox.classList.remove('active');
+            useCreditCheckbox.checked = false;
+            creditDiscount = 0;
+            updateFinalTotalDisplay();
+        }
+    }
+    
+    function toggleCreditDiscount() {
+        const dbUser = clients.find(x => x.phone === user.phone);
+        const checkbox = document.getElementById('useCredit');
+        setTimeout(() => {
+            if (checkbox.checked && dbUser.debt < 0) {
+                applyCreditCalculation(Math.abs(dbUser.debt));
+            } else {
+                creditDiscount = 0;
+                document.getElementById('creditUsedText').style.display = 'none';
+                updateFinalTotalDisplay();
+            }
+        }, 50);
+    }
+
+    function applyCreditCalculation(availableCredit) {
+        creditDiscount = Math.min(availableCredit, currentOrderTotal);
+        document.getElementById('creditUsed').innerText = "R$ " + creditDiscount.toFixed(2).replace('.', ',');
+        document.getElementById('creditUsedText').style.display = 'block';
+        updateFinalTotalDisplay();
+    }
+    
+    function updateFinalTotalDisplay() {
+        const finalTotalBox = document.getElementById('finalTotalBox');
+        const originalTotal = document.getElementById('originalTotal');
+        const discountedTotal = document.getElementById('discountedTotal');
+        if (creditDiscount > 0) {
+            finalTotalBox.style.display = 'block';
+            originalTotal.innerText = "Total original: R$ " + currentOrderTotal.toFixed(2).replace('.', ',');
+            const finalValue = Math.max(0, currentOrderTotal - creditDiscount);
+            discountedTotal.innerText = "A pagar: R$ " + finalValue.toFixed(2).replace('.', ',');
+        } else {
+            finalTotalBox.style.display = 'none';
+        }
+    }
+    
+    function closePayModal() { document.getElementById('payModal').classList.remove('active'); }
+    
+    function setMethod(m, el) { 
+        method = m; 
+        document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected')); 
+        el.classList.add('selected'); 
+        document.getElementById('trocoBox').style.display = (m === 'DINHEIRO' ? 'block' : 'none'); 
+    }
+
+    function confirmOrder() {
+        let total = 0; let pedidoTexto = "";
+        for(let id in cart) { 
+            const p = products.find(x => x.id == id); 
+            if(p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; } 
+        }
+        if(total === 0) return;
+        const finalTotal = Math.max(0, total - creditDiscount);
+        const useCredit = document.getElementById('useCredit').checked;
+        const orderObj = { 
+            id: Date.now(), cliente: user.name, detalhes: pedidoTexto, total: finalTotal.toFixed(2), 
+            totalOriginal: total.toFixed(2), descontoCredito: creditDiscount.toFixed(2),
+            usouCredito: useCredit && creditDiscount > 0, pagamento: method, hora: new Date().toLocaleTimeString() 
+        };
+        orders.unshift(orderObj);
+        localStorage.setItem('salgados_orders', JSON.stringify(orders.slice(0, 50)));
+        const dbU = clients.find(x => x.phone === user.phone);
+        if(useCredit && creditDiscount > 0) dbU.debt += creditDiscount; 
+        if(method === 'FIADO') dbU.debt += finalTotal; 
+        localStorage.setItem('salgados_c', JSON.stringify(clients)); 
+        atualizarCabecalho();
+        let finalMsg = msgTemplate.replace('{nome}', user.name.toUpperCase()).replace('{pedido}', pedidoTexto).replace('{total}', finalTotal.toFixed(2).replace('.',',')).replace('{pagamento}', method);
+        if(useCredit && creditDiscount > 0) finalMsg += `\n\n💳 Usou Crédito`;
+        window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(finalMsg)}`;
+        cart = {}; creditDiscount = 0; closePayModal(); render();
+    }
+
+    function renderAdminClients() {
+        document.getElementById('clientList').innerHTML = clients.map(c => `
+            <div class="client-card">
+                <div style="display:flex; justify-content:space-between; align-items:start;">
+                    <div><strong>${c.name}</strong><br><small>${c.phone}</small></div>
+                    <div style="text-align:right">
+                        <label style="font-size:10px; display:block;">FIADO</label>
+                        <label class="switch"><input type="checkbox" ${c.fiado ? 'checked' : ''} onchange="toggleFiado('${c.phone}')"><span class="slider"></span></label>
+                        <button onclick="deleteClient('${c.phone}')" style="background:none; border:none; color:red; margin-left:10px;">🗑️</button>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                    <div style="font-size:18px;" class="${c.debt > 0 ? 'saldo-devedor' : 'saldo-positivo'}">
+                        ${c.debt > 0 ? 'Débito: R$ ' + c.debt.toFixed(2) : (c.debt < 0 ? 'Crédito: R$ ' + Math.abs(c.debt).toFixed(2) : 'Saldo: R$ 0,00')}
+                    </div>
+                    ${c.debt > 0 ? `<button class="btn-cobrar" onclick="cobrarCliente('${c.phone}')">📱 Cobrar</button>` : ''}
+                </div>
+                <div style="display:flex; gap:5px; margin-top:10px;">
+                    <input type="number" id="pay_${c.phone}" class="input-text" style="margin:0;" placeholder="Valor">
+                    <button onclick="payDebt('${c.phone}')" style="background:var(--success); color:white; border:none; padding:10px; border-radius:10px;">LANÇAR</button>
+                </div>
+            </div>`).join('');
+    }
+
+    function cobrarCliente(phone) {
+        const c = clients.find(x => x.phone === phone);
+        const texto = msgCobranca.replace('{nome}', c.name).replace('{valor}', c.debt.toFixed(2).replace('.',','));
+        window.open(`https://api.whatsapp.com/send?phone=55${c.phone}&text=${encodeURIComponent(texto)}`, '_blank');
+    }
+
+    function saveMsgTemplates() {
+        msgTemplate = document.getElementById('editTemplate').value;
+        msgCobranca = document.getElementById('editCobrancaTemplate').value;
+        localStorage.setItem('salgados_msg', msgTemplate);
+        localStorage.setItem('salgados_cobranca', msgCobranca);
+        alert("Templates salvos!");
+    }
+
+    function switchTab(t, btn) {
+        document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(t).classList.add('active'); btn.classList.add('active');
+        if(t === 'tab-clients') renderAdminClients();
+        if(t === 'tab-prods') renderAdminProducts();
+        if(t === 'tab-msg') {
+            document.getElementById('editTemplate').value = msgTemplate;
+            document.getElementById('editCobrancaTemplate').value = msgCobranca;
+        }
+    }
+
+    function adminAddClient() {
+        const name = document.getElementById('newCName').value;
+        const partial = document.getElementById('newCPhone').value.replace(/\D/g,'');
+        if(!name || partial.length < 8) return alert("Erro nos dados");
+        const phone = "819" + partial;
+        clients.push({ name, phone, fiado: false, debt: 0 });
+        localStorage.setItem('salgados_c', JSON.stringify(clients));
+        renderAdminClients();
+    }
+    
+    function toggleFiado(p) { const c = clients.find(x => x.phone === p); c.fiado = !c.fiado; localStorage.setItem('salgados_c', JSON.stringify(clients)); }
+    function payDebt(p) { 
+        const input = document.getElementById('pay_'+p); const val = parseFloat(input.value); if(!val) return; 
+        const c = clients.find(x => x.phone === p); c.debt -= val; 
+        localStorage.setItem('salgados_c', JSON.stringify(clients)); 
+        input.value = ""; renderAdminClients(); atualizarCabecalho();
+    }
+    
+    function openNotif() { document.getElementById('notifModal').classList.add('active'); renderOrders(); }
+    function renderOrders() {
+        const list = document.getElementById('orderList');
+        if(orders.length === 0) return list.innerHTML = "Sem pedidos.";
+        list.innerHTML = orders.map(o => `
+            <div class="order-card" style="border-left: 5px solid ${o.pagamento === 'FIADO' ? 'red' : 'green'}">
+                <div style="font-size:11px; color:#888;">${o.hora}</div>
+                <strong>${o.cliente}</strong><br>
+                <div style="font-size:13px; margin:5px 0;">${o.detalhes.replace(/\n/g, '<br>')}</div>
+                ${o.usouCredito ? `<div style="color: var(--blue); font-size: 12px;">💰 Crédito usado: R$ ${o.descontoCredito}</div>` : ''}
+                <strong>R$ ${o.total} - ${o.pagamento}</strong>
+            </div>`).join('');
+    }
+    function clearOrders() { if(confirm("Limpar?")) { orders = []; localStorage.removeItem('salgados_orders'); renderOrders(); } }
+    function openAdmin() { document.getElementById('adminModal').classList.add('active'); switchTab('tab-prods', document.querySelector('.tab-btn')); }
+    function deleteClient(p) { if(p === ADMIN_NUM) return; if(confirm("Remover?")) { clients = clients.filter(x => x.phone !== p); localStorage.setItem('salgados_c', JSON.stringify(clients)); renderAdminClients(); } }
+    function checkFavoriteBtn() { const hasFav = favorites[user.phone]; const btn = document.getElementById('favBtnHeader'); if(hasFav && Object.keys(hasFav).length > 0) { btn.style.display = "block"; btn.classList.add('active'); } else { btn.style.display = "none"; } }
+    function saveAsFavorite() { if(Object.keys(cart).length === 0) return alert("Adicione itens!"); favorites[user.phone] = { ...cart }; localStorage.setItem('salgados_favs', JSON.stringify(favorites)); alert("Salvo! ⭐"); checkFavoriteBtn(); }
+    function openFavoriteModal() { const favData = favorites[user.phone]; let html = "<strong>Itens:</strong><br>"; let totalFav = 0; for(let id in favData) { const p = products.find(x => x.id == id); if(p) { html += `• ${favData[id]}x ${p.name}<br>`; totalFav += p.price * favData[id]; } } html += `<br><strong>Total: R$ ${totalFav.toFixed(2)}</strong>`; document.getElementById('favDetails').innerHTML = html; document.getElementById('favModal').classList.add('active'); }
+    function loadFavorite() { if(favorites[user.phone]) { cart = { ...favorites[user.phone] }; render(); document.getElementById('favModal').classList.remove('active'); } }
+    function saveProduct() { const id = document.getElementById('editProductId').value; const n = document.getElementById('newPName').value; const pr = parseFloat(document.getElementById('newPPrice').value); const f = document.getElementById('newPImg').files[0]; if(!n || !pr) return alert("Dados incompletos"); const finalizeSave = (imgData) => { if(id) { const idx = products.findIndex(p => p.id == id); products[idx].name = n; products[idx].price = pr; if(imgData) products[idx].img = imgData; } else { products.push({id: Date.now(), name: n, price: pr, img: imgData || ''}); } localStorage.setItem('salgados_p', JSON.stringify(products)); resetProdForm(); renderAdminProducts(); render(); }; if(f) { const r = new FileReader(); r.onload = e => finalizeSave(e.target.result); r.readAsDataURL(f); } else { finalizeSave(null); } }
+    function editProduct(id) { const p = products.find(x => x.id == id); document.getElementById('editProductId').value = p.id; document.getElementById('newPName').value = p.name; document.getElementById('newPPrice').value = p.price; document.getElementById('adminTitle').innerText = "Editar Salgado"; document.getElementById('btnCancelEdit').style.display = "block"; document.getElementById('btnSaveProd').innerText = "Atualizar Salgado"; }
+    function resetProdForm() { document.getElementById('editProductId').value = ""; document.getElementById('newPName').value = ""; document.getElementById('newPPrice').value = ""; document.getElementById('newPImg').value = ""; document.getElementById('adminTitle').innerText = "Cadastrar Salgado"; document.getElementById('btnCancelEdit').style.display = "none"; document.getElementById('btnSaveProd').innerText = "Salvar Produto"; }
+    function removeProduct(id) { if(confirm("Excluir?")) { products = products.filter(x => x.id != id); localStorage.setItem('salgados_p', JSON.stringify(products)); renderAdminProducts(); render(); } }
+    function renderAdminProducts() { 
+        document.getElementById('adminProductList').innerHTML = products.map(p => `
+            <div class="prod-item-admin">
+                <span>${p.name} - R$ ${p.price.toFixed(2)}</span>
+                <div><button onclick="editProduct(${p.id})" style="background:none; border:none; cursor:pointer;">✏️</button><button onclick="removeProduct(${p.id})" style="background:none; border:none; color:red; cursor:pointer; margin-left:10px;">🗑️</button></div>
+            </div>`).join(''); 
+    }
+</script>
+</body>
+</html>
