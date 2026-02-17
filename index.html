@@ -365,11 +365,6 @@
         }
     }
 
-            document.getElementById('notifBtn').style.display = 'block';
-        }
-        render();
-    }
-
     function atualizarCabecalho() {
         const u = clients.find(x => x.phone === user.phone) || user;
         document.getElementById('hi').innerText = "Olá, " + u.name.split(' ')[0];
