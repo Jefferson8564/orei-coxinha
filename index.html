@@ -4,21 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>O Rei da Coxinha - Painel</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-
-// ==== FUNÇÃO AUSENTE CORRIGIDA ====
-async function deleteClientFromDB(phone) {
-    try {
-        await supabase.from('clients').delete().eq('phone', phone);
-        clients = clients.filter(c => c.phone !== phone);
-    } catch(e) {}
-}
-
-// ==== FAVORITOS INICIALIZAÇÃO SEGURA ====
-favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
-
-});
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #c75b24; --success: #25d366; --dark: #2d3436; --blue: #3498db; --danger: #e74c3c; --warning: #f1c40f; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -250,8 +236,6 @@ favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
         </div>
     </div>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-
     // ==================== CONFIGURAÇÃO E FUNÇÕES (VERSÃO RESILIENTE) ====================
     const SUPABASE_URL = 'https://vpeyqgijajywgswmezlh.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_GeZbE2rC-vKlBh7T-0jEtw_jeHTfKyo';
@@ -263,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let products = [], clients = [], orders = [];
     let msgTemplate = "*NOVO PEDIDO*\\nCliente: {nome}\\n\\n{pedido}\\nTotal: R$ {total}\\nPagamento: {pagamento}";
     let msgCobranca = "Olá {nome}, tudo bem? Passando para lembrar do seu débito pendente no valor de *R$ {valor}*. Como prefere pagar?";
-    let favorites = {};
+    let favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
     let user = null, cart = {}, method = "PIX", emergencyMode = false;
     let currentOrderTotal = 0, creditDiscount = 0;
 
@@ -332,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('adminPassBox').style.display = (val === ADMIN_NUM) ? 'block' : 'none';
     });
     async function auth() {
+        window.auth = auth;
         const btn = document.getElementById('btnAuth');
         const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
         const phone = "819" + partialPhone;
@@ -648,4 +633,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div><button onclick="editProduct(${p.id})">✏️</button><button onclick="removeProduct(${p.id})">🗑️</button></div>
             </div>`).join(''); 
     }
-</script>
+
+    
+    // ===== FUNÇÃO AUSENTE CORRIGIDA =====
+    async function deleteClientFromDB(phone) {
+        try {
+            await supabase.from('clients').delete().eq('phone', phone);
+            clients = clients.filter(c => c.phone !== phone);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    </script>
