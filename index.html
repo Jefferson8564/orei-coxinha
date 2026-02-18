@@ -228,10 +228,23 @@ window.onload = async () => {
     // Carregar favoritos da sessão local
     favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
 
+    // Verificar se já tem login salvo
+    const savedPhone = localStorage.getItem('salgados_phone');
+    if (savedPhone) {
+        let { data: client } = await sb.from("clients").select("*").eq("phone", savedPhone).maybeSingle();
+        if (client) {
+            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt };
+            document.getElementById('loadingOverlay').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            atualizarCabecalho();
+            checkFavoriteBtn();
+            await loadProducts();
+            return;
+        }
+    }
+
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
-
-
 };
 
 // ===== AUTH =====
@@ -272,9 +285,11 @@ async function auth() {
 
     user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt };
 
+    // Salvar número para próximos acessos
+    localStorage.setItem('salgados_phone', phone);
+
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-
 
     atualizarCabecalho();
     checkFavoriteBtn();
