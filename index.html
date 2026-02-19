@@ -2,13 +2,18 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>O Rei da Coxinha 🍗</title>
     <link rel="icon" href="icone.png">
     <link rel="apple-touch-icon" href="icone.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#c75b24">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -458,6 +463,36 @@ let favorites = {};
 
 // ===== INIT =====
 window.onload = async () => {
+    // ── Aviso offline ──
+    function mostrarStatusOnline() {
+        const online = navigator.onLine;
+        let el = document.getElementById('offlineBanner');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'offlineBanner';
+            el.style.cssText = `
+                position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+                background:#1a1a2e;color:white;padding:10px 20px;
+                border-radius:25px;font-size:13px;font-weight:700;
+                z-index:9997;box-shadow:0 4px 20px rgba(0,0,0,0.3);
+                display:flex;align-items:center;gap:8px;
+                transition:opacity 0.4s,transform 0.4s;
+            `;
+            document.body.appendChild(el);
+        }
+        if (!online) {
+            el.innerHTML = '📵 Sem internet — dados em cache';
+            el.style.opacity = '1';
+            el.style.background = '#e74c3c';
+        } else {
+            el.innerHTML = '✅ Conectado';
+            el.style.background = '#25d366';
+            el.style.opacity = '1';
+            setTimeout(() => { el.style.opacity = '0'; }, 2000);
+        }
+    }
+    window.addEventListener('online', mostrarStatusOnline);
+    window.addEventListener('offline', mostrarStatusOnline);
     // Carregar template de mensagem
     const { data: cfg } = await sb.from("config").select("*").eq("key", "msg_template").maybeSingle();
     if (cfg) msgTemplate = cfg.value;
@@ -807,6 +842,7 @@ function togglePrivacidadeHeader() {
 
 function abrirPainelControle() {
     document.getElementById('painelControle').style.transform = 'translateY(0)';
+    atualizarLabelPainel();
     renderHistoricoSaldo();
 }
 
@@ -816,58 +852,7 @@ function fecharPainelControle() {
     p.style.transform = 'translateY(100%)';
 }
 
-// ===== SWIPE para fechar o painel de IA =====
-(function() {
-    let startY = 0, startX = 0, dragging = false, currentY = 0;
 
-    function onTouchStart(e) {
-        const touch = e.touches[0];
-        startY = touch.clientY;
-        startX = touch.clientX;
-        dragging = true;
-        currentY = 0;
-        const p = document.getElementById('painelControle');
-        p.style.transition = 'none';
-    }
-
-    function onTouchMove(e) {
-        if (!dragging) return;
-        const touch = e.touches[0];
-        const dy = touch.clientY - startY;
-        const dx = touch.clientX - startX;
-
-        // Só arrastar para baixo e se movimento vertical maior que horizontal
-        if (dy < 0 || Math.abs(dx) > Math.abs(dy)) return;
-
-        // Verificar se o scroll interno está no topo
-        const scrollEl = document.querySelector('#painelControle [style*="overflow-y"]');
-        if (scrollEl && scrollEl.scrollTop > 0) return;
-
-        currentY = dy;
-        e.preventDefault();
-        const p = document.getElementById('painelControle');
-        p.style.transform = `translateY(${dy}px)`;
-    }
-
-    function onTouchEnd() {
-        if (!dragging) return;
-        dragging = false;
-        const p = document.getElementById('painelControle');
-        p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
-        if (currentY > 120) {
-            fecharPainelControle();
-        } else {
-            p.style.transform = 'translateY(0)';
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const header = document.getElementById('painelControle');
-        header.addEventListener('touchstart', onTouchStart, { passive: true });
-        header.addEventListener('touchmove', onTouchMove, { passive: false });
-        header.addEventListener('touchend', onTouchEnd, { passive: true });
-    });
-})();
 
 async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
@@ -882,83 +867,79 @@ async function salvarPrivacidade(valor) {
     position: fixed;
     inset: 0;
     z-index: 3000;
-    background: #f0f2f6;
+    background: linear-gradient(180deg, #120220 0%, #0d0118 100%);
     transform: translateY(100%);
     transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    -webkit-overflow-scrolling: touch;
 ">
     <!-- Header do painel -->
-    <div id="painelHeader" style="background: linear-gradient(145deg, #5b2c6f, #8e44ad, #a29bfe); padding: 18px 15px 36px; color: white; position: relative; box-shadow: 0 8px 30px rgba(90,44,111,0.4);">
-        <!-- Alça de arraste -->
-        <div style="width:44px;height:5px;background:rgba(255,255,255,0.35);border-radius:3px;margin:0 auto 14px;"></div>
+    <div id="painelHeader" style="padding: 10px 15px 10px; color: white; position: relative; flex-shrink:0; background:#1a0535; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+        <!-- Alça -->
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;margin:0 auto 8px;"></div>
         <button onclick="fecharPainelControle()" style="
-            position: absolute; top: 26px; left: 15px;
-            background: rgba(255,255,255,0.18); border: none; color: white;
-            width: 40px; height: 40px; border-radius: 12px; font-size: 20px;
+            position: absolute; top: 16px; left: 14px;
+            background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); color: white;
+            width: 34px; height: 34px; border-radius: 11px; font-size: 20px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
-            backdrop-filter: blur(6px); transition:0.2s;
-        ">←</button>
-        <div style="text-align:center; padding-top: 4px;">
-            <div style="font-size: 48px; margin-bottom: 8px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));">🤖</div>
-            <div style="font-size: 20px; font-weight: 800; letter-spacing:-0.3px;">painel de ajuda com i.a</div>
-            <div style="font-size: 12px; opacity: 0.75; margin-top: 5px; letter-spacing:0.5px; text-transform:uppercase; font-weight:600;">Configurações do sistema</div>
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+            z-index: 10; transition:background 0.2s;
+        " ontouchstart="this.style.background='rgba(255,255,255,0.28)'" ontouchend="this.style.background='rgba(255,255,255,0.12)'">‹</button>
+        <div style="text-align:center;">
+            <div style="font-size: 22px; margin-bottom: 2px; filter: drop-shadow(0 3px 10px rgba(180,120,255,0.7));">🤖</div>
+            <div style="font-size: 13px; font-weight: 800; color:white; letter-spacing:-0.2px;">painel de ajuda com i.a</div>
+            <div style="font-size: 9px; color:rgba(255,255,255,0.35); margin-top:2px; letter-spacing:1.2px; text-transform:uppercase; font-weight:600;">Configurações do sistema</div>
         </div>
     </div>
 
-    <!-- Conteúdo rolável -->
-    <div style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding: 20px 15px 30px; display: flex; flex-direction: column; gap: 16px;">
+    <!-- Conteúdo rolável – estilo aba de notificações -->
+    <div id="painelScroll" style="flex:1; min-height:0; overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding: 14px 12px 40px; display: flex; flex-direction: column; gap: 0;">
 
-        <!-- Card: Refazer seu último pedido -->
-        <div style="background:white; border-radius:20px; padding:18px 18px 16px; box-shadow:0 4px 20px rgba(0,0,0,0.07); border:1px solid rgba(0,0,0,0.04);">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
-                <div style="flex:1;">
-                    <div style="font-size:13px;font-weight:800;color:#5b2c6f;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px;">🤖 Pedido Automático</div>
-                    <div style="font-size:13px;color:#777;line-height:1.55;">Repete seu último pedido todo dia às 3h. Se pedir manualmente, a automação pula esse dia e retorna no próximo.</div>
+        <!-- Pedido Automático -->
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 4px 10px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#a29bfe;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Automação</span>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(162,155,254,0.18),rgba(108,52,131,0.22)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; margin-bottom:14px; border:1px solid rgba(162,155,254,0.25); display:flex; align-items:center; justify-content:space-between; gap:16px; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <div style="display:flex;align-items:center;gap:13px;flex:1;">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#8e44ad,#6c3483);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(142,68,173,0.5);">🤖</div>
+                <div>
+                    <div style="font-size:14px;font-weight:800;color:white;margin-bottom:4px;">Pedido Automático</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.55;">🤖 Agende a repetição do seu último pedido todo dia, às 3h. Se você pedir manualmente, a automação pula esse dia e retorna no próximo.</div>
                 </div>
-                <button onclick="togglePrivacidadeHeader(); atualizarLabelPainel();" id="painelToggleBtn" style="
-                    min-width: 86px; padding: 11px 16px; border: none; border-radius: 14px;
-                    font-weight: 800; font-size: 13px; cursor: pointer; flex-shrink:0;
-                    background: linear-gradient(135deg,#25d366,#1aad52); color: white;
-                    box-shadow:0 4px 14px rgba(37,211,102,0.35); transition: 0.3s;
-                ">✅ Ativo</button>
+            </div>
+            <div onclick="togglePrivacidadeHeader(); atualizarLabelPainel();" id="painelToggleBtn" style="
+                flex-shrink:0; width:58px; height:32px; border-radius:32px;
+                background:linear-gradient(135deg,#25d366,#1aad52);
+                position:relative; cursor:pointer; touch-action:manipulation;
+                box-shadow:0 4px 14px rgba(37,211,102,0.5);
+                transition:background 0.35s, box-shadow 0.35s;
+            ">
+                <div id="painelToggleKnob" style="
+                    position:absolute; top:4px; left:30px;
+                    width:24px; height:24px; border-radius:50%;
+                    background:white;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.3);
+                    transition:left 0.35s cubic-bezier(0.34,1.56,0.64,1);
+                "></div>
             </div>
         </div>
 
-        <!-- Card: Histórico de Pagamentos -->
-        <div style="background:white; border-radius:20px; padding:18px; box-shadow:0 4px 20px rgba(0,0,0,0.07); overflow:hidden; border:1px solid rgba(0,0,0,0.04);">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-                <div style="display:flex; align-items:center; gap:11px;">
-                    <div style="width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,#27ae60,#2ecc71);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(39,174,96,0.35);">💰</div>
-                    <div>
-                        <div style="font-size:14px;font-weight:800;color:#1a1a2e;">Histórico de Pagamentos</div>
-                        <div style="font-size:11px;color:#bbb;margin-top:1px;">Últimos 3 registros</div>
-                    </div>
-                </div>
-                <div id="badgePagamentos" style="background:#e8f5e9;color:#1aad52;font-size:11px;font-weight:800;padding:5px 12px;border-radius:20px;"></div>
+        <!-- Label histórico -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:#25d366;"></div>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Histórico</span>
             </div>
-            <div id="historicoPagamentos" style="display:flex;flex-direction:column;gap:10px;"></div>
+            <span id="badgeHistorico" style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;"></span>
         </div>
 
-        <!-- Card: Histórico de Fiado -->
-        <div style="background:white; border-radius:20px; padding:18px; box-shadow:0 4px 20px rgba(0,0,0,0.07); overflow:hidden; border:1px solid rgba(0,0,0,0.04);">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-                <div style="display:flex; align-items:center; gap:11px;">
-                    <div style="width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(231,76,60,0.35);">📋</div>
-                    <div>
-                        <div style="font-size:14px;font-weight:800;color:#1a1a2e;">Histórico de Fiado</div>
-                        <div style="font-size:11px;color:#bbb;margin-top:1px;">Últimos 3 registros</div>
-                    </div>
-                </div>
-                <div id="badgeFiado" style="background:#fdecea;color:#c0392b;font-size:11px;font-weight:800;padding:5px 12px;border-radius:20px;"></div>
-            </div>
-            <div id="historicoFiado" style="display:flex;flex-direction:column;gap:10px;"></div>
-        </div>
+        <!-- Lista de notificações -->
+        <div id="listaHistorico" style="display:flex;flex-direction:column;gap:8px;"></div>
 
-        <!-- Rodapé info -->
-        <div style="text-align:center; color:#ccc; font-size:12px; margin-top:8px; padding-bottom:8px; font-weight:500; letter-spacing:0.3px;">
+        <!-- Rodapé -->
+        <div style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:20px;font-weight:500;letter-spacing:0.3px;">
             O Rei da Coxinha 🍗 · Painel v1.0
         </div>
 
@@ -989,170 +970,227 @@ function _spinnerHTML() {
 }
 
 async function renderHistoricoSaldo() {
-    const elPag   = document.getElementById('historicoPagamentos');
-    const elFiado = document.getElementById('historicoFiado');
-    const badgePag   = document.getElementById('badgePagamentos');
-    const badgeFiado = document.getElementById('badgeFiado');
-    if (!elPag || !elFiado || !user) return;
+    const lista = document.getElementById('listaHistorico');
+    const badge = document.getElementById('badgeHistorico');
+    if (!lista || !user) return;
 
-    elPag.innerHTML = _spinnerHTML();
-    elFiado.innerHTML = _spinnerHTML();
+    lista.innerHTML = `<div style="text-align:center;padding:28px 10px;">
+        <div class="spinner" style="margin:0 auto;border-color:rgba(255,255,255,0.15);border-top-color:rgba(255,255,255,0.7);"></div>
+    </div>`;
 
-    // Busca paralela
-    const [{ data: pagamentos }, { data: fiados }] = await Promise.all([
-        sb.from("payments")
-          .select("id, amount, saldo_anterior, saldo_posterior, tipo, created_at")
-          .eq("client_phone", user.phone)
-          .order("created_at", { ascending: false })
-          .limit(3),
-        sb.from("orders")
-          .select("id, total, items, created_at")
-          .eq("customer_phone", user.phone)
-          .eq("payment_method", "FIADO")
-          .order("created_at", { ascending: false })
-          .limit(3)
-    ]);
+    const removidos = JSON.parse(localStorage.getItem('hist_removidos_' + user.phone) || '[]');
 
-    // ── PAGAMENTOS ──
-    if (!pagamentos || pagamentos.length === 0) {
-        elPag.innerHTML = `
-            <div style="text-align:center;padding:20px 10px;color:#ccc;">
-                <div style="font-size:34px;margin-bottom:6px;">📭</div>
-                <div style="font-size:13px;">Nenhum pagamento ainda</div>
-            </div>`;
-        if (badgePag) badgePag.textContent = '0 registros';
-    } else {
-        if (badgePag) badgePag.textContent = pagamentos.length + (pagamentos.length === 1 ? ' registro' : ' registros');
-        elPag.innerHTML = pagamentos.map((p, idx) => {
-            const isReembolso = p.tipo === 'reembolso';
-            const valor       = parseFloat(p.amount || 0);
-            const valorFmt    = valor.toFixed(2).replace('.', ',');
-            const saldoApos   = parseFloat(p.saldo_posterior || 0);
+    const { data: pagamentos } = await sb.from("payments")
+        .select("id, amount, saldo_anterior, saldo_posterior, tipo, created_at")
+        .eq("client_phone", user.phone)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-            const saldoLabel = saldoApos > 0
-                ? `Saldo restante: R$ ${saldoApos.toFixed(2).replace('.',',')}`
-                : saldoApos < 0
-                ? `Crédito: R$ ${Math.abs(saldoApos).toFixed(2).replace('.',',')}`
-                : `Fiado quitado!`;
+    // Montar lista unificada ordenada por data
+    let itens = [];
 
-            const saldoCor = saldoApos > 0 ? '#e74c3c' : saldoApos < 0 ? '#3498db' : '#27ae60';
+    (pagamentos || []).forEach(p => {
+        if (removidos.includes(String(p.id))) return; // já foi removido
+        const isReembolso = p.tipo === 'reembolso';
+        const valor = parseFloat(p.amount || 0);
+        const saldoApos = parseFloat(p.saldo_posterior || 0);
+        const saldoLabel = saldoApos > 0
+            ? `Saldo: R$ ${saldoApos.toFixed(2).replace('.',',')}`
+            : saldoApos < 0
+            ? `Crédito: R$ ${Math.abs(saldoApos).toFixed(2).replace('.',',')}`
+            : 'Fiado quitado!';
+        const cor = isReembolso ? '#8e44ad' : '#25d366';
+        itens.push({
+            id: String(p.id),
+            data: p.created_at,
+            icone: isReembolso ? '↩️' : '✅',
+            titulo: isReembolso ? 'Pedido cancelado' : 'Pagamento recebido',
+            sub: saldoLabel,
+            valor: isReembolso ? `− R$ ${valor.toFixed(2).replace('.',',')}` : `− R$ ${valor.toFixed(2).replace('.',',')}`,
+            valorCor: cor,
+            badge: isReembolso ? 'REEMBOLSO' : 'PAGO',
+            badgeCor: cor,
+            iconeBg: cor,
+        });
+    });
 
-            const cor    = isReembolso ? '#8e44ad' : '#27ae60';
-            const bgItem = isReembolso ? '#f9f0ff' : '#f0fdf4';
-            const icone  = isReembolso ? '↩️' : '✅';
-            const badge  = isReembolso ? 'REEMBOLSO' : 'PAGO';
-            const titulo = isReembolso ? 'Pedido cancelado' : 'Pagamento recebido';
 
-            return `
-            <div style="
-                background:${bgItem};
-                border-radius:14px;
-                padding:14px;
-                display:flex;
-                gap:12px;
-                align-items:center;
-                border:1px solid ${isReembolso ? '#e9d5ff' : '#bbf7d0'};
-                animation:fadeSlide 0.35s ease ${idx*0.07}s both;
-            ">
-                <div style="
-                    width:42px;height:42px;flex-shrink:0;
-                    border-radius:12px;
-                    background:${cor};
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:20px;
-                    box-shadow:0 3px 8px ${cor}55;
-                ">${icone}</div>
 
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;color:#222;">${titulo}</div>
-                    <div style="font-size:11px;color:#888;margin-top:2px;">🕐 ${_fmtData(p.created_at)}</div>
-                    <div style="
-                        display:inline-block;margin-top:5px;
-                        font-size:11px;font-weight:700;color:${saldoCor};
-                        background:${saldoCor}18;
-                        padding:2px 8px;border-radius:20px;
-                    ">${saldoLabel}</div>
-                </div>
+    itens.sort((a, b) => new Date(b.data) - new Date(a.data));
+    if (badge) badge.textContent = itens.length ? `${itens.length} itens` : '';
 
-                <div style="text-align:right;flex-shrink:0;">
-                    <div style="font-size:18px;font-weight:900;color:${cor};">− R$ ${valorFmt}</div>
-                    <div style="
-                        margin-top:4px;display:inline-block;
-                        font-size:10px;font-weight:800;
-                        padding:3px 8px;border-radius:20px;
-                        color:white;background:${cor};
-                        letter-spacing:0.5px;
-                    ">${badge}</div>
-                </div>
-            </div>`;
-        }).join('');
+    if (itens.length === 0) {
+        lista.innerHTML = `<div style="text-align:center;padding:40px 10px;">
+            <div style="font-size:42px;margin-bottom:10px;opacity:0.4;">📭</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.35);font-weight:600;">Nenhum registro ainda</div>
+        </div>`;
+        return;
     }
 
-    // ── FIADO ──
-    if (!fiados || fiados.length === 0) {
-        elFiado.innerHTML = `
-            <div style="text-align:center;padding:20px 10px;color:#ccc;">
-                <div style="font-size:34px;margin-bottom:6px;">📭</div>
-                <div style="font-size:13px;">Nenhum fiado registrado</div>
-            </div>`;
-        if (badgeFiado) badgeFiado.textContent = '0 registros';
-    } else {
-        if (badgeFiado) badgeFiado.textContent = fiados.length + (fiados.length === 1 ? ' registro' : ' registros');
-        elFiado.innerHTML = fiados.map((order, idx) => {
-            const valor    = parseFloat(order.total || 0);
-            const valorFmt = valor.toFixed(2).replace('.', ',');
-            const linhas   = (order.items || '').split('\n').filter(l => l.trim()).map(l => l.replace('✅ ',''));
-            const itens    = linhas.slice(0, 3).join(', ') + (linhas.length > 3 ? '...' : '');
+    lista.innerHTML = '';
+    itens.forEach((item, idx) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `
+            position:relative; overflow:hidden; border-radius:20px;
+            margin-bottom:8px;
+            animation: fadeSlide 0.4s ease ${idx * 0.06}s both;
+        `;
 
-            return `
+        // Fundo vermelho lixeira — aparece conforme arrasta
+        const lixeira = document.createElement('div');
+        lixeira.style.cssText = `
+            position:absolute; top:0; left:0; right:0; bottom:0;
+            background:linear-gradient(135deg,#ff3b30,#c0392b);
+            display:flex; align-items:center; justify-content:space-between;
+            padding:0 20px; border-radius:22px;
+            pointer-events:none;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+        `;
+        lixeira.innerHTML = `
+            <div id="lixIconL_${idx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;transform:scale(0.6);transition:transform 0.2s,opacity 0.15s;opacity:0;">
+                <span style="font-size:26px;">🗑️</span>
+                <span style="font-size:10px;font-weight:900;color:white;letter-spacing:1px;">DELETAR</span>
+            </div>
+            <div id="lixIconR_${idx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;transform:scale(0.6);transition:transform 0.2s,opacity 0.15s;opacity:0;">
+                <span style="font-size:26px;">🗑️</span>
+                <span style="font-size:10px;font-weight:900;color:white;letter-spacing:1px;">DELETAR</span>
+            </div>
+        `;
+
+        // Card notificação estilo iOS/Android
+        const card = document.createElement('div');
+        card.style.cssText = `
+            background: rgba(255,255,255,0.09);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.13);
+            border-radius:22px;
+            padding:16px 16px;
+            display:flex; gap:14px; align-items:center;
+            position:relative; z-index:1;
+            will-change:transform;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+        `;
+        card.innerHTML = `
             <div style="
-                background:#fff8f8;
-                border-radius:14px;
-                padding:14px;
-                display:flex;
-                gap:12px;
-                align-items:center;
-                border:1px solid #fecaca;
-                animation:fadeSlide 0.35s ease ${idx*0.07}s both;
-            ">
-                <div style="
-                    width:42px;height:42px;flex-shrink:0;
-                    border-radius:12px;
-                    background:#e74c3c;
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:20px;
-                    box-shadow:0 3px 8px #e74c3c55;
-                ">🛒</div>
+                width:52px; height:52px; flex-shrink:0;
+                border-radius:16px;
+                background:linear-gradient(135deg,${item.iconeBg},${item.iconeBg}cc);
+                display:flex; align-items:center; justify-content:center;
+                font-size:24px;
+                box-shadow:0 6px 18px ${item.iconeBg}55;
+            ">${item.icone}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;letter-spacing:-0.2px;">${item.titulo}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.45);display:flex;align-items:center;gap:4px;">🕐 ${_fmtData(item.data)}</div>
+                ${item.sub ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.sub}</div>` : ''}
+            </div>
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                <div style="font-size:18px;font-weight:900;color:${item.valorCor};letter-spacing:-0.5px;">${item.valor}</div>
+                <div style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;color:white;background:${item.badgeCor};letter-spacing:0.5px;box-shadow:0 2px 8px ${item.badgeCor}66;">${item.badge}</div>
+            </div>
+        `;
 
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:13px;font-weight:800;color:#222;">Compra no fiado</div>
-                    ${itens ? `<div style="font-size:11px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itens}</div>` : ''}
-                    <div style="font-size:11px;color:#888;margin-top:2px;">🕐 ${_fmtData(order.created_at)}</div>
-                </div>
+        wrapper.appendChild(lixeira);
+        wrapper.appendChild(card);
+        lista.appendChild(wrapper);
 
-                <div style="text-align:right;flex-shrink:0;">
-                    <div style="font-size:18px;font-weight:900;color:#e74c3c;">+ R$ ${valorFmt}</div>
-                    <div style="
-                        margin-top:4px;display:inline-block;
-                        font-size:10px;font-weight:800;
-                        padding:3px 8px;border-radius:20px;
-                        color:white;background:#e74c3c;
-                        letter-spacing:0.5px;
-                    ">FIADO</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
+        // ── Swipe animado para deletar ──
+        let startX = 0, curX = 0, ativo = false;
+        const THRESHOLD = 90;
+        const lixIconL = lixeira.querySelector(`#lixIconL_${idx}`);
+        const lixIconR = lixeira.querySelector(`#lixIconR_${idx}`);
+
+        card.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            curX = 0;
+            ativo = true;
+            card.style.transition = 'none';
+        }, { passive: true });
+
+        card.addEventListener('touchmove', e => {
+            if (!ativo) return;
+            const dx = e.touches[0].clientX - startX;
+            curX = dx;
+            const pct = Math.min(Math.abs(dx) / THRESHOLD, 1);
+            card.style.transform = `translateX(${dx}px)`;
+            const sc = `scale(${0.7 + pct * 0.45})`;
+            if (dx < 0) {
+                // Arrastando para esquerda
+                if (lixIconL) { lixIconL.style.opacity='0'; lixIconL.style.transform='scale(0.7)'; }
+                if (lixIconR) { lixIconR.style.opacity='1'; lixIconR.style.transform=sc; }
+            } else {
+                // Arrastando para direita
+                if (lixIconR) { lixIconR.style.opacity='0'; lixIconR.style.transform='scale(0.7)'; }
+                if (lixIconL) { lixIconL.style.opacity='1'; lixIconL.style.transform=sc; }
+            }
+        }, { passive: true });
+
+        card.addEventListener('touchend', () => {
+            if (!ativo) return;
+            ativo = false;
+            if (Math.abs(curX) > THRESHOLD) {
+                // Animação de saída para o lado que foi arrastado
+                card.style.transition = 'transform 0.35s cubic-bezier(0.55,0,1,0.45)';
+                card.style.transform = curX < 0 ? 'translateX(-120%)' : 'translateX(120%)';
+                setTimeout(() => {
+                    wrapper.style.overflow = 'hidden';
+                    const h = wrapper.offsetHeight;
+                    wrapper.style.transition = 'max-height 0.35s ease, opacity 0.25s ease, margin-bottom 0.35s ease';
+                    wrapper.style.maxHeight = h + 'px';
+                    requestAnimationFrame(() => {
+                        wrapper.style.maxHeight = '0';
+                        wrapper.style.opacity = '0';
+                        wrapper.style.marginBottom = '0';
+                    });
+                    setTimeout(() => {
+                        // Salvar ID como removido permanentemente
+                        const key = 'hist_removidos_' + user.phone;
+                        const lista_rem = JSON.parse(localStorage.getItem(key) || '[]');
+                        if (item.id && !lista_rem.includes(item.id)) {
+                            lista_rem.push(item.id);
+                            localStorage.setItem(key, JSON.stringify(lista_rem));
+                        }
+                        wrapper.remove();
+                        // Contar só os wrappers de notificação (têm data-notif)
+                        const total = lista.querySelectorAll('[data-notif]').length;
+                        if (badge) badge.textContent = total ? `${total} itens` : '';
+                        if (total === 0) {
+                            const vazio = document.createElement('div');
+                            vazio.style.cssText = 'text-align:center;padding:40px 10px;';
+                            vazio.innerHTML = `
+                                <div style="font-size:42px;margin-bottom:10px;opacity:0.4;">📭</div>
+                                <div style="font-size:13px;color:rgba(255,255,255,0.35);font-weight:600;">Nenhum registro ainda</div>
+                            `;
+                            lista.appendChild(vazio);
+                            if (badge) badge.textContent = '';
+                        }
+                    }, 380);
+                }, 300);
+            } else {
+                card.style.transition = 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+                card.style.transform = 'translateX(0)';
+                if (lixIconL) { lixIconL.style.opacity='0'; lixIconL.style.transform='scale(0.7)'; }
+                if (lixIconR) { lixIconR.style.opacity='0'; lixIconR.style.transform='scale(0.7)'; }
+            }
+        }, { passive: true });
+    });
 }
 
 function atualizarLabelPainel() {
     setTimeout(() => {
         const ativo = user.show_name;
-        const btn = document.getElementById('painelToggleBtn');
+        const toggle = document.getElementById('painelToggleBtn');
+        const knob = document.getElementById('painelToggleKnob');
+        if (!toggle || !knob) return;
         if (ativo) {
-            btn.style.background = '#25d366'; btn.textContent = '✅ Ativo';
+            toggle.style.background = 'linear-gradient(135deg,#25d366,#1aad52)';
+            toggle.style.boxShadow = '0 4px 14px rgba(37,211,102,0.4)';
+            knob.style.left = '34px';
         } else {
-            btn.style.background = '#e74c3c'; btn.textContent = '❌ Desligado';
+            toggle.style.background = 'linear-gradient(135deg,#ccc,#aaa)';
+            toggle.style.boxShadow = '0 4px 14px rgba(0,0,0,0.15)';
+            knob.style.left = '4px';
         }
     }, 300);
 }
