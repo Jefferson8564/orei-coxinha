@@ -591,7 +591,7 @@ async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
     await sb.from("clients").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
-    showToast(valor ? "Nome visível ✅" : "Nome oculto 🔒", valor ? 'success' : 'warning');
+    showToast(valor ? "Pedido automático ✅" : "Pedido manual 🔒", valor ? 'success' : 'warning');
 }
 </script>
 </html>
