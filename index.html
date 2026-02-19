@@ -473,6 +473,22 @@ window.onload = async () => {
             carregarPrivacidade();
             await loadProducts();
             return;
+        } else {
+            // Cliente não cadastrado: pré-preenche o campo com o número vindo da URL
+            // Remove o prefixo "819" para deixar só os 8 dígitos restantes
+            const prefix = "819";
+            const partial = urlPhone.startsWith(prefix) ? urlPhone.slice(prefix.length) : urlPhone;
+            window.history.replaceState({}, '', window.location.pathname);
+            document.getElementById('loadingOverlay').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            const phoneInput = document.getElementById('userPhone');
+            if (phoneInput) {
+                phoneInput.value = partial;
+                // Mostra automaticamente o campo de nome para o cadastro
+                document.getElementById('nameBox').style.display = 'block';
+                document.getElementById('userName').focus();
+            }
+            return;
         }
     }
 
