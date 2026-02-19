@@ -456,42 +456,6 @@ window.onload = async () => {
     // Carregar favoritos da sessão local
     favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
 
-    // ===== LOGIN AUTOMÁTICO VIA URL (admin) =====
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlPhone = urlParams.get('telefone');
-    if (urlPhone) {
-        let { data: client } = await sb.from("clients").select("*").eq("phone", urlPhone).maybeSingle();
-        if (client) {
-            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
-            localStorage.setItem('salgados_phone', client.phone);
-            // Limpa os params da URL sem recarregar
-            window.history.replaceState({}, '', window.location.pathname);
-            document.getElementById('loadingOverlay').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            atualizarCabecalho();
-            checkFavoriteBtn();
-            carregarPrivacidade();
-            await loadProducts();
-            return;
-        } else {
-            // Cliente não cadastrado: pré-preenche o campo com o número vindo da URL
-            // Remove o prefixo "819" para deixar só os 8 dígitos restantes
-            const prefix = "819";
-            const partial = urlPhone.startsWith(prefix) ? urlPhone.slice(prefix.length) : urlPhone;
-            window.history.replaceState({}, '', window.location.pathname);
-            document.getElementById('loadingOverlay').style.display = 'none';
-            document.getElementById('loginScreen').style.display = 'flex';
-            const phoneInput = document.getElementById('userPhone');
-            if (phoneInput) {
-                phoneInput.value = partial;
-                // Mostra automaticamente o campo de nome para o cadastro
-                document.getElementById('nameBox').style.display = 'block';
-                document.getElementById('userName').focus();
-            }
-            return;
-        }
-    }
-
     // Verificar se já tem login salvo
     const savedPhone = localStorage.getItem('salgados_phone');
     if (savedPhone) {
