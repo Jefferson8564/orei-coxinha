@@ -1,0 +1,20 @@
+{
+  "name": "Rei da Coxinha",
+  "short_name": "Rei da Coxinha",
+  "start_url": "/orei-coxinha/",
+  "display": "standalone",
+  "background_color": "#8B0000",
+  "theme_color": "#8B0000",
+  "icons": [
+    {
+      "src": "icone.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icone.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
