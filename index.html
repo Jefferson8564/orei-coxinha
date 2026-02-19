@@ -286,30 +286,6 @@
 
         .saldo-positivo { color: var(--blue) !important; font-weight: 800; }
         .saldo-devedor { color: var(--danger) !important; font-weight: 800; }
-        .order-card { background: #f9f9f9; border: 1px solid #eee; padding: 14px; border-radius: 16px; margin-bottom: 12px; }
-
-        /* ===== HISTÓRICO ===== */
-        .hist-item {
-            display:flex; align-items:center; justify-content:space-between;
-            padding:14px 16px; border-radius:16px; background:#f9f9f9;
-            border-left:4px solid #ddd; transition:0.2s;
-        }
-        .hist-item.pago { border-left-color:#25d366; background: linear-gradient(90deg, #e8f5e9, #f9f9f9); }
-        .hist-item.novo-debito { border-left-color:#e74c3c; background: linear-gradient(90deg, #fdecea, #f9f9f9); }
-        .hist-item.credito { border-left-color:#3498db; background: linear-gradient(90deg, #e3f2fd, #f9f9f9); }
-        .hist-item .hist-left { display:flex; flex-direction:column; gap:3px; }
-        .hist-item .hist-desc { font-size:13px; font-weight:800; color:#333; }
-        .hist-item .hist-date { font-size:11px; color:#bbb; }
-        .hist-item .hist-right { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
-        .hist-item .hist-valor { font-size:15px; font-weight:900; }
-        .hist-item .hist-saldo { font-size:11px; color:#999; }
-        .hist-item.pago .hist-valor { color:#25d366; }
-        .hist-item.novo-debito .hist-valor { color:#e74c3c; }
-        .hist-item.credito .hist-valor { color:#3498db; }
-        .hist-badge { display:inline-block; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:800; margin-top:3px; letter-spacing:0.3px; }
-        .hist-badge.pago { background:#e8f5e9; color:#1aad52; }
-        .hist-badge.novo-debito { background:#fdecea; color:#c0392b; }
-        .hist-badge.credito { background:#e3f2fd; color:#2980b9; }
     </style>
 </head>
 <body>
@@ -385,9 +361,8 @@
         <div style="width:40px;height:5px;background:#e9ecef;border-radius:3px;margin:0 auto 20px;"></div>
         <h3 style="text-align:center; margin-bottom:16px; font-size:18px; font-weight:800; color:#1a1a2e;">Como deseja pagar? 💳</h3>
         <div class="pay-grid">
-            <div id="btnPix" class="pay-item selected" onclick="setMethod('PIX', this)">💠 Pix</div>
-            <div id="btnDinheiro" class="pay-item" onclick="setMethod('DINHEIRO', this)">💵 Dinheiro</div>
-            <div id="fBtnModal" class="pay-item" onclick="setMethod('FIADO', this)">📝 Fiado</div>
+            <div id="btnEntrega" class="pay-item selected" onclick="setMethod('PAGA NA ENTREGA', this)">🤝 Pagar na Entrega</div>
+            <div id="fBtnModal" class="pay-item" onclick="setMethod('FIADO', this)">⏳ Pagar Depois</div>
         </div>
         <div id="creditBox" class="credit-box">
             <h4>💰 Você tem crédito disponível!</h4>
@@ -403,7 +378,7 @@
                 <span id="creditUsedText" style="display:none;">Será abatido: <strong id="creditUsed">R$ 0,00</strong></span>
             </div>
         </div>
-        <div id="trocoBox" style="display:none;"><input type="number" id="trocoPara" class="input-text" placeholder="Troco para quanto?"></div>
+
         <div id="finalTotalBox" class="final-total" style="display:none;">
             <div id="originalTotal" style="text-decoration:line-through; color:#999; font-size:14px;"></div>
             <div id="discountedTotal" style="color:var(--success); font-size:24px; font-weight:bold;"></div>
@@ -415,21 +390,13 @@
     </div>
 </div>
 
-<!-- Modal Confirmação -->
-<div id="confirmModal" class="modal">
-    <div class="modal-content" style="max-width:340px; text-align:center; border-radius:28px 28px 0 0;">
-        <div style="width:40px;height:5px;background:#e9ecef;border-radius:3px;margin:0 auto 20px;"></div>
-        <div style="font-size:44px; margin-bottom:12px;">⚠️</div>
-        <p id="confirmMsg" style="font-size:16px; font-weight:700; margin-bottom:24px; color:#1a1a2e; line-height:1.5;"></p>
-        <div style="display:flex; gap:10px; align-items:center;">
-            <button onclick="document.getElementById('confirmModal').classList.remove('active')" style="width:48px; height:48px; padding:0; background:#f0f2f6; border:none; border-radius:14px; font-weight:bold; font-size:20px; cursor:pointer; flex-shrink:0; color:#666;">✕</button>
-            <button id="confirmOkBtn" style="flex:1; padding:14px; background:linear-gradient(135deg,#e74c3c,#c0392b); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(231,76,60,0.35);">Confirmar</button>
-        </div>
-    </div>
-</div>
 
 <script>
 const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ";
+const ADMIN_NUM = "81996603348";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== TOAST =====
 let toastTimer = null;
@@ -441,21 +408,10 @@ function showToast(msg, type = 'success', duration = 2500) {
     toastTimer = setTimeout(() => { t.className = ''; }, duration);
 }
 
-function showConfirm(msg, onOk) {
-    document.getElementById('confirmMsg').textContent = msg;
-    document.getElementById('confirmModal').classList.add('active');
-    const btn = document.getElementById('confirmOkBtn');
-    btn.onclick = () => { document.getElementById('confirmModal').classList.remove('active'); onOk(); };
-}
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ";
-const ADMIN_NUM = "81996603348";
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 let products = [];
 let user = null;
 let cart = {};
-let method = "PIX";
+let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
@@ -499,6 +455,26 @@ window.onload = async () => {
 
     // Carregar favoritos da sessão local
     favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+
+    // ===== LOGIN AUTOMÁTICO VIA URL (admin) =====
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPhone = urlParams.get('telefone');
+    if (urlPhone) {
+        let { data: client } = await sb.from("clients").select("*").eq("phone", urlPhone).maybeSingle();
+        if (client) {
+            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+            localStorage.setItem('salgados_phone', client.phone);
+            // Limpa os params da URL sem recarregar
+            window.history.replaceState({}, '', window.location.pathname);
+            document.getElementById('loadingOverlay').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            atualizarCabecalho();
+            checkFavoriteBtn();
+            carregarPrivacidade();
+            await loadProducts();
+            return;
+        }
+    }
 
     // Verificar se já tem login salvo
     const savedPhone = localStorage.getItem('salgados_phone');
@@ -652,7 +628,7 @@ function openFavoriteModal() {
     const favData = favorites[user.phone];
     const items = getFavItems(favData);
     const savedPayment = favData && favData.payment ? favData.payment : null;
-    const payLabels = { PIX: '💠 Pix', DINHEIRO: '💵 Dinheiro', FIADO: '📝 Fiado' };
+    const payLabels = { 'PAGA NA ENTREGA': '🤝 Pagar na Entrega', FIADO: '⏳ Pagar Depois' };
     let html = "<strong>Itens:</strong><br>"; let totalFav = 0;
     for (let id in items) { const p = products.find(x => x.id == id); if (p) { html += `• ${items[id]}x ${p.name}<br>`; totalFav += p.price * items[id]; } }
     html += `<br><strong>Total: R$ ${totalFav.toFixed(2).replace('.', ',')}</strong>`;
@@ -706,12 +682,11 @@ function orderFavoriteWhatsApp() {
     window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
 }
 
-
-
 // ===== PAGAMENTO =====
 function showPayModal() {
     document.getElementById('payModal').classList.add('active');
     const fiadoBtn = document.getElementById('fBtnModal');
+    const entregaBtn = document.getElementById('btnEntrega');
     if (user.fiado) {
         fiadoBtn.classList.remove('disabled');
         fiadoBtn.classList.add('sugerido');
@@ -719,7 +694,7 @@ function showPayModal() {
     } else {
         fiadoBtn.classList.remove('sugerido');
         fiadoBtn.classList.add('disabled');
-        setMethod('PIX', document.getElementById('btnPix'));
+        setMethod('PAGA NA ENTREGA', entregaBtn);
     }
     setupCreditOption();
 }
@@ -769,7 +744,6 @@ function setMethod(m, el) {
     method = m;
     document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected'));
     el.classList.add('selected');
-    document.getElementById('trocoBox').style.display = (m === 'DINHEIRO' ? 'block' : 'none');
 }
 
 async function confirmOrder() {
@@ -851,8 +825,6 @@ function fecharPainelControle() {
     p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
     p.style.transform = 'translateY(100%)';
 }
-
-
 
 async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
@@ -984,7 +956,7 @@ async function renderHistoricoSaldo() {
         .select("id, amount, saldo_anterior, saldo_posterior, tipo, created_at")
         .eq("client_phone", user.phone)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(8);
 
     // Montar lista unificada ordenada por data
     let itens = [];
@@ -998,7 +970,7 @@ async function renderHistoricoSaldo() {
             ? `Saldo: R$ ${saldoApos.toFixed(2).replace('.',',')}`
             : saldoApos < 0
             ? `Crédito: R$ ${Math.abs(saldoApos).toFixed(2).replace('.',',')}`
-            : 'Fiado quitado!';
+            : 'Pagar depois quitado!';
         const cor = isReembolso ? '#8e44ad' : '#25d366';
         itens.push({
             id: String(p.id),
@@ -1152,8 +1124,7 @@ async function renderHistoricoSaldo() {
                             localStorage.setItem(key, JSON.stringify(lista_rem));
                         }
                         wrapper.remove();
-                        // Contar só os wrappers de notificação (têm data-notif)
-                        const total = lista.querySelectorAll('[data-notif]').length;
+                        const total = lista.children.length;
                         if (badge) badge.textContent = total ? `${total} itens` : '';
                         if (total === 0) {
                             const vazio = document.createElement('div');
