@@ -10,6 +10,14 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f5f5f5; padding-bottom: 120px; }
 
+        /* SWITCH */
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
         /* LOGIN */
         #loginScreen { position: fixed; inset: 0; background: var(--primary); z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .login-container { background: white; padding: 30px; border-radius: 25px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
@@ -74,7 +82,7 @@
         #loadingOverlay { position: fixed; inset: 0; background: rgba(199,91,36,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; gap: 15px; }
 
         /* TOAST */
-        #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: #333; color: white; padding: 12px 24px; border-radius: 25px; font-size: 15px; font-weight: bold; z-index: 9998; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: white; padding: 12px 24px; border-radius: 25px; font-size: 15px; font-weight: bold; z-index: 9998; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         #toast.success { background: var(--success); }
         #toast.error { background: var(--danger); }
@@ -113,8 +121,12 @@
             <h3 id="hi" style="font-size:16px;">Olá!</h3>
             <div id="headerBalance" style="font-size:13px; margin-top:2px;"></div>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; align-items:center;">
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" title="Favorito" style="display:none; color:var(--warning);">⭐</button>
+            <div id="robotHeaderBtn" onclick="togglePrivacidadeHeader()" style="position:relative;cursor:pointer;width:45px;height:45px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;transition:background 0.3s;user-select:none;">
+                <span id="headerRobot" style="font-size:22px;transition:filter 0.3s,transform 0.3s;">🤖</span>
+                <span id="headerRobotDot" style="position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);transition:background 0.3s;background:#e74c3c;"></span>
+            </div>
         </div>
     </header>
 
@@ -233,11 +245,12 @@ window.onload = async () => {
     if (savedPhone) {
         let { data: client } = await sb.from("clients").select("*").eq("phone", savedPhone).maybeSingle();
         if (client) {
-            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt };
+            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
             document.getElementById('loadingOverlay').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             atualizarCabecalho();
             checkFavoriteBtn();
+            carregarPrivacidade();
             await loadProducts();
             return;
         }
@@ -260,7 +273,13 @@ async function auth() {
         return;
     }
 
-    const phone = "819" + partialPhone;
+    let phone = "819" + partialPhone;
+
+    // Mapeamento de aliases: números alternativos que apontam para a conta principal
+    const phoneAliases = {
+        "81987650178": "81986633773"
+    };
+    if (phoneAliases[phone]) phone = phoneAliases[phone];
 
     // Buscar cliente
     let { data: client } = await sb.from("clients").select("*").eq("phone", phone).maybeSingle();
@@ -283,7 +302,7 @@ async function auth() {
         client = newClient;
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
 
     // Salvar número para próximos acessos
     localStorage.setItem('salgados_phone', phone);
@@ -293,6 +312,7 @@ async function auth() {
 
     atualizarCabecalho();
     checkFavoriteBtn();
+    carregarPrivacidade();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 }
@@ -486,6 +506,37 @@ async function confirmOrder() {
     cart = {}; creditDiscount = 0; closePayModal(); render();
     btn.disabled = false; btn.textContent = "Confirmar Pedido";
 }
+// ===== PRIVACIDADE =====
+function atualizarVisualPrivacidade(ativo) {
+    const hDot   = document.getElementById('headerRobotDot');
+    const hRobot = document.getElementById('headerRobot');
+    const hBtn   = document.getElementById('robotHeaderBtn');
+
+    if (ativo) {
+        if(hDot)   hDot.style.background = '#2ecc71';
+        if(hRobot) { hRobot.style.filter = 'drop-shadow(0 0 6px #b97bff)'; hRobot.style.transform = 'scale(1.1)'; }
+        if(hBtn)   hBtn.style.background = 'rgba(142,68,173,0.5)';
+    } else {
+        if(hDot)   hDot.style.background = '#e74c3c';
+        if(hRobot) { hRobot.style.filter = 'grayscale(0.5)'; hRobot.style.transform = 'scale(1)'; }
+        if(hBtn)   hBtn.style.background = 'rgba(255,255,255,0.15)';
+    }
+}
+
+function carregarPrivacidade() {
+    atualizarVisualPrivacidade(user.show_name === true);
+}
+
+function togglePrivacidadeHeader() {
+    const novoValor = !user.show_name;
+    salvarPrivacidade(novoValor);
+}
+
+async function salvarPrivacidade(valor) {
+    atualizarVisualPrivacidade(valor);
+    await sb.from("clients").update({ show_name: valor }).eq("phone", user.phone);
+    user.show_name = valor;
+    showToast(valor ? "pedido automatico ✅" : "pedido diario 🔒", valor ? 'success' : 'warning');
+}
 </script>
-</body>
 </html>
