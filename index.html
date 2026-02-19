@@ -146,11 +146,14 @@
 <!-- Modal Favorito -->
 <div id="favModal" class="modal">
     <div class="modal-content">
-        <h3 style="text-align:center; margin-bottom:15px;">Seu Pedido Favorito ⭐</h3>
+        <div style="position:relative; text-align:center; margin-bottom:15px;">
+            <h3>Seu Pedido Favorito ⭐</h3>
+            <button onclick="document.getElementById('favModal').classList.remove('active')" style="position:absolute; top:-5px; right:-5px; width:34px; height:34px; border-radius:50%; border:none; background:var(--danger); color:white; font-size:18px; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 2px 8px rgba(231,76,60,0.5);">✕</button>
+        </div>
         <div id="favDetails" style="background:#f9f9f9; padding:15px; border-radius:10px; margin-bottom:20px; line-height:1.6;"></div>
         <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('favModal').classList.remove('active')" style="flex:1; padding:12px; background:#eee; border:none; border-radius:10px; font-weight:bold;">Fechar</button>
-            <button onclick="loadFavorite()" style="flex:2; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; font-weight:bold;">Fazer Pedido Favorito</button>
+            <button onclick="addFavToCart()" style="flex:1; padding:12px; background:var(--blue); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">🛒 Carrinho</button>
+            <button onclick="pedirFavorito()" style="flex:2; padding:12px; background:var(--success); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">✅ Fazer Pedido</button>
         </div>
     </div>
 </div>
@@ -195,8 +198,8 @@
     <div class="modal-content" style="max-width:320px; text-align:center;">
         <div style="font-size:40px; margin-bottom:10px;">⚠️</div>
         <p id="confirmMsg" style="font-size:16px; font-weight:bold; margin-bottom:20px;"></p>
-        <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('confirmModal').classList.remove('active')" style="flex:1; padding:12px; background:#eee; border:none; border-radius:10px; font-weight:bold;">Cancelar</button>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <button onclick="document.getElementById('confirmModal').classList.remove('active')" style="width:44px; height:44px; padding:0; background:#eee; border:none; border-radius:10px; font-weight:bold; font-size:20px; cursor:pointer; flex-shrink:0;">✕</button>
             <button id="confirmOkBtn" style="flex:1; padding:12px; background:var(--danger); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">Confirmar</button>
         </div>
     </div>
@@ -374,16 +377,19 @@ function atualizarCabecalho() {
 }
 
 // ===== FAVORITOS =====
+function getFavItems(favData) { return favData && favData.items ? favData.items : favData; }
+
 function checkFavoriteBtn() {
-    const hasFav = favorites[user.phone];
+    const favData = favorites[user.phone];
     const btn = document.getElementById('favBtnHeader');
-    if (hasFav && Object.keys(hasFav).length > 0) btn.style.display = 'block';
+    const items = getFavItems(favData);
+    if (items && Object.keys(items).length > 0) btn.style.display = 'block';
     else btn.style.display = 'none';
 }
 
 function saveAsFavorite() {
     if (Object.keys(cart).length === 0) return showToast("Adicione itens ao carrinho!", 'warning');
-    favorites[user.phone] = { ...cart };
+    favorites[user.phone] = { items: { ...cart }, payment: method };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
     showToast("Favorito salvo! ⭐", 'success');
     checkFavoriteBtn();
@@ -391,15 +397,60 @@ function saveAsFavorite() {
 
 function openFavoriteModal() {
     const favData = favorites[user.phone];
+    const items = getFavItems(favData);
+    const savedPayment = favData && favData.payment ? favData.payment : null;
+    const payLabels = { PIX: '💠 Pix', DINHEIRO: '💵 Dinheiro', FIADO: '📝 Fiado' };
     let html = "<strong>Itens:</strong><br>"; let totalFav = 0;
-    for (let id in favData) { const p = products.find(x => x.id == id); if (p) { html += `• ${favData[id]}x ${p.name}<br>`; totalFav += p.price * favData[id]; } }
-    html += `<br><strong>Total: R$ ${totalFav.toFixed(2)}</strong>`;
+    for (let id in items) { const p = products.find(x => x.id == id); if (p) { html += `• ${items[id]}x ${p.name}<br>`; totalFav += p.price * items[id]; } }
+    html += `<br><strong>Total: R$ ${totalFav.toFixed(2).replace('.', ',')}</strong>`;
+    if (savedPayment) html += `<br><span style="background:#f0f0f0; padding:3px 10px; border-radius:20px; font-size:13px; display:inline-block; margin-top:6px;">Pagamento: ${payLabels[savedPayment] || savedPayment}</span>`;
     document.getElementById('favDetails').innerHTML = html;
     document.getElementById('favModal').classList.add('active');
 }
 
 function loadFavorite() {
-    if (favorites[user.phone]) { cart = { ...favorites[user.phone] }; render(); document.getElementById('favModal').classList.remove('active'); }
+    const favData = favorites[user.phone];
+    if (favData) { cart = { ...getFavItems(favData) }; render(); document.getElementById('favModal').classList.remove('active'); }
+}
+
+function addFavToCart() {
+    const favData = favorites[user.phone];
+    if (favData) { cart = { ...getFavItems(favData) }; render(); document.getElementById('favModal').classList.remove('active'); showToast("Favorito adicionado ao carrinho! 🛒", 'success'); }
+}
+
+function pedirFavorito() {
+    const favData = favorites[user.phone];
+    if (!favData) return;
+    cart = { ...getFavItems(favData) };
+    render();
+    document.getElementById('favModal').classList.remove('active');
+    setTimeout(() => showPayModal(), 200);
+}
+
+function orderFavoriteWhatsApp() {
+    const favData = favorites[user.phone];
+    if (!favData) return;
+    const items = getFavItems(favData);
+    if (!items || Object.keys(items).length === 0) return;
+
+    // Se não tem pagamento salvo, carrega o carrinho e abre modal de pagamento
+    if (!favData.payment) {
+        cart = { ...items }; render();
+        document.getElementById('favModal').classList.remove('active');
+        showToast("Escolha a forma de pagamento 👇", 'warning');
+        setTimeout(() => showPayModal(), 300);
+        return;
+    }
+
+    let pedidoTexto = ""; let total = 0;
+    for (let id in items) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${items[id]}x ${p.name}\n`; total += p.price * items[id]; } }
+    let msg = msgTemplate
+        .replace('{nome}', user.name.toUpperCase())
+        .replace('{pedido}', pedidoTexto)
+        .replace('{total}', total.toFixed(2).replace('.', ','))
+        .replace('{pagamento}', favData.payment);
+    document.getElementById('favModal').classList.remove('active');
+    window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
 }
 
 
@@ -540,7 +591,7 @@ async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
     await sb.from("clients").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
-    showToast(valor ? "pedido automatico ✅" : "pedido diario 🔒", valor ? 'success' : 'warning');
+    showToast(valor ? "Nome visível ✅" : "Nome oculto 🔒", valor ? 'success' : 'warning');
 }
 </script>
 </html>
