@@ -11,6 +11,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
+            // Limpar cache antigo para garantir versão atualizada
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(reg => reg.unregister());
+            });
+            caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
             navigator.serviceWorker.register('sw.js').catch(() => {});
         }
     </script>
@@ -136,16 +141,16 @@
         /* ===== HEADER ===== */
         .header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            padding: 14px 16px; color: white;
+            padding: 11px 13px; color: white;
             display: flex; align-items: center; justify-content: space-between;
-            position: sticky; top: 10px; z-index: 100;
-            height: 72px; border-radius: 22px; margin: 10px 12px 0;
+            position: sticky; top: 8px; z-index: 100;
+            height: 58px; border-radius: 18px; margin: 8px 10px 0;
             box-shadow: 0 6px 24px rgba(199,91,36,0.35);
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
-            width: 46px; height: 46px; border-radius: 14px;
-            color: white; cursor: pointer; font-size: 20px;
+            width: 37px; height: 37px; border-radius: 11px;
+            color: white; cursor: pointer; font-size: 16px;
             transition: 0.2s; backdrop-filter: blur(4px);
         }
         .header-btn:active { transform: scale(0.88); background: rgba(255,255,255,0.35); }
@@ -314,9 +319,9 @@
 
 <div id="app" style="display:none;">
     <header class="header">
-        <div style="display:flex; flex-direction:column; justify-content:center; min-width:100px;">
-            <h3 id="hi" style="font-size:17px; font-weight:800; letter-spacing:-0.3px;">Olá!</h3>
-            <div id="headerBalance" style="font-size:13px; margin-top:2px;"></div>
+        <div style="display:flex; flex-direction:column; justify-content:center; min-width:80px;">
+            <h3 id="hi" style="font-size:13px; font-weight:800; letter-spacing:-0.3px;">Olá!</h3>
+            <div id="headerBalance" style="font-size:10px; margin-top:2px;"></div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" title="Favorito" style="display:none; color:var(--warning);">⭐</button>
@@ -360,7 +365,7 @@
     <div class="modal-content">
         <div style="width:40px;height:5px;background:#e9ecef;border-radius:3px;margin:0 auto 20px;"></div>
         <h3 style="text-align:center; margin-bottom:16px; font-size:18px; font-weight:800; color:#1a1a2e;">Como deseja pagar? 💳</h3>
-        <div class="pay-grid">
+        <div class="pay-grid" style="grid-template-columns: 1fr 1fr;">
             <div id="btnEntrega" class="pay-item selected" onclick="setMethod('PAGA NA ENTREGA', this)">🤝 Pagar na Entrega</div>
             <div id="fBtnModal" class="pay-item" onclick="setMethod('FIADO', this)">⏳ Pagar Depois</div>
         </div>
@@ -878,6 +883,58 @@ async function salvarPrivacidade(valor) {
             </div>
         </div>
 
+        <!-- Acompanhar Entrega -->
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 4px 10px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#3498db;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Entrega</span>
+        </div>
+        <div onclick="abrirMapaEntrega()" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; margin-bottom:14px; border:1px solid rgba(52,152,219,0.3); display:flex; align-items:center; justify-content:space-between; gap:16px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+            <div style="display:flex;align-items:center;gap:13px;flex:1;">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#2980b9,#1a5276);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(41,128,185,0.5);">🛵</div>
+                <div>
+                    <div style="font-size:14px;font-weight:800;color:white;margin-bottom:4px;">Acompanhar Entrega</div>
+                    <div id="entregaStatusText" style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.55;">Toque para ver o mapa e a rota do entregador em tempo real</div>
+                </div>
+            </div>
+            <div style="font-size:20px;">›</div>
+        </div>
+
+        <!-- Modal Mapa Entrega -->
+        <div id="modalMapaEntrega" style="display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,0.9); flex-direction:column;">
+            <div style="background:linear-gradient(135deg,#1a1a2e,#0d0d1a); color:white; padding:16px 16px 12px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+                <div>
+                    <div style="font-size:16px;font-weight:800;">🛵 Rastreamento da Entrega</div>
+                    <div id="mapaEtaText" style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">Calculando rota...</div>
+                </div>
+                <button onclick="fecharMapaEntrega()" style="background:rgba(255,255,255,0.15);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <!-- ETA Banner -->
+            <div id="etaBanner" style="background:linear-gradient(135deg,#27ae60,#1e8449);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:24px;">⏱️</span>
+                    <div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.75);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Chegada estimada</div>
+                        <div id="etaValor" style="font-size:22px;font-weight:900;color:white;">-- min</div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,0.2);border-radius:14px;padding:8px 12px;min-width:64px;">
+                    <div id="paradasRestantesValor" style="font-size:22px;font-weight:900;color:white;line-height:1;">--</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.7);margin-top:2px;text-align:center;">paradas<br>restantes</div>
+                </div>
+                <div style="text-align:right;">
+                    <div id="distanciaValor" style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.9);">-- km</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.6);">distância</div>
+                </div>
+            </div>
+            <!-- Mapa -->
+            <div id="mapaEntregaDiv" style="flex:1;min-height:0;position:relative;background:#1a2a1a;"></div>
+            <!-- Info paradas -->
+            <div id="paradasInfo" style="background:#1a1a2e;padding:12px 16px;max-height:160px;overflow-y:auto;flex-shrink:0;">
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Paradas da rota</div>
+                <div id="paradasList" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+        </div>
+
         <!-- Label histórico -->
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px;">
             <div style="display:flex;align-items:center;gap:6px;">
@@ -1125,6 +1182,327 @@ async function renderHistoricoSaldo() {
                 if (lixIconR) { lixIconR.style.opacity='0'; lixIconR.style.transform='scale(0.7)'; }
             }
         }, { passive: true });
+    });
+}
+
+// ===== MAPA DE ENTREGA — GPS REAL DO ADMIN =====
+let mapaEntregaObj = null;
+let motoMarker = null;
+let rotaLayer = null;
+let etaInterval = null;
+let gpsUpdateInterval = null;
+let ultimaPosAdmin = null;
+
+async function abrirMapaEntrega() {
+    const modal = document.getElementById('modalMapaEntrega');
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+
+    // Carregar Leaflet se não carregado
+    if (!window.L) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+        document.head.appendChild(link);
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    const div = document.getElementById('mapaEntregaDiv');
+    if (!mapaEntregaObj) {
+        mapaEntregaObj = L.map(div, { zoomControl: false }).setView([-8.05, -34.90], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '©OpenStreetMap ©CartoDB', maxZoom: 19
+        }).addTo(mapaEntregaObj);
+        L.control.zoom({ position: 'bottomright' }).addTo(mapaEntregaObj);
+    }
+
+    // Carregar rota e posição imediatamente
+    await atualizarMapaCompleto();
+
+    // Atualizar GPS a cada 5 segundos
+    clearInterval(gpsUpdateInterval);
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 5000);
+}
+
+async function atualizarMapaCompleto() {
+    // 1. Buscar posição GPS do entregador
+    const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
+    let adminPos = null;
+    if (gpsConfig && gpsConfig.value) {
+        try { const gps = JSON.parse(gpsConfig.value); if (gps.lat && gps.lon) adminPos = [gps.lat, gps.lon]; } catch(e) {}
+    }
+
+    // 2. Buscar rota em andamento
+    const { data: rotas } = await sb.from("delivery_routes")
+        .select("*").eq("status", "em_andamento")
+        .order("created_at", { ascending: false }).limit(1);
+    const rota = rotas && rotas.length > 0 ? rotas[0] : null;
+    const paradas = rota ? (rota.paradas || []) : [];
+
+    if (!adminPos && !rota) {
+        document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
+        document.getElementById('etaValor').textContent = '--';
+        document.getElementById('distanciaValor').textContent = '--';
+        document.getElementById('paradasRestantesValor').textContent = '--';
+        document.getElementById('paradasList').innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
+        return;
+    }
+
+    // 3. Calcular ETA para o cliente logado
+    const mediaMin = await calcularMediaEtaCliente();
+    const pendentes = paradas.filter(p => p.status !== 'entregue');
+    const paradaIdx = paradas.findIndex(p => p.cliente_phone === user?.phone);
+    const minhaParada = paradaIdx >= 0 ? paradas[paradaIdx] : null;
+
+    let etaMin;
+    let etaLabel;
+
+    if (minhaParada) {
+        // Cliente está na rota: conta paradas antes dele + paradas já entregues antes dele
+        const paradasAntesDeMin = paradas.slice(0, paradaIdx).filter(p => p.status !== 'entregue').length;
+        const jaEntreguesAntes = paradas.slice(0, paradaIdx).filter(p => p.status === 'entregue').length;
+        // Só conta as pendentes antes + ele mesmo
+        const faltam = paradasAntesDeMin + 1;
+        etaMin = Math.round(faltam * mediaMin);
+        etaLabel = `📍 Sua entrega: parada ${paradaIdx + 1} de ${paradas.length}`;
+    } else {
+        // Cliente não está na rota: estima como se fosse adicionado após todas as pendentes + 2 min de tolerância
+        etaMin = Math.round(pendentes.length * mediaMin) + 2;
+        etaLabel = `🛵 Estimativa · você não está na rota atual`;
+    }
+
+    const proximaParada = pendentes[0] || null;
+
+    document.getElementById('etaValor').textContent = etaMin + ' min';
+    document.getElementById('paradasRestantesValor').textContent = pendentes.length;
+    document.getElementById('mapaEtaText').textContent = proximaParada
+        ? `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`
+        : `✅ Todas as entregas concluídas`;
+
+    // 4. Distância do entregador até a parada do cliente (ou próxima)
+    const paradaRef = minhaParada || proximaParada;
+    if (adminPos && paradaRef && paradaRef.coords) {
+        const dist = calcDist(adminPos, paradaRef.coords);
+        document.getElementById('distanciaValor').textContent = dist.toFixed(1) + ' km';
+    } else {
+        document.getElementById('distanciaValor').textContent = '--';
+    }
+
+    // 5. Renderizar mapa com linhas coloridas
+    renderizarRotaMapa(rota, paradas, adminPos);
+
+    // 6. Posicionar moto
+    const posicaoMoto = adminPos || (paradas.length > 0 && paradas[0].coords ? paradas[0].coords : [-8.05, -34.90]);
+    colocarMotoMapa(posicaoMoto, !ultimaPosAdmin);
+
+    // 7. Lista de paradas
+    const list = document.getElementById('paradasList');
+    if (paradas.length === 0) {
+        list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Rota sem paradas cadastradas</div>';
+        return;
+    }
+
+    // Cabeçalho ETA do cliente
+    list.innerHTML = `<div style="background:${minhaParada ? 'rgba(52,152,219,0.2)' : 'rgba(230,126,34,0.2)'};border:1px solid ${minhaParada ? 'rgba(52,152,219,0.5)' : 'rgba(230,126,34,0.5)'};border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:white;">
+        <div style="font-weight:800;margin-bottom:2px;">${etaLabel}</div>
+        <div style="color:rgba(255,255,255,0.6);">⏱️ Estimativa: <strong style="color:white;">${etaMin} min</strong>${!minhaParada ? ' · +2 min de tolerância incluídos' : ''}</div>
+    </div>` +
+    paradas.map((p, i) => {
+        const isMe = p.cliente_phone === user?.phone;
+        const entregue = p.status === 'entregue';
+        const isProxima = proximaParada && p.id === proximaParada.id;
+        const etaP = Math.round((i + 1) * mediaMin);
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;
+            background:${isMe ? 'rgba(52,152,219,0.25)' : isProxima ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)'};
+            border:${isMe ? '1px solid rgba(52,152,219,0.6)' : isProxima ? '1px solid rgba(230,126,34,0.5)' : '1px solid rgba(255,255,255,0.08)'};">
+            <div style="width:26px;height:26px;border-radius:50%;
+                background:${entregue ? '#27ae60' : isMe ? '#3498db' : isProxima ? '#e67e22' : '#555'};
+                display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:white;flex-shrink:0;">
+                ${entregue ? '✓' : isProxima ? '▶' : i + 1}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:700;color:${isMe ? '#74b9ff' : isProxima ? '#f39c12' : 'rgba(255,255,255,0.85)'};">
+                    ${isMe ? '📍 Você' : (p.nome || 'Cliente')}
+                    ${entregue ? '<span style="font-size:10px;color:#27ae60;margin-left:6px;">✓ Entregue</span>' : ''}
+                    ${isProxima && !entregue ? '<span style="font-size:10px;color:#f39c12;margin-left:6px;">▶ Agora</span>' : ''}
+                </div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">
+                    ⏱️ ~${etaP} min${p.endereco ? ' · ' + p.endereco : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function atualizarPosicaoMoto() {
+    // Apenas atualiza a posição da moto sem re-renderizar tudo
+    const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
+    if (!gpsConfig || !gpsConfig.value) return;
+    try {
+        const gps = JSON.parse(gpsConfig.value);
+        if (!gps.lat || !gps.lon) return;
+        const pos = [gps.lat, gps.lon];
+
+        // Verificar se mudou posição
+        if (ultimaPosAdmin && Math.abs(pos[0] - ultimaPosAdmin[0]) < 0.00001 && Math.abs(pos[1] - ultimaPosAdmin[1]) < 0.00001) return;
+        ultimaPosAdmin = pos;
+
+        colocarMotoMapa(pos, false); // false = não centraliza o mapa
+
+        // Atualizar tempo da última atualização
+        const hora = new Date(gps.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · atualizado às ${hora}`;
+    } catch(e) {}
+}
+
+async function calcularMediaEtaCliente() {
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    const ontemStr = ontem.toISOString().split('T')[0];
+    const { data: hist } = await sb.from("delivery_routes")
+        .select("paradas, saida_em, fim_em")
+        .gte("created_at", ontemStr + 'T00:00:00')
+        .lte("created_at", ontemStr + 'T23:59:59')
+        .eq("status", "concluido").limit(5);
+
+    if (hist && hist.length > 0) {
+        const tempos = hist.filter(h => h.saida_em && h.fim_em && h.paradas?.length > 0).map(h => {
+            const mins = (new Date(h.fim_em) - new Date(h.saida_em)) / 60000;
+            return mins / h.paradas.length;
+        });
+        if (tempos.length > 0) return tempos.reduce((a, b) => a + b, 0) / tempos.length;
+    }
+    return 12;
+}
+
+function calcDist(c1, c2) {
+    const R = 6371;
+    const dLat = (c2[0]-c1[0]) * Math.PI/180;
+    const dLon = (c2[1]-c1[1]) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function renderizarRotaMapa(rota, paradas, adminPos) {
+    if (!mapaEntregaObj || !window.L) return;
+
+    // Limpar todas as camadas exceto tile
+    mapaEntregaObj.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapaEntregaObj.removeLayer(l); });
+    rotaLayer = null;
+
+    const FABRICA = [-8.1837523, -34.9383004];
+    const todasComCoords = paradas.filter(p => p.coords);
+    const pendentes = paradas.filter(p => p.status !== 'entregue' && p.coords);
+    const proximaParada = pendentes[0] || null;
+    const minhaParada = paradas.find(p => p.cliente_phone === user?.phone && p.coords) || null;
+
+    // ── LINHA VERMELHA: percurso completo da rota (fábrica → todas as paradas)
+    // Mostra o trajeto inteiro que a moto vai/vai percorrer
+    const coordsRotaCompleta = [FABRICA, ...todasComCoords.map(p => p.coords)];
+    if (coordsRotaCompleta.length >= 2) {
+        L.polyline(coordsRotaCompleta, {
+            color: '#e74c3c', weight: 3, opacity: 0.5, dashArray: '8 6'
+        }).addTo(mapaEntregaObj);
+    }
+
+    // ── LINHA AZUL SÓLIDA: percurso atual — de onde a moto está até a próxima parada
+    if (adminPos && proximaParada) {
+        L.polyline([adminPos, proximaParada.coords], {
+            color: '#3498db', weight: 5, opacity: 1
+        }).addTo(mapaEntregaObj);
+
+        // Seta de direção no meio
+        const midLat = (adminPos[0] + proximaParada.coords[0]) / 2;
+        const midLon = (adminPos[1] + proximaParada.coords[1]) / 2;
+        L.marker([midLat, midLon], { icon: L.divIcon({
+            html: '<div style="font-size:16px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));">➡️</div>',
+            className: '', iconSize: [22, 22], iconAnchor: [11, 11]
+        })}).addTo(mapaEntregaObj);
+    }
+
+    // ── MARCADOR DA FÁBRICA (origem)
+    L.marker(FABRICA, { icon: L.divIcon({
+        html: '<div style="font-size:26px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.8));">🏭</div>',
+        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
+    })}).addTo(mapaEntregaObj).bindPopup('<b>🏭 Fábrica</b><br>Ponto de partida');
+
+    // ── MARCADORES DAS PARADAS
+    paradas.filter(p => p.coords).forEach((p, i) => {
+        const isMe = p.cliente_phone === user?.phone;
+        const entregue = p.status === 'entregue';
+        const isProxima = proximaParada && p.id === proximaParada.id;
+
+        let bg, tamanho, label, pulsar;
+        if (entregue)  { bg = '#27ae60'; tamanho = '28px'; label = '✓';  pulsar = false; }
+        else if (isMe) { bg = '#3498db'; tamanho = '38px'; label = '📍'; pulsar = true;  }
+        else           { bg = '#c0392b'; tamanho = '30px'; label = '👤'; pulsar = false; }
+
+        const icon = L.divIcon({
+            html: `<div style="
+                width:${tamanho};height:${tamanho};border-radius:50%;
+                background:${bg};
+                display:flex;align-items:center;justify-content:center;
+                font-size:13px;font-weight:900;color:white;
+                border:3px solid ${entregue ? 'rgba(255,255,255,0.4)' : 'white'};
+                box-shadow:0 3px 14px rgba(0,0,0,0.6);
+                opacity:${entregue ? '0.45' : '1'};
+                ${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}
+            ">${label}</div>
+            <style>@keyframes paradaPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,152,219,0.7)}70%{box-shadow:0 0 0 14px rgba(52,152,219,0)}}</style>`,
+            className: '', iconSize: [38, 38], iconAnchor: [19, 19]
+        });
+
+        const popupTitulo = entregue ? '✅ Entregue' : isMe ? '📍 Sua entrega' : '👤 Cliente';
+        L.marker(p.coords, { icon }).addTo(mapaEntregaObj)
+            .bindPopup(`<b>${popupTitulo}</b><br><span style="font-size:12px;">${p.nome || 'Cliente'}${p.endereco ? '<br>' + p.endereco : ''}</span>`);
+    });
+
+    // ── CENTRALIZAR: mostrar entregador + próxima parada + parada do cliente
+    const pontosFoco = [
+        adminPos,
+        proximaParada?.coords,
+        minhaParada?.coords
+    ].filter(Boolean);
+
+    if (pontosFoco.length >= 2) {
+        mapaEntregaObj.fitBounds(L.latLngBounds(pontosFoco), { padding: [60, 60] });
+    } else if (pontosFoco.length === 1) {
+        mapaEntregaObj.setView(pontosFoco[0], 15);
+    } else if (todasComCoords.length > 0) {
+        mapaEntregaObj.fitBounds(L.latLngBounds([FABRICA, ...todasComCoords.map(p => p.coords)]), { padding: [50, 50] });
+    }
+}
+
+function colocarMotoMapa(pos, centralizar = false) {
+    if (!mapaEntregaObj || !window.L) return;
+    if (motoMarker) {
+        motoMarker.setLatLng(pos);
+    } else {
+        const motoIcon = L.divIcon({
+            html: `<div style="font-size:34px;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.7));animation:motoAnimate 0.8s ease-in-out infinite alternate;">🛵</div>
+            <style>@keyframes motoAnimate{from{transform:translateY(0)}to{transform:translateY(-4px)}}</style>`,
+            className: '', iconSize: [42, 42], iconAnchor: [21, 21]
+        });
+        motoMarker = L.marker(pos, { icon: motoIcon, zIndexOffset: 1000 }).addTo(mapaEntregaObj)
+            .bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
+    }
+    if (centralizar) mapaEntregaObj.setView(pos, 15);
+    ultimaPosAdmin = pos;
+}
+
+function fecharMapaEntrega() {
+    document.getElementById('modalMapaEntrega').style.display = 'none';
+    clearInterval(gpsUpdateInterval);
+    clearInterval(etaInterval);
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
     });
 }
 
