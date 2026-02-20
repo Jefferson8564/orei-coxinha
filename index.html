@@ -1258,13 +1258,18 @@ async function abrirMapaEntrega() {
     clearInterval(gpsUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
-    // Polling puro a cada 2s — sem depender do Realtime
+    // Polling de posição da moto a cada 2s
     gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 2000);
+
+    // Atualização completa da rota (paradas, ETA, linhas) a cada 15s
+    clearInterval(window._rotaUpdateInterval);
+    window._rotaUpdateInterval = setInterval(() => {
+        atualizarMapaCompleto().catch(e => console.warn('Erro ao atualizar mapa completo:', e));
+    }, 15000);
 }
 
 function mostrarStatusGps(texto) {
     const el = document.getElementById('mapaEtaText');
-    if (el && !texto.includes('Ao vivo')) return; // só atualiza se for info relevante
     if (el) el.textContent = texto;
 }
 
@@ -1685,6 +1690,7 @@ function fecharMapaEntrega() {
     document.getElementById('modalMapaEntrega').style.display = 'none';
     clearInterval(gpsUpdateInterval);
     clearInterval(etaInterval);
+    clearInterval(window._rotaUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
     // Resetar rotação do mapa
     if (mapaEntregaObj) {
@@ -1692,6 +1698,13 @@ function fecharMapaEntrega() {
         container.style.transform = '';
         if (mapaEntregaObj.setBearing) mapaEntregaObj.setBearing(0);
     }
+    // Resetar marcador da moto para forçar reposicionamento na próxima abertura
+    if (motoMarker && mapaEntregaObj) {
+        mapaEntregaObj.removeLayer(motoMarker);
+        motoMarker = null;
+    }
+    ultimaPosAdmin = null;
+    seguindoMoto = true;
 }
 
 function loadScript(src) {
