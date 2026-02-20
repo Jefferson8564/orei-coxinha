@@ -141,16 +141,16 @@
         /* ===== HEADER ===== */
         .header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            padding: 11px 13px; color: white;
+            padding: 14px 17px; color: white;
             display: flex; align-items: center; justify-content: space-between;
             position: sticky; top: 8px; z-index: 100;
-            height: 58px; border-radius: 18px; margin: 8px 10px 0;
+            height: 75px; border-radius: 23px; margin: 8px 10px 0;
             box-shadow: 0 6px 24px rgba(199,91,36,0.35);
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
-            width: 37px; height: 37px; border-radius: 11px;
-            color: white; cursor: pointer; font-size: 16px;
+            width: 48px; height: 48px; border-radius: 14px;
+            color: white; cursor: pointer; font-size: 21px;
             transition: 0.2s; backdrop-filter: blur(4px);
         }
         .header-btn:active { transform: scale(0.88); background: rgba(255,255,255,0.35); }
@@ -832,9 +832,9 @@ async function salvarPrivacidade(valor) {
     overflow: hidden;
 ">
     <!-- Header do painel -->
-    <div id="painelHeader" style="padding: 10px 15px 10px; color: white; position: relative; flex-shrink:0; background:#1a0535; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+    <div id="painelHeader" style="padding: 6px 18px 7px; color: white; position: relative; flex-shrink:0; background:#1a0535; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
         <!-- Alça -->
-        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;margin:0 auto 8px;"></div>
+        <div style="width:43px;height:5px;background:rgba(255,255,255,0.18);border-radius:2px;margin:0 auto 5px;"></div>
         <button onclick="fecharPainelControle()" style="
             position: absolute; top: 16px; left: 14px;
             background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); color: white;
@@ -844,9 +844,8 @@ async function salvarPrivacidade(valor) {
             z-index: 10; transition:background 0.2s;
         " ontouchstart="this.style.background='rgba(255,255,255,0.28)'" ontouchend="this.style.background='rgba(255,255,255,0.12)'">‹</button>
         <div style="text-align:center;">
-            <div style="font-size: 22px; margin-bottom: 2px; filter: drop-shadow(0 3px 10px rgba(180,120,255,0.7));">🤖</div>
-            <div style="font-size: 13px; font-weight: 800; color:white; letter-spacing:-0.2px;">painel de ajuda com i.a</div>
-            <div style="font-size: 9px; color:rgba(255,255,255,0.35); margin-top:2px; letter-spacing:1.2px; text-transform:uppercase; font-weight:600;">Configurações do sistema</div>
+            <div style="font-size: 19px; margin-bottom: 1px; filter: drop-shadow(0 3px 10px rgba(180,120,255,0.7));">🤖</div>
+            <div style="font-size: 14px; font-weight: 800; color:white; letter-spacing:-0.2px;">painel de ajuda com i.a</div>
         </div>
     </div>
 
@@ -1249,7 +1248,15 @@ async function atualizarMapaCompleto() {
         return;
     }
 
-    // 3. Calcular ETA para o cliente logado
+    // 3. Verificar se o cliente está em QUALQUER rota (não só em andamento)
+    const { data: todasRotas } = await sb.from("delivery_routes")
+        .select("paradas, status, nome")
+        .in("status", ["criada", "em_andamento", "aguardando"]);
+    const clienteNaRota = (todasRotas || []).some(r =>
+        (r.paradas || []).some(p => p.cliente_phone === user?.phone)
+    );
+
+    // 4. Calcular ETA para o cliente logado
     const mediaMin = await calcularMediaEtaCliente();
     const pendentes = paradas.filter(p => p.status !== 'entregue');
     const paradaIdx = paradas.findIndex(p => p.cliente_phone === user?.phone);
@@ -1257,24 +1264,28 @@ async function atualizarMapaCompleto() {
 
     let etaMin;
     let etaLabel;
+    let semRota = false;
 
     if (minhaParada) {
-        // Cliente está na rota: conta paradas antes dele + paradas já entregues antes dele
+        // Cliente está na rota em andamento
         const paradasAntesDeMin = paradas.slice(0, paradaIdx).filter(p => p.status !== 'entregue').length;
-        const jaEntreguesAntes = paradas.slice(0, paradaIdx).filter(p => p.status === 'entregue').length;
-        // Só conta as pendentes antes + ele mesmo
         const faltam = paradasAntesDeMin + 1;
         etaMin = Math.round(faltam * mediaMin);
         etaLabel = `📍 Sua entrega: parada ${paradaIdx + 1} de ${paradas.length}`;
+    } else if (!clienteNaRota) {
+        // Cliente não está em nenhuma rota
+        etaMin = null;
+        etaLabel = `❌ Você não tem uma rota`;
+        semRota = true;
     } else {
-        // Cliente não está na rota: estima como se fosse adicionado após todas as pendentes + 2 min de tolerância
-        etaMin = Math.round(pendentes.length * mediaMin) + 2;
-        etaLabel = `🛵 Estimativa · você não está na rota atual`;
+        // Cliente está em outra rota (ainda não iniciada)
+        etaMin = null;
+        etaLabel = `🕐 Sua rota ainda não iniciou`;
     }
 
     const proximaParada = pendentes[0] || null;
 
-    document.getElementById('etaValor').textContent = etaMin + ' min';
+    document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
     document.getElementById('paradasRestantesValor').textContent = pendentes.length;
     document.getElementById('mapaEtaText').textContent = proximaParada
         ? `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`
@@ -1306,7 +1317,7 @@ async function atualizarMapaCompleto() {
     // Cabeçalho ETA do cliente
     list.innerHTML = `<div style="background:${minhaParada ? 'rgba(52,152,219,0.2)' : 'rgba(230,126,34,0.2)'};border:1px solid ${minhaParada ? 'rgba(52,152,219,0.5)' : 'rgba(230,126,34,0.5)'};border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:white;">
         <div style="font-weight:800;margin-bottom:2px;">${etaLabel}</div>
-        <div style="color:rgba(255,255,255,0.6);">⏱️ Estimativa: <strong style="color:white;">${etaMin} min</strong>${!minhaParada ? ' · +2 min de tolerância incluídos' : ''}</div>
+        <div style="color:rgba(255,255,255,0.6);">${minhaParada ? '⏱️ Estimativa: <strong style=\"color:white;\">' + etaMin + ' min</strong>' : semRota ? '😕 Você não possui nenhuma rota de entrega.' : '⏳ Aguarde, sua rota será iniciada em breve.'}</div>
     </div>` +
     paradas.map((p, i) => {
         const isMe = p.cliente_phone === user?.phone;
