@@ -1188,6 +1188,7 @@ async function renderHistoricoSaldo() {
 let mapaEntregaObj = null;
 let motoMarker = null;
 let rotaLayer = null;
+let seguindoMoto = true; // segue a moto automaticamente até o usuário mexer
 let etaInterval = null;
 let gpsUpdateInterval = null;
 let ultimaPosAdmin = null;
@@ -1217,41 +1218,78 @@ async function abrirMapaEntrega() {
             bearing: 0
         }).setView([-8.05, -34.90], 17);
 
-        // Camada satélite realista (Esri WorldImagery)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles © Esri', maxZoom: 20
+        // Mapa dark estilizado (CartoDB Dark Matter com cores vivas)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '©OpenStreetMap ©CartoDB', maxZoom: 20
         }).addTo(mapaEntregaObj);
 
-        // Overlay com nomes de ruas por cima do satélite
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/only_labels/{z}/{x}/{y}{r}.png', {
-            attribution: '', maxZoom: 20, opacity: 0.9
+        // Overlay colorido de ruas por cima
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
+            attribution: '', maxZoom: 20, opacity: 0.7
         }).addTo(mapaEntregaObj);
 
-        L.control.zoom({ position: 'bottomright' }).addTo(mapaEntregaObj);
+        // Botão de recentrar na moto
+        const btnCentrar = L.control({ position: 'bottomright' });
+        btnCentrar.onAdd = function() {
+            const div = L.DomUtil.create('div');
+            div.innerHTML = '<button id="btnRecentrar" style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#3498db,#2980b9);border:3px solid rgba(255,255,255,0.3);color:white;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(52,152,219,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">🛵</button>';
+            div.querySelector('#btnRecentrar').onclick = function(e) {
+                L.DomEvent.stopPropagation(e);
+                seguindoMoto = true;
+                if (ultimaPosAdmin) mapaEntregaObj.flyTo(ultimaPosAdmin, 17, {duration: 0.8});
+                div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#27ae60,#1e8449)';
+                setTimeout(() => div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#3498db,#2980b9)', 1000);
+            };
+            return div;
+        };
+        btnCentrar.addTo(mapaEntregaObj);
+
+        // Para de seguir quando o usuário mexe no mapa
+        mapaEntregaObj.on('dragstart', () => { seguindoMoto = false; });
     }
+
+    // Teste de conectividade — verifica se GPS está sendo enviado
+    await verificarConectividadeGPS();
 
     // Carregar rota e posição imediatamente
     await atualizarMapaCompleto();
 
-    // Parar intervalos/realtime anteriores
+    // Parar intervalos anteriores
     clearInterval(gpsUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
-    // ── Supabase Realtime: atualiza instantâneo quando GPS mudar
-    realtimeChannel = sb.channel('gps-ao-vivo')
-        .on('postgres_changes', {
-            event: 'UPDATE', schema: 'public', table: 'config',
-            filter: 'key=eq.admin_gps'
-        }, payload => {
-            try {
-                const gps = JSON.parse(payload.new.value);
-                if (gps.lat && gps.lon) atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
-            } catch(e) {}
-        })
-        .subscribe();
+    // Polling puro a cada 2s — sem depender do Realtime
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 2000);
+}
 
-    // Fallback polling a cada 4s caso Realtime falhe
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 4000);
+function mostrarStatusGps(texto) {
+    const el = document.getElementById('mapaEtaText');
+    if (el && !texto.includes('Ao vivo')) return; // só atualiza se for info relevante
+    if (el) el.textContent = texto;
+}
+
+async function verificarConectividadeGPS() {
+    try {
+        const { data, error } = await sb.from("config").select("value, updated_at").eq("key","admin_gps").maybeSingle();
+        const el = document.getElementById('mapaEtaText');
+        if (error || !data) {
+            if (el) el.textContent = '⚠️ Sem dados de GPS no banco';
+            return;
+        }
+        const gps = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        if (!gps || !gps.lat || !gps.lon) {
+            if (el) el.textContent = '📴 Entregador offline · GPS não ativo';
+            return;
+        }
+        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
+        if (segundos < 30) {
+            if (el) el.textContent = `🟢 GPS ativo · atualizado há ${segundos}s`;
+        } else if (segundos < 120) {
+            if (el) el.textContent = `🟡 GPS lento · atualizado há ${segundos}s`;
+        } else {
+            if (el) el.textContent = `🔴 GPS inativo · última posição há ${Math.round(segundos/60)} min`;
+        }
+    } catch(e) { console.warn('verificarConectividade erro:', e); }
 }
 
 async function atualizarMapaCompleto() {
@@ -1378,13 +1416,40 @@ async function atualizarMapaCompleto() {
 }
 
 async function atualizarPosicaoMoto() {
-    const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
-    if (!gpsConfig || !gpsConfig.value) return;
     try {
-        const gps = JSON.parse(gpsConfig.value);
-        if (!gps.lat || !gps.lon) return;
+        const { data: gpsConfig } = await sb.from("config")
+            .select("value")
+            .eq("key", "admin_gps")
+            .maybeSingle();
+
+        if (!gpsConfig || !gpsConfig.value) {
+            document.getElementById('mapaEtaText').textContent = '📴 Entregador offline';
+            return;
+        }
+
+        const gps = typeof gpsConfig.value === 'string'
+            ? JSON.parse(gpsConfig.value)
+            : gpsConfig.value;
+
+        if (!gps || !gps.lat || !gps.lon) {
+            document.getElementById('mapaEtaText').textContent = '📴 GPS não ativo';
+            return;
+        }
+
+        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
+        const statusEl = document.getElementById('mapaEtaText');
+
+        if (segundos < 15) {
+            statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
+        } else if (segundos < 60) {
+            statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
+        } else {
+            statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
+            return; // posição muito antiga, não move
+        }
+
         atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
-    } catch(e) {}
+    } catch(e) { console.warn('polling erro:', e); }
 }
 
 function atualizarPosicaoMotoRealtime(pos, ts) {
@@ -1546,37 +1611,55 @@ function renderizarRotaMapa(rota, paradas, adminPos) {
 
 function criarIconeMoto(bearing) {
     return L.divIcon({
-        html: `<div style="
-            width:44px;height:44px;position:relative;
-            filter:drop-shadow(0 4px 12px rgba(0,0,0,0.8));
-        ">
-            <!-- Círculo de precisão pulsando -->
+        html: `
+        <div style="width:54px;height:54px;position:relative;">
+            <!-- Onda de pulso externa -->
             <div style="
-                position:absolute;inset:-10px;border-radius:50%;
-                background:rgba(52,152,219,0.15);
-                animation:gpsPulse 2s ease-out infinite;
+                position:absolute;inset:-14px;border-radius:50%;
+                background:radial-gradient(circle, rgba(52,152,219,0.25) 0%, transparent 70%);
+                animation:ondaGps 2.2s ease-out infinite;
             "></div>
-            <!-- Seta direcional -->
-            <svg width="44" height="44" viewBox="0 0 44 44"
-                style="transform:rotate(${bearing}deg);transition:transform 0.5s ease;">
-                <!-- Sombra -->
-                <circle cx="22" cy="22" r="16" fill="rgba(0,0,0,0.3)" transform="translate(2,2)"/>
-                <!-- Círculo base azul -->
-                <circle cx="22" cy="22" r="16" fill="#1a73e8" stroke="white" stroke-width="2.5"/>
-                <!-- Seta apontando para cima (norte = direção do movimento) -->
-                <polygon points="22,6 29,28 22,23 15,28" fill="white" opacity="0.95"/>
-                <!-- Ponto central -->
-                <circle cx="22" cy="22" r="3" fill="white"/>
+            <!-- Anel pulsante -->
+            <div style="
+                position:absolute;inset:-6px;border-radius:50%;
+                border:2px solid rgba(52,152,219,0.5);
+                animation:anelGps 2.2s ease-out infinite;
+            "></div>
+            <!-- Ícone direcional SVG -->
+            <svg width="54" height="54" viewBox="0 0 54 54"
+                style="transform:rotate(${bearing}deg);transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1);position:relative;z-index:2;">
+                <!-- Sombra difusa -->
+                <circle cx="27" cy="30" r="18" fill="rgba(0,0,0,0.35)" />
+                <!-- Gradiente circular -->
+                <defs>
+                    <radialGradient id="motoGrad" cx="40%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="#5dade2"/>
+                        <stop offset="100%" stop-color="#1a5276"/>
+                    </radialGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <!-- Círculo principal -->
+                <circle cx="27" cy="27" r="18" fill="url(#motoGrad)" stroke="white" stroke-width="2.5" filter="url(#glow)"/>
+                <!-- Seta de navegação -->
+                <polygon points="27,8 35,34 27,29 19,34" fill="white" opacity="0.97"/>
+                <circle cx="27" cy="27" r="3.5" fill="rgba(255,255,255,0.9)"/>
             </svg>
         </div>
         <style>
-            @keyframes gpsPulse {
-                0%   { transform: scale(0.8); opacity: 0.8; }
-                70%  { transform: scale(1.6); opacity: 0; }
-                100% { transform: scale(0.8); opacity: 0; }
+            @keyframes ondaGps {
+                0%   { transform:scale(0.6); opacity:0.8; }
+                80%  { transform:scale(1.8); opacity:0; }
+                100% { transform:scale(0.6); opacity:0; }
+            }
+            @keyframes anelGps {
+                0%   { transform:scale(0.7); opacity:1; }
+                100% { transform:scale(1.9); opacity:0; }
             }
         </style>`,
-        className: '', iconSize: [44, 44], iconAnchor: [22, 22]
+        className: '', iconSize: [54, 54], iconAnchor: [27, 27]
     });
 }
 
@@ -1591,7 +1674,10 @@ function colocarMotoMapa(pos, centralizar = false) {
             zIndexOffset: 1000
         }).addTo(mapaEntregaObj).bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
     }
-    if (centralizar) mapaEntregaObj.setView(pos, 17);
+    // Só segue a moto se o usuário não mexeu no mapa
+    if (seguindoMoto) {
+        mapaEntregaObj.flyTo(pos, mapaEntregaObj.getZoom() || 17, { duration: 0.6, easeLinearity: 0.5 });
+    }
     ultimaPosAdmin = pos;
 }
 
