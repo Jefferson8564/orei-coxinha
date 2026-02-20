@@ -1191,6 +1191,8 @@ let rotaLayer = null;
 let etaInterval = null;
 let gpsUpdateInterval = null;
 let ultimaPosAdmin = null;
+let motoBearing = 0;         // direção atual da moto em graus
+let realtimeChannel = null;  // canal Supabase Realtime
 
 async function abrirMapaEntrega() {
     const modal = document.getElementById('modalMapaEntrega');
@@ -1209,19 +1211,47 @@ async function abrirMapaEntrega() {
 
     const div = document.getElementById('mapaEntregaDiv');
     if (!mapaEntregaObj) {
-        mapaEntregaObj = L.map(div, { zoomControl: false }).setView([-8.05, -34.90], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OpenStreetMap ©CartoDB', maxZoom: 19
+        mapaEntregaObj = L.map(div, {
+            zoomControl: false,
+            rotate: true,           // habilita rotação nativa do Leaflet
+            bearing: 0
+        }).setView([-8.05, -34.90], 17);
+
+        // Camada satélite realista (Esri WorldImagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri', maxZoom: 20
         }).addTo(mapaEntregaObj);
+
+        // Overlay com nomes de ruas por cima do satélite
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/only_labels/{z}/{x}/{y}{r}.png', {
+            attribution: '', maxZoom: 20, opacity: 0.9
+        }).addTo(mapaEntregaObj);
+
         L.control.zoom({ position: 'bottomright' }).addTo(mapaEntregaObj);
     }
 
     // Carregar rota e posição imediatamente
     await atualizarMapaCompleto();
 
-    // Atualizar GPS a cada 5 segundos
+    // Parar intervalos/realtime anteriores
     clearInterval(gpsUpdateInterval);
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 5000);
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+
+    // ── Supabase Realtime: atualiza instantâneo quando GPS mudar
+    realtimeChannel = sb.channel('gps-ao-vivo')
+        .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'config',
+            filter: 'key=eq.admin_gps'
+        }, payload => {
+            try {
+                const gps = JSON.parse(payload.new.value);
+                if (gps.lat && gps.lon) atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
+            } catch(e) {}
+        })
+        .subscribe();
+
+    // Fallback polling a cada 4s caso Realtime falhe
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 4000);
 }
 
 async function atualizarMapaCompleto() {
@@ -1292,9 +1322,9 @@ async function atualizarMapaCompleto() {
         : `✅ Todas as entregas concluídas`;
 
     // 4. Distância do entregador até a parada do cliente (ou próxima)
-    const paradaRef = minhaParada || proximaParada;
-    if (adminPos && paradaRef && paradaRef.coords) {
-        const dist = calcDist(adminPos, paradaRef.coords);
+    // Distância só mostra se o cliente estiver na rota
+    if (adminPos && minhaParada && minhaParada.coords) {
+        const dist = calcDist(adminPos, minhaParada.coords);
         document.getElementById('distanciaValor').textContent = dist.toFixed(1) + ' km';
     } else {
         document.getElementById('distanciaValor').textContent = '--';
@@ -1348,24 +1378,52 @@ async function atualizarMapaCompleto() {
 }
 
 async function atualizarPosicaoMoto() {
-    // Apenas atualiza a posição da moto sem re-renderizar tudo
     const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
     if (!gpsConfig || !gpsConfig.value) return;
     try {
         const gps = JSON.parse(gpsConfig.value);
         if (!gps.lat || !gps.lon) return;
-        const pos = [gps.lat, gps.lon];
-
-        // Verificar se mudou posição
-        if (ultimaPosAdmin && Math.abs(pos[0] - ultimaPosAdmin[0]) < 0.00001 && Math.abs(pos[1] - ultimaPosAdmin[1]) < 0.00001) return;
-        ultimaPosAdmin = pos;
-
-        colocarMotoMapa(pos, false); // false = não centraliza o mapa
-
-        // Atualizar tempo da última atualização
-        const hora = new Date(gps.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · atualizado às ${hora}`;
+        atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
     } catch(e) {}
+}
+
+function atualizarPosicaoMotoRealtime(pos, ts) {
+    if (!mapaEntregaObj || !window.L) return;
+
+    // Calcular bearing (direção) entre posição anterior e atual
+    if (ultimaPosAdmin) {
+        const bearing = calcBearing(ultimaPosAdmin, pos);
+        if (Math.abs(pos[0] - ultimaPosAdmin[0]) > 0.000005 || Math.abs(pos[1] - ultimaPosAdmin[1]) > 0.000005) {
+            motoBearing = bearing;
+            // Rotacionar o mapa na direção do movimento (norte = frente da moto)
+            if (mapaEntregaObj.setBearing) {
+                mapaEntregaObj.setBearing(-bearing); // negativo pq mapa gira oposto
+            } else {
+                // Fallback: rotacionar via CSS no container
+                const container = mapaEntregaObj.getContainer();
+                container.style.transform = `rotate(${-bearing}deg)`;
+                container.style.transformOrigin = 'center center';
+            }
+        }
+    }
+
+    // Mover moto suavemente
+    colocarMotoMapa(pos, true);
+
+    // Atualizar label
+    if (ts) {
+        const hora = new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · ${hora}`;
+    }
+}
+
+function calcBearing(c1, c2) {
+    const lat1 = c1[0] * Math.PI / 180;
+    const lat2 = c2[0] * Math.PI / 180;
+    const dLon = (c2[1] - c1[1]) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
 async function calcularMediaEtaCliente() {
@@ -1486,20 +1544,54 @@ function renderizarRotaMapa(rota, paradas, adminPos) {
     }
 }
 
+function criarIconeMoto(bearing) {
+    return L.divIcon({
+        html: `<div style="
+            width:44px;height:44px;position:relative;
+            filter:drop-shadow(0 4px 12px rgba(0,0,0,0.8));
+        ">
+            <!-- Círculo de precisão pulsando -->
+            <div style="
+                position:absolute;inset:-10px;border-radius:50%;
+                background:rgba(52,152,219,0.15);
+                animation:gpsPulse 2s ease-out infinite;
+            "></div>
+            <!-- Seta direcional -->
+            <svg width="44" height="44" viewBox="0 0 44 44"
+                style="transform:rotate(${bearing}deg);transition:transform 0.5s ease;">
+                <!-- Sombra -->
+                <circle cx="22" cy="22" r="16" fill="rgba(0,0,0,0.3)" transform="translate(2,2)"/>
+                <!-- Círculo base azul -->
+                <circle cx="22" cy="22" r="16" fill="#1a73e8" stroke="white" stroke-width="2.5"/>
+                <!-- Seta apontando para cima (norte = direção do movimento) -->
+                <polygon points="22,6 29,28 22,23 15,28" fill="white" opacity="0.95"/>
+                <!-- Ponto central -->
+                <circle cx="22" cy="22" r="3" fill="white"/>
+            </svg>
+        </div>
+        <style>
+            @keyframes gpsPulse {
+                0%   { transform: scale(0.8); opacity: 0.8; }
+                70%  { transform: scale(1.6); opacity: 0; }
+                100% { transform: scale(0.8); opacity: 0; }
+            }
+        </style>`,
+        className: '', iconSize: [44, 44], iconAnchor: [22, 22]
+    });
+}
+
 function colocarMotoMapa(pos, centralizar = false) {
     if (!mapaEntregaObj || !window.L) return;
     if (motoMarker) {
         motoMarker.setLatLng(pos);
+        motoMarker.setIcon(criarIconeMoto(motoBearing));
     } else {
-        const motoIcon = L.divIcon({
-            html: `<div style="font-size:34px;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.7));animation:motoAnimate 0.8s ease-in-out infinite alternate;">🛵</div>
-            <style>@keyframes motoAnimate{from{transform:translateY(0)}to{transform:translateY(-4px)}}</style>`,
-            className: '', iconSize: [42, 42], iconAnchor: [21, 21]
-        });
-        motoMarker = L.marker(pos, { icon: motoIcon, zIndexOffset: 1000 }).addTo(mapaEntregaObj)
-            .bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
+        motoMarker = L.marker(pos, {
+            icon: criarIconeMoto(motoBearing),
+            zIndexOffset: 1000
+        }).addTo(mapaEntregaObj).bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
     }
-    if (centralizar) mapaEntregaObj.setView(pos, 15);
+    if (centralizar) mapaEntregaObj.setView(pos, 17);
     ultimaPosAdmin = pos;
 }
 
@@ -1507,6 +1599,13 @@ function fecharMapaEntrega() {
     document.getElementById('modalMapaEntrega').style.display = 'none';
     clearInterval(gpsUpdateInterval);
     clearInterval(etaInterval);
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    // Resetar rotação do mapa
+    if (mapaEntregaObj) {
+        const container = mapaEntregaObj.getContainer();
+        container.style.transform = '';
+        if (mapaEntregaObj.setBearing) mapaEntregaObj.setBearing(0);
+    }
 }
 
 function loadScript(src) {
