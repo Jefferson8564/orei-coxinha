@@ -601,10 +601,33 @@ function checkFavoriteBtn() {
     else btn.style.display = 'none';
 }
 
-function saveAsFavorite() {
+async function saveAsFavorite() {
     if (Object.keys(cart).length === 0) return showToast("Adicione itens ao carrinho!", 'warning');
     favorites[user.phone] = { items: { ...cart }, payment: method };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
+
+    // Monta texto e total do pedido salvo
+    let pedidoTexto = "";
+    let total = 0;
+    for (let id in cart) {
+        const p = products.find(x => x.id == id);
+        if (p) {
+            pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`;
+            total += p.price * cart[id];
+        }
+    }
+
+    // Salva no Supabase para o Admin conseguir ler
+    try {
+        await sb.from("clients").update({
+            saved_order: pedidoTexto.trim(),
+            saved_order_total: total,
+            saved_order_payment: method || null
+        }).eq("phone", user.phone);
+    } catch(e) {
+        console.warn("Erro ao salvar pedido no Supabase:", e);
+    }
+
     showToast("Favorito salvo! ⭐", 'success');
     checkFavoriteBtn();
 }
@@ -1213,7 +1236,9 @@ async function abrirMapaEntrega() {
     const div = document.getElementById('mapaEntregaDiv');
     if (!mapaEntregaObj) {
         mapaEntregaObj = L.map(div, {
-            zoomControl: false
+            zoomControl: false,
+            rotate: true,           // habilita rotação nativa do Leaflet
+            bearing: 0
         }).setView([-8.05, -34.90], 17);
 
         // Mapa dark estilizado (CartoDB Dark Matter com cores vivas)
@@ -1458,15 +1483,24 @@ async function atualizarPosicaoMoto() {
 function atualizarPosicaoMotoRealtime(pos, ts) {
     if (!mapaEntregaObj || !window.L) return;
 
-    // Calcular bearing (direção) só para girar o ÍCONE da moto — mapa fica fixo
+    // Calcular bearing (direção) entre posição anterior e atual
     if (ultimaPosAdmin) {
         const bearing = calcBearing(ultimaPosAdmin, pos);
         if (Math.abs(pos[0] - ultimaPosAdmin[0]) > 0.000005 || Math.abs(pos[1] - ultimaPosAdmin[1]) > 0.000005) {
-            motoBearing = bearing; // só atualiza a direção do ícone
+            motoBearing = bearing;
+            // Rotacionar o mapa na direção do movimento (norte = frente da moto)
+            if (mapaEntregaObj.setBearing) {
+                mapaEntregaObj.setBearing(-bearing); // negativo pq mapa gira oposto
+            } else {
+                // Fallback: rotacionar via CSS no container
+                const container = mapaEntregaObj.getContainer();
+                container.style.transform = `rotate(${-bearing}deg)`;
+                container.style.transformOrigin = 'center center';
+            }
         }
     }
 
-    // Mover moto suavemente (mapa sempre norte acima, fixo)
+    // Mover moto suavemente
     colocarMotoMapa(pos, true);
 
     // Atualizar label
@@ -1681,11 +1715,10 @@ function fecharMapaEntrega() {
     clearInterval(etaInterval);
     clearInterval(window._rotaUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    // Resetar bearing do mapa para norte (caso tenha ficado rotacionado)
+    // Resetar rotação do mapa
     if (mapaEntregaObj) {
         const container = mapaEntregaObj.getContainer();
         container.style.transform = '';
-        container.style.transformOrigin = '';
         if (mapaEntregaObj.setBearing) mapaEntregaObj.setBearing(0);
     }
     // Resetar marcador da moto para forçar reposicionamento na próxima abertura
