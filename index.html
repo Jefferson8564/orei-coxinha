@@ -1213,9 +1213,7 @@ async function abrirMapaEntrega() {
     const div = document.getElementById('mapaEntregaDiv');
     if (!mapaEntregaObj) {
         mapaEntregaObj = L.map(div, {
-            zoomControl: false,
-            rotate: true,           // habilita rotação nativa do Leaflet
-            bearing: 0
+            zoomControl: false
         }).setView([-8.05, -34.90], 17);
 
         // Mapa dark estilizado (CartoDB Dark Matter com cores vivas)
@@ -1236,7 +1234,7 @@ async function abrirMapaEntrega() {
             div.querySelector('#btnRecentrar').onclick = function(e) {
                 L.DomEvent.stopPropagation(e);
                 seguindoMoto = true;
-                if (ultimaPosAdmin) mapaEntregaObj.setView(ultimaPosAdmin, 17, { animate: true, duration: 0.5 });
+                if (ultimaPosAdmin) mapaEntregaObj.flyTo(ultimaPosAdmin, 17, {duration: 0.8});
                 div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#27ae60,#1e8449)';
                 setTimeout(() => div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#3498db,#2980b9)', 1000);
             };
@@ -1460,24 +1458,15 @@ async function atualizarPosicaoMoto() {
 function atualizarPosicaoMotoRealtime(pos, ts) {
     if (!mapaEntregaObj || !window.L) return;
 
-    // Calcular bearing (direção) entre posição anterior e atual
+    // Calcular bearing (direção) só para girar o ÍCONE da moto — mapa fica fixo
     if (ultimaPosAdmin) {
         const bearing = calcBearing(ultimaPosAdmin, pos);
         if (Math.abs(pos[0] - ultimaPosAdmin[0]) > 0.000005 || Math.abs(pos[1] - ultimaPosAdmin[1]) > 0.000005) {
-            motoBearing = bearing;
-            // Rotacionar o mapa na direção do movimento (norte = frente da moto)
-            if (mapaEntregaObj.setBearing) {
-                mapaEntregaObj.setBearing(-bearing); // negativo pq mapa gira oposto
-            } else {
-                // Fallback: rotacionar via CSS no container
-                const container = mapaEntregaObj.getContainer();
-                container.style.transform = `rotate(${-bearing}deg)`;
-                container.style.transformOrigin = 'center center';
-            }
+            motoBearing = bearing; // só atualiza a direção do ícone
         }
     }
 
-    // Mover moto suavemente
+    // Mover moto suavemente (mapa sempre norte acima, fixo)
     colocarMotoMapa(pos, true);
 
     // Atualizar label
@@ -1598,72 +1587,73 @@ function renderizarRotaMapa(rota, paradas, adminPos) {
             .bindPopup(`<b>${popupTitulo}</b><br><span style="font-size:12px;">${p.nome || 'Cliente'}${p.endereco ? '<br>' + p.endereco : ''}</span>`);
     });
 
-    // ── CENTRALIZAR: sempre prioriza a moto; fitBounds só se moto não disponível
-    if (adminPos && seguindoMoto) {
-        mapaEntregaObj.setView(adminPos, mapaEntregaObj.getZoom() || 17, { animate: true, duration: 0.4 });
-    } else if (!adminPos) {
-        const pontosFoco = [
-            proximaParada?.coords,
-            minhaParada?.coords
-        ].filter(Boolean);
-        if (pontosFoco.length >= 2) {
-            mapaEntregaObj.fitBounds(L.latLngBounds(pontosFoco), { padding: [60, 60] });
-        } else if (pontosFoco.length === 1) {
-            mapaEntregaObj.setView(pontosFoco[0], 15);
-        } else if (todasComCoords.length > 0) {
-            mapaEntregaObj.fitBounds(L.latLngBounds([FABRICA, ...todasComCoords.map(p => p.coords)]), { padding: [50, 50] });
-        }
+    // ── CENTRALIZAR: mostrar entregador + próxima parada + parada do cliente
+    const pontosFoco = [
+        adminPos,
+        proximaParada?.coords,
+        minhaParada?.coords
+    ].filter(Boolean);
+
+    if (pontosFoco.length >= 2) {
+        mapaEntregaObj.fitBounds(L.latLngBounds(pontosFoco), { padding: [60, 60] });
+    } else if (pontosFoco.length === 1) {
+        mapaEntregaObj.setView(pontosFoco[0], 15);
+    } else if (todasComCoords.length > 0) {
+        mapaEntregaObj.fitBounds(L.latLngBounds([FABRICA, ...todasComCoords.map(p => p.coords)]), { padding: [50, 50] });
     }
 }
 
 function criarIconeMoto(bearing) {
     return L.divIcon({
         html: `
-        <div style="width:64px;height:64px;position:relative;display:flex;align-items:center;justify-content:center;">
+        <div style="width:54px;height:54px;position:relative;">
             <!-- Onda de pulso externa -->
             <div style="
-                position:absolute;inset:-16px;border-radius:50%;
-                background:radial-gradient(circle, rgba(52,152,219,0.22) 0%, transparent 70%);
-                animation:ondaGps 2.4s ease-out infinite;
-                pointer-events:none;
+                position:absolute;inset:-14px;border-radius:50%;
+                background:radial-gradient(circle, rgba(52,152,219,0.25) 0%, transparent 70%);
+                animation:ondaGps 2.2s ease-out infinite;
             "></div>
             <!-- Anel pulsante -->
             <div style="
-                position:absolute;inset:-8px;border-radius:50%;
-                border:2.5px solid rgba(52,152,219,0.45);
-                animation:anelGps 2.4s ease-out infinite;
-                pointer-events:none;
+                position:absolute;inset:-6px;border-radius:50%;
+                border:2px solid rgba(52,152,219,0.5);
+                animation:anelGps 2.2s ease-out infinite;
             "></div>
-            <!-- Sombra suave no chão -->
-            <div style="
-                position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
-                width:40px;height:10px;border-radius:50%;
-                background:rgba(0,0,0,0.35);filter:blur(4px);
-                pointer-events:none;
-            "></div>
-            <!-- Emoji da moto — rotaciona conforme direção -->
-            <div style="
-                font-size:38px;
-                line-height:1;
-                transform:rotate(${bearing}deg);
-                transition:transform 0.65s cubic-bezier(0.34,1.56,0.64,1);
-                filter:drop-shadow(0 3px 8px rgba(0,0,0,0.7)) drop-shadow(0 0 6px rgba(52,152,219,0.8));
-                position:relative;z-index:2;
-                user-select:none;
-            ">🛵</div>
+            <!-- Ícone direcional SVG -->
+            <svg width="54" height="54" viewBox="0 0 54 54"
+                style="transform:rotate(${bearing}deg);transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1);position:relative;z-index:2;">
+                <!-- Sombra difusa -->
+                <circle cx="27" cy="30" r="18" fill="rgba(0,0,0,0.35)" />
+                <!-- Gradiente circular -->
+                <defs>
+                    <radialGradient id="motoGrad" cx="40%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="#5dade2"/>
+                        <stop offset="100%" stop-color="#1a5276"/>
+                    </radialGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <!-- Círculo principal -->
+                <circle cx="27" cy="27" r="18" fill="url(#motoGrad)" stroke="white" stroke-width="2.5" filter="url(#glow)"/>
+                <!-- Seta de navegação -->
+                <polygon points="27,8 35,34 27,29 19,34" fill="white" opacity="0.97"/>
+                <circle cx="27" cy="27" r="3.5" fill="rgba(255,255,255,0.9)"/>
+            </svg>
         </div>
         <style>
             @keyframes ondaGps {
-                0%   { transform:scale(0.55); opacity:0.85; }
-                80%  { transform:scale(1.9);  opacity:0; }
-                100% { transform:scale(0.55); opacity:0; }
+                0%   { transform:scale(0.6); opacity:0.8; }
+                80%  { transform:scale(1.8); opacity:0; }
+                100% { transform:scale(0.6); opacity:0; }
             }
             @keyframes anelGps {
-                0%   { transform:scale(0.65); opacity:1; }
-                100% { transform:scale(2.0);  opacity:0; }
+                0%   { transform:scale(0.7); opacity:1; }
+                100% { transform:scale(1.9); opacity:0; }
             }
         </style>`,
-        className: '', iconSize: [64, 64], iconAnchor: [32, 32]
+        className: '', iconSize: [54, 54], iconAnchor: [27, 27]
     });
 }
 
@@ -1678,9 +1668,9 @@ function colocarMotoMapa(pos, centralizar = false) {
             zIndexOffset: 1000
         }).addTo(mapaEntregaObj).bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
     }
-    // Mapa sempre centralizado na moto (com ou sem arrastar)
+    // Só segue a moto se o usuário não mexeu no mapa
     if (seguindoMoto) {
-        mapaEntregaObj.setView(pos, mapaEntregaObj.getZoom() || 17, { animate: true, duration: 0.5 });
+        mapaEntregaObj.flyTo(pos, mapaEntregaObj.getZoom() || 17, { duration: 0.6, easeLinearity: 0.5 });
     }
     ultimaPosAdmin = pos;
 }
@@ -1691,10 +1681,11 @@ function fecharMapaEntrega() {
     clearInterval(etaInterval);
     clearInterval(window._rotaUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    // Resetar rotação do mapa
+    // Resetar bearing do mapa para norte (caso tenha ficado rotacionado)
     if (mapaEntregaObj) {
         const container = mapaEntregaObj.getContainer();
         container.style.transform = '';
+        container.style.transformOrigin = '';
         if (mapaEntregaObj.setBearing) mapaEntregaObj.setBearing(0);
     }
     // Resetar marcador da moto para forçar reposicionamento na próxima abertura
