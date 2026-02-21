@@ -50,6 +50,21 @@
         #loadingOverlay .load-emoji { font-size: 58px; animation: pulse 1.2s ease-in-out infinite; }
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 
+        /* ===== MOTO ANIMADA ===== */
+        .moto-wrapper {
+            display: flex; align-items: center; justify-content: center;
+            animation: motoFloat 1.6s ease-in-out infinite;
+            filter: drop-shadow(0 18px 24px rgba(0,0,0,0.45));
+        }
+        .moto-wrapper img {
+            width: 180px; height: auto;
+        }
+        @keyframes motoFloat {
+            0%   { transform: translateY(0px) rotate(-1deg); }
+            50%  { transform: translateY(-14px) rotate(1deg); }
+            100% { transform: translateY(0px) rotate(-1deg); }
+        }
+
         /* ===== TOAST ===== */
         #toast {
             position: fixed; top: 20px; left: 50%;
@@ -298,7 +313,9 @@
 <div id="toast"></div>
 
 <div id="loadingOverlay">
-    <div class="load-emoji">🍗</div>
+    <div class="moto-wrapper">
+        <img src="moto.png" alt="Moto de entrega">
+    </div>
     <div class="spinner"></div>
     <div style="font-size:14px; font-weight:600; opacity:0.9; letter-spacing:0.5px;">Carregando...</div>
 </div>
@@ -605,29 +622,19 @@ async function saveAsFavorite() {
     if (Object.keys(cart).length === 0) return showToast("Adicione itens ao carrinho!", 'warning');
     favorites[user.phone] = { items: { ...cart }, payment: method };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
-
-    // Monta texto e total — mesmo formato dos pedidos reais
-    let pedidoTexto = "";
-    let total = 0;
+    // Persiste no Supabase para o Admin ler em Refazer Pedidos
+    let pedidoTexto = "", total = 0;
     for (let id in cart) {
         const p = products.find(x => x.id == id);
-        if (p) {
-            pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`;
-            total += p.price * cart[id];
-        }
+        if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; }
     }
-
-    // Persiste no Supabase para o Admin ler em Refazer Pedidos
     try {
         await sb.from("clients").update({
             saved_order: pedidoTexto.trim(),
             saved_order_total: total,
             saved_order_payment: method || null
         }).eq("phone", user.phone);
-    } catch(e) {
-        console.warn("Erro ao salvar pedido no Supabase:", e);
-    }
-
+    } catch(e) { console.warn("Erro ao salvar pedido:", e); }
     showToast("Favorito salvo! ⭐", 'success');
     checkFavoriteBtn();
 }
@@ -1207,527 +1214,439 @@ async function renderHistoricoSaldo() {
     });
 }
 
-// ===== MAPA DE ENTREGA — GPS REAL DO ADMIN =====
-let mapaEntregaObj = null;
-let motoMarker = null;
-let rotaLayer = null;
-let seguindoMoto = true; // segue a moto automaticamente até o usuário mexer
-let etaInterval = null;
-let gpsUpdateInterval = null;
-let ultimaPosAdmin = null;
-let motoBearing = 0;         // direção atual da moto em graus
-let realtimeChannel = null;  // canal Supabase Realtime
+// ===== MAPA DE ENTREGA =====
+// Sincronizado com o ADM via Supabase Realtime + polling de segurança
+// GPS: tabela config, key="admin_gps" → {lat, lon, ts, precisao, rota_id}
+// Rotas: tabela delivery_routes, status="em_andamento"
+// Paradas: rota.paradas[] → {id, cliente_phone, nome, endereco, coords:[lat,lon], eta_min, status}
+
+let mapaObj        = null;   // instância Leaflet
+let motoMarker     = null;   // marcador da moto no mapa
+let seguindoMoto   = true;   // centraliza automaticamente na moto
+let ultimaPos      = null;   // última posição conhecida [lat, lon]
+let motoBearing    = 0;      // direção da moto em graus (só o emoji gira)
+let gpsInterval    = null;   // polling GPS a cada 2s (fallback)
+let rotaInterval   = null;   // atualização completa da rota a cada 15s
+let realtimeCh     = null;   // canal Supabase Realtime para GPS instantâneo
+
+// ---------- ABRIR / FECHAR ----------
 
 async function abrirMapaEntrega() {
     const modal = document.getElementById('modalMapaEntrega');
     modal.style.display = 'flex';
     modal.style.flexDirection = 'column';
 
-    // Carregar Leaflet se não carregado
+    // Carrega Leaflet uma única vez
     if (!window.L) {
         await loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
         document.head.appendChild(link);
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 400));
     }
 
+    // Cria o mapa apenas uma vez — norte fixo, sem rotação
     const div = document.getElementById('mapaEntregaDiv');
-    if (!mapaEntregaObj) {
-        mapaEntregaObj = L.map(div, {
-            zoomControl: false,
-            rotate: true,           // habilita rotação nativa do Leaflet
-            bearing: 0
-        }).setView([-8.05, -34.90], 17);
+    if (!mapaObj) {
+        mapaObj = L.map(div, { zoomControl: false }).setView([-8.05, -34.90], 15);
 
-        // Mapa dark estilizado (CartoDB Dark Matter com cores vivas)
+        // Tiles escuros (CartoDB Dark Matter)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '©OpenStreetMap ©CartoDB', maxZoom: 20
-        }).addTo(mapaEntregaObj);
+        }).addTo(mapaObj);
 
-        // Overlay colorido de ruas por cima
+        // Labels coloridos por cima
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
             attribution: '', maxZoom: 20, opacity: 0.7
-        }).addTo(mapaEntregaObj);
+        }).addTo(mapaObj);
 
-        // Botão de recentrar na moto
-        const btnCentrar = L.control({ position: 'bottomright' });
-        btnCentrar.onAdd = function() {
-            const div = L.DomUtil.create('div');
-            div.innerHTML = '<button id="btnRecentrar" style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#3498db,#2980b9);border:3px solid rgba(255,255,255,0.3);color:white;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(52,152,219,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">🛵</button>';
-            div.querySelector('#btnRecentrar').onclick = function(e) {
+        // Botão recentrar na moto
+        const ctrl = L.control({ position: 'bottomright' });
+        ctrl.onAdd = function() {
+            const d = L.DomUtil.create('div');
+            d.innerHTML = '<button id="btnRecentrar" style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#3498db,#2980b9);border:3px solid rgba(255,255,255,0.3);color:white;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(52,152,219,0.5);display:flex;align-items:center;justify-content:center;">🛵</button>';
+            d.querySelector('#btnRecentrar').onclick = function(e) {
                 L.DomEvent.stopPropagation(e);
                 seguindoMoto = true;
-                if (ultimaPosAdmin) mapaEntregaObj.flyTo(ultimaPosAdmin, 17, {duration: 0.8});
-                div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#27ae60,#1e8449)';
-                setTimeout(() => div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#3498db,#2980b9)', 1000);
+                if (ultimaPos) mapaObj.setView(ultimaPos, 17);
             };
-            return div;
+            return d;
         };
-        btnCentrar.addTo(mapaEntregaObj);
+        ctrl.addTo(mapaObj);
 
-        // Para de seguir quando o usuário mexe no mapa
-        mapaEntregaObj.on('dragstart', () => { seguindoMoto = false; });
+        // Usuário arrastou → para de seguir
+        mapaObj.on('dragstart', () => { seguindoMoto = false; });
     }
 
-    // Teste de conectividade — verifica se GPS está sendo enviado
-    await verificarConectividadeGPS();
-
-    // Carregar rota e posição imediatamente
+    // Carrega dados imediatamente
     await atualizarMapaCompleto();
 
-    // Parar intervalos anteriores
-    clearInterval(gpsUpdateInterval);
-    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    // Para intervalos anteriores
+    clearInterval(gpsInterval);
+    clearInterval(window._rotaInterval);
+    if (realtimeCh) { try { sb.removeChannel(realtimeCh); } catch(e) {} realtimeCh = null; }
 
-    // Polling de posição da moto a cada 2s
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 2000);
+    // Realtime: escuta mudanças em config (admin_gps) instantaneamente
+    realtimeCh = sb.channel('admin_gps_realtime')
+        .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'config', filter: 'key=eq.admin_gps'
+        }, payload => {
+            try {
+                const gps = typeof payload.new.value === 'string'
+                    ? JSON.parse(payload.new.value)
+                    : payload.new.value;
+                if (gps && gps.lat && gps.lon) {
+                    const pos = [gps.lat, gps.lon];
+                    // Calcula direção só para girar o emoji — mapa fica fixo
+                    if (ultimaPos) {
+                        const dx = Math.abs(pos[0] - ultimaPos[0]);
+                        const dy = Math.abs(pos[1] - ultimaPos[1]);
+                        if (dx > 0.000005 || dy > 0.000005) {
+                            motoBearing = calcBearing(ultimaPos, pos);
+                        }
+                    }
+                    posicionarMoto(pos);
+                    const hora = new Date(gps.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                    document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · ${hora}`;
+                }
+            } catch(e) { console.warn('Realtime parse erro:', e); }
+        })
+        .subscribe();
+
+    // Polling GPS a cada 2s — fallback se Realtime falhar
+    gpsInterval = setInterval(atualizarSoGPS, 2000);
 
     // Atualização completa da rota (paradas, ETA, linhas) a cada 15s
-    clearInterval(window._rotaUpdateInterval);
-    window._rotaUpdateInterval = setInterval(() => {
-        atualizarMapaCompleto().catch(e => console.warn('Erro ao atualizar mapa completo:', e));
+    window._rotaInterval = setInterval(() => {
+        atualizarMapaCompleto().catch(() => {});
     }, 15000);
 }
 
-function mostrarStatusGps(texto) {
-    const el = document.getElementById('mapaEtaText');
-    if (el) el.textContent = texto;
+function fecharMapaEntrega() {
+    document.getElementById('modalMapaEntrega').style.display = 'none';
+    clearInterval(gpsInterval);
+    clearInterval(window._rotaInterval);
+    if (realtimeCh) { try { sb.removeChannel(realtimeCh); } catch(e) {} realtimeCh = null; }
+    // Remove marcador para recriar limpo na próxima abertura
+    if (motoMarker && mapaObj) { mapaObj.removeLayer(motoMarker); motoMarker = null; }
+    ultimaPos    = null;
+    seguindoMoto = true;
+    motoBearing  = 0;
 }
 
-async function verificarConectividadeGPS() {
+// ---------- GPS — atualização rápida (só moto) ----------
+
+async function atualizarSoGPS() {
     try {
-        const { data, error } = await sb.from("config").select("value, updated_at").eq("key","admin_gps").maybeSingle();
+        const { data: cfg } = await sb.from("config")
+            .select("value, updated_at")
+            .eq("key", "admin_gps")
+            .maybeSingle();
+
         const el = document.getElementById('mapaEtaText');
-        if (error || !data) {
-            if (el) el.textContent = '⚠️ Sem dados de GPS no banco';
-            return;
+        if (!cfg || !cfg.value) { if (el) el.textContent = '📴 Entregador offline'; return; }
+
+        const gps = typeof cfg.value === 'string' ? JSON.parse(cfg.value) : cfg.value;
+        if (!gps || !gps.lat || !gps.lon) { if (el) el.textContent = '📴 GPS não ativo'; return; }
+
+        const seg = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
+        if      (seg < 15)  el.textContent = `🟢 Ao vivo · há ${seg}s`;
+        else if (seg < 60)  el.textContent = `🟡 Atualizado há ${seg}s`;
+        else { el.textContent = `🔴 GPS inativo · ${Math.round(seg/60)} min atrás`; return; }
+
+        const pos = [gps.lat, gps.lon];
+        if (ultimaPos) {
+            const dx = Math.abs(pos[0] - ultimaPos[0]);
+            const dy = Math.abs(pos[1] - ultimaPos[1]);
+            if (dx > 0.000005 || dy > 0.000005) motoBearing = calcBearing(ultimaPos, pos);
         }
-        const gps = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-        if (!gps || !gps.lat || !gps.lon) {
-            if (el) el.textContent = '📴 Entregador offline · GPS não ativo';
-            return;
-        }
-        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
-        if (segundos < 30) {
-            if (el) el.textContent = `🟢 GPS ativo · atualizado há ${segundos}s`;
-        } else if (segundos < 120) {
-            if (el) el.textContent = `🟡 GPS lento · atualizado há ${segundos}s`;
-        } else {
-            if (el) el.textContent = `🔴 GPS inativo · última posição há ${Math.round(segundos/60)} min`;
-        }
-    } catch(e) { console.warn('verificarConectividade erro:', e); }
+        posicionarMoto(pos);
+    } catch(e) { console.warn('GPS poll erro:', e); }
 }
+
+// ---------- MAPA COMPLETO (rota + paradas + ETA) ----------
 
 async function atualizarMapaCompleto() {
-    // 1. Buscar posição GPS do entregador
-    const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
+    // 1. GPS do entregador
+    const { data: gpsCfg } = await sb.from("config")
+        .select("value").eq("key", "admin_gps").maybeSingle();
     let adminPos = null;
-    if (gpsConfig && gpsConfig.value) {
-        try { const gps = JSON.parse(gpsConfig.value); if (gps.lat && gps.lon) adminPos = [gps.lat, gps.lon]; } catch(e) {}
+    if (gpsCfg?.value) {
+        try {
+            const g = typeof gpsCfg.value === 'string' ? JSON.parse(gpsCfg.value) : gpsCfg.value;
+            if (g?.lat && g?.lon) adminPos = [g.lat, g.lon];
+        } catch(e) {}
     }
 
-    // 2. Buscar rota em andamento
+    // 2. Rota em andamento
     const { data: rotas } = await sb.from("delivery_routes")
         .select("*").eq("status", "em_andamento")
         .order("created_at", { ascending: false }).limit(1);
-    const rota = rotas && rotas.length > 0 ? rotas[0] : null;
-    const paradas = rota ? (rota.paradas || []) : [];
+    const rota    = rotas?.[0] || null;
+    const paradas = rota?.paradas || [];
 
+    // Sem dados: limpa UI
     if (!adminPos && !rota) {
-        document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
-        document.getElementById('etaValor').textContent = '--';
-        document.getElementById('distanciaValor').textContent = '--';
+        document.getElementById('mapaEtaText').textContent         = 'Nenhuma entrega em andamento';
+        document.getElementById('etaValor').textContent            = '--';
+        document.getElementById('distanciaValor').textContent      = '--';
         document.getElementById('paradasRestantesValor').textContent = '--';
-        document.getElementById('paradasList').innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
+        document.getElementById('paradasList').innerHTML =
+            '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
         return;
     }
 
-    // 3. Verificar se o cliente está em QUALQUER rota (não só em andamento)
+    // 3. Verifica se cliente logado está em ALGUMA rota
     const { data: todasRotas } = await sb.from("delivery_routes")
-        .select("paradas, status, nome")
-        .in("status", ["criada", "em_andamento", "aguardando"]);
+        .select("paradas, status").in("status", ["criada","em_andamento","aguardando"]);
     const clienteNaRota = (todasRotas || []).some(r =>
         (r.paradas || []).some(p => p.cliente_phone === user?.phone)
     );
 
-    // 4. Calcular ETA para o cliente logado
-    const mediaMin = await calcularMediaEtaCliente();
-    const pendentes = paradas.filter(p => p.status !== 'entregue');
-    const paradaIdx = paradas.findIndex(p => p.cliente_phone === user?.phone);
-    const minhaParada = paradaIdx >= 0 ? paradas[paradaIdx] : null;
-
-    let etaMin;
-    let etaLabel;
-    let semRota = false;
+    // 4. Calcula ETA para o cliente logado
+    const mediaMin = await calcularMediaEta();
+    const pendentes    = paradas.filter(p => p.status !== 'entregue');
+    const paradaIdx    = paradas.findIndex(p => p.cliente_phone === user?.phone);
+    const minhaParada  = paradaIdx >= 0 ? paradas[paradaIdx] : null;
+    let etaMin = null, etaLabel = '', semRota = false;
 
     if (minhaParada) {
-        // Cliente está na rota em andamento
-        const paradasAntesDeMin = paradas.slice(0, paradaIdx).filter(p => p.status !== 'entregue').length;
-        const faltam = paradasAntesDeMin + 1;
-        etaMin = Math.round(faltam * mediaMin);
+        const antes = paradas.slice(0, paradaIdx).filter(p => p.status !== 'entregue').length;
+        etaMin   = Math.round((antes + 1) * mediaMin);
         etaLabel = `📍 Sua entrega: parada ${paradaIdx + 1} de ${paradas.length}`;
     } else if (!clienteNaRota) {
-        // Cliente não está em nenhuma rota
-        etaMin = null;
-        etaLabel = `❌ Você não tem uma rota`;
-        semRota = true;
+        etaLabel = '❌ Você não tem uma rota'; semRota = true;
     } else {
-        // Cliente está em outra rota (ainda não iniciada)
-        etaMin = null;
-        etaLabel = `🕐 Sua rota ainda não iniciou`;
+        etaLabel = '🕐 Sua rota ainda não iniciou';
     }
 
-    const proximaParada = pendentes[0] || null;
+    const proxima = pendentes[0] || null;
 
-    document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
+    document.getElementById('etaValor').textContent             = etaMin !== null ? etaMin + ' min' : '--';
     document.getElementById('paradasRestantesValor').textContent = pendentes.length;
-    document.getElementById('mapaEtaText').textContent = proximaParada
-        ? `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`
-        : `✅ Todas as entregas concluídas`;
+    document.getElementById('mapaEtaText').textContent           = proxima
+        ? `🛵 Indo para: ${proxima.nome || 'próxima parada'}`
+        : '✅ Todas as entregas concluídas';
 
-    // 4. Distância do entregador até a parada do cliente (ou próxima)
-    // Distância só mostra se o cliente estiver na rota
-    if (adminPos && minhaParada && minhaParada.coords) {
-        const dist = calcDist(adminPos, minhaParada.coords);
-        document.getElementById('distanciaValor').textContent = dist.toFixed(1) + ' km';
+    // Distância da moto até a parada do cliente
+    if (adminPos && minhaParada?.coords) {
+        document.getElementById('distanciaValor').textContent = calcDist(adminPos, minhaParada.coords).toFixed(1) + ' km';
     } else {
         document.getElementById('distanciaValor').textContent = '--';
     }
 
-    // 5. Renderizar mapa com linhas coloridas
-    renderizarRotaMapa(rota, paradas, adminPos);
+    // 5. Renderiza rota no mapa
+    renderizarRota(rota, paradas, adminPos);
 
-    // 6. Posicionar moto
-    const posicaoMoto = adminPos || (paradas.length > 0 && paradas[0].coords ? paradas[0].coords : [-8.05, -34.90]);
-    colocarMotoMapa(posicaoMoto, !ultimaPosAdmin);
+    // 6. Posiciona moto
+    const posMoto = adminPos
+        || (paradas.find(p => p.coords)?.coords)
+        || [-8.05, -34.90];
+    posicionarMoto(posMoto);
 
     // 7. Lista de paradas
+    renderListaParadas(paradas, proxima, minhaParada, etaLabel, etaMin, mediaMin, semRota);
+}
+
+// ---------- RENDERIZAÇÃO ----------
+
+function criarIconeMoto() {
+    // Ícone 🛵 — apenas o emoji gira (motoBearing), mapa fica fixo
+    return L.divIcon({
+        html: `<div style="position:relative;width:60px;height:60px;display:flex;align-items:center;justify-content:center;">
+            <div style="position:absolute;inset:-14px;border-radius:50%;
+                background:radial-gradient(circle,rgba(52,152,219,0.2) 0%,transparent 70%);
+                animation:ondaMoto 2.5s ease-out infinite;pointer-events:none;"></div>
+            <div style="position:absolute;inset:-7px;border-radius:50%;
+                border:2px solid rgba(52,152,219,0.4);
+                animation:anelMoto 2.5s ease-out infinite;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+                width:36px;height:8px;border-radius:50%;background:rgba(0,0,0,0.3);
+                filter:blur(3px);pointer-events:none;"></div>
+            <div style="font-size:34px;line-height:1;
+                transform:rotate(${motoBearing}deg);
+                transition:transform 0.5s ease;
+                filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8)) drop-shadow(0 0 8px rgba(52,152,219,0.7));
+                position:relative;z-index:2;user-select:none;">🛵</div>
+            <style>
+                @keyframes ondaMoto{0%{transform:scale(0.5);opacity:0.8}80%{transform:scale(2.1);opacity:0}100%{transform:scale(0.5);opacity:0}}
+                @keyframes anelMoto{0%{transform:scale(0.6);opacity:1}100%{transform:scale(2.2);opacity:0}}
+            </style>
+        </div>`,
+        className: '', iconSize: [60, 60], iconAnchor: [30, 30]
+    });
+}
+
+function posicionarMoto(pos) {
+    if (!mapaObj || !window.L) return;
+    if (motoMarker) {
+        motoMarker.setLatLng(pos);
+        motoMarker.setIcon(criarIconeMoto());
+    } else {
+        motoMarker = L.marker(pos, { icon: criarIconeMoto(), zIndexOffset: 1000 })
+            .addTo(mapaObj)
+            .bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
+    }
+    // Mapa centraliza na moto — norte sempre fixo para cima
+    if (seguindoMoto) {
+        mapaObj.setView(pos, mapaObj.getZoom() || 17, { animate: true, duration: 0.3 });
+    }
+    ultimaPos = pos;
+}
+
+function renderizarRota(rota, paradas, adminPos) {
+    if (!mapaObj || !window.L) return;
+
+    // Remove tudo exceto tiles
+    mapaObj.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapaObj.removeLayer(l); });
+
+    const FABRICA  = [-8.1837523, -34.9383004];
+    const comCoords = paradas.filter(p => p.coords);
+    const pendentes = paradas.filter(p => p.status !== 'entregue' && p.coords);
+    const proxima   = pendentes[0] || null;
+    const minhaParada = paradas.find(p => p.cliente_phone === user?.phone && p.coords) || null;
+
+    // Linha tracejada vermelha — percurso completo da rota
+    const rotaCompleta = [FABRICA, ...comCoords.map(p => p.coords)];
+    if (rotaCompleta.length >= 2) {
+        L.polyline(rotaCompleta, { color: '#e74c3c', weight: 3, opacity: 0.45, dashArray: '8 6' }).addTo(mapaObj);
+    }
+
+    // Linha azul sólida — moto → próxima parada
+    if (adminPos && proxima?.coords) {
+        L.polyline([adminPos, proxima.coords], { color: '#3498db', weight: 5, opacity: 1 }).addTo(mapaObj);
+        // Seta direcional no meio
+        const mid = [(adminPos[0] + proxima.coords[0]) / 2, (adminPos[1] + proxima.coords[1]) / 2];
+        L.marker(mid, { icon: L.divIcon({
+            html: '<div style="font-size:16px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));">➡️</div>',
+            className: '', iconSize: [22, 22], iconAnchor: [11, 11]
+        })}).addTo(mapaObj);
+    }
+
+    // Marcador da fábrica
+    L.marker(FABRICA, { icon: L.divIcon({
+        html: '<div style="font-size:26px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.8));">🏭</div>',
+        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
+    })}).addTo(mapaObj).bindPopup('<b>🏭 Fábrica</b><br>Ponto de partida');
+
+    // Marcadores das paradas — fixos, sem rotação
+    comCoords.forEach((p, i) => {
+        const isMe     = p.cliente_phone === user?.phone;
+        const entregue = p.status === 'entregue';
+        const isProxima = proxima && p.id === proxima.id;
+        const bg  = entregue ? '#27ae60' : isMe ? '#3498db' : '#c0392b';
+        const tam = isMe ? '38px' : '30px';
+        const lbl = entregue ? '✓' : isMe ? '📍' : String(i + 1);
+        const pulsar = isMe && !entregue;
+
+        const icon = L.divIcon({
+            html: `<div style="width:${tam};height:${tam};border-radius:50%;
+                background:${bg};display:flex;align-items:center;justify-content:center;
+                font-size:13px;font-weight:900;color:white;
+                border:3px solid ${entregue ? 'rgba(255,255,255,0.35)' : 'white'};
+                box-shadow:0 3px 14px rgba(0,0,0,0.55);
+                opacity:${entregue ? '0.45' : '1'};
+                ${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}
+            ">${lbl}</div>
+            <style>@keyframes paradaPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,152,219,0.7)}70%{box-shadow:0 0 0 14px rgba(52,152,219,0)}}</style>`,
+            className: '', iconSize: [38, 38], iconAnchor: [19, 19]
+        });
+
+        const titulo = entregue ? '✅ Entregue' : isMe ? '📍 Sua entrega' : '👤 Cliente';
+        L.marker(p.coords, { icon }).addTo(mapaObj)
+            .bindPopup(`<b>${titulo}</b><br>${p.nome || 'Cliente'}${p.endereco ? '<br>' + p.endereco : ''}`);
+    });
+
+    // Centraliza: moto se disponível, senão fitBounds
+    if (adminPos && seguindoMoto) {
+        mapaObj.setView(adminPos, mapaObj.getZoom() || 17, { animate: false });
+    } else if (!adminPos) {
+        const foco = [proxima?.coords, minhaParada?.coords].filter(Boolean);
+        if (foco.length >= 2)       mapaObj.fitBounds(L.latLngBounds(foco), { padding: [60, 60] });
+        else if (foco.length === 1) mapaObj.setView(foco[0], 15);
+        else if (comCoords.length)  mapaObj.fitBounds(L.latLngBounds([FABRICA, ...comCoords.map(p => p.coords)]), { padding: [50, 50] });
+    }
+}
+
+function renderListaParadas(paradas, proxima, minhaParada, etaLabel, etaMin, mediaMin, semRota) {
     const list = document.getElementById('paradasList');
-    if (paradas.length === 0) {
+    if (!paradas.length) {
         list.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Rota sem paradas cadastradas</div>';
         return;
     }
 
-    // Cabeçalho ETA do cliente
-    list.innerHTML = `<div style="background:${minhaParada ? 'rgba(52,152,219,0.2)' : 'rgba(230,126,34,0.2)'};border:1px solid ${minhaParada ? 'rgba(52,152,219,0.5)' : 'rgba(230,126,34,0.5)'};border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:white;">
-        <div style="font-weight:800;margin-bottom:2px;">${etaLabel}</div>
-        <div style="color:rgba(255,255,255,0.6);">${minhaParada ? '⏱️ Estimativa: <strong style=\"color:white;\">' + etaMin + ' min</strong>' : semRota ? '😕 Você não possui nenhuma rota de entrega.' : '⏳ Aguarde, sua rota será iniciada em breve.'}</div>
-    </div>` +
-    paradas.map((p, i) => {
-        const isMe = p.cliente_phone === user?.phone;
-        const entregue = p.status === 'entregue';
-        const isProxima = proximaParada && p.id === proximaParada.id;
-        const etaP = Math.round((i + 1) * mediaMin);
-        return `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;
-            background:${isMe ? 'rgba(52,152,219,0.25)' : isProxima ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)'};
-            border:${isMe ? '1px solid rgba(52,152,219,0.6)' : isProxima ? '1px solid rgba(230,126,34,0.5)' : '1px solid rgba(255,255,255,0.08)'};">
-            <div style="width:26px;height:26px;border-radius:50%;
-                background:${entregue ? '#27ae60' : isMe ? '#3498db' : isProxima ? '#e67e22' : '#555'};
-                display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:white;flex-shrink:0;">
-                ${entregue ? '✓' : isProxima ? '▶' : i + 1}
-            </div>
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:12px;font-weight:700;color:${isMe ? '#74b9ff' : isProxima ? '#f39c12' : 'rgba(255,255,255,0.85)'};">
-                    ${isMe ? '📍 Você' : (p.nome || 'Cliente')}
-                    ${entregue ? '<span style="font-size:10px;color:#27ae60;margin-left:6px;">✓ Entregue</span>' : ''}
-                    ${isProxima && !entregue ? '<span style="font-size:10px;color:#f39c12;margin-left:6px;">▶ Agora</span>' : ''}
+    const corBanner  = minhaParada ? 'rgba(52,152,219,0.2)'  : 'rgba(230,126,34,0.2)';
+    const bord       = minhaParada ? 'rgba(52,152,219,0.5)'  : 'rgba(230,126,34,0.5)';
+    const subBanner  = minhaParada
+        ? `⏱️ Estimativa: <strong style="color:white;">${etaMin} min</strong>`
+        : semRota
+            ? '😕 Você não possui rota de entrega.'
+            : '⏳ Aguarde, sua rota será iniciada em breve.';
+
+    list.innerHTML = `
+        <div style="background:${corBanner};border:1px solid ${bord};border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:white;">
+            <div style="font-weight:800;margin-bottom:2px;">${etaLabel}</div>
+            <div style="color:rgba(255,255,255,0.6);">${subBanner}</div>
+        </div>` +
+        paradas.map((p, i) => {
+            const isMe      = p.cliente_phone === user?.phone;
+            const entregue  = p.status === 'entregue';
+            const isProxima = proxima && p.id === proxima.id;
+            const cor       = isMe ? '#3498db' : isProxima ? '#e67e22' : '#555';
+            const bgCard    = isMe ? 'rgba(52,152,219,0.25)' : isProxima ? 'rgba(230,126,34,0.15)' : 'rgba(255,255,255,0.05)';
+            const bordCard  = isMe ? '1px solid rgba(52,152,219,0.6)' : isProxima ? '1px solid rgba(230,126,34,0.5)' : '1px solid rgba(255,255,255,0.08)';
+            const lbl       = entregue ? '✓' : isProxima ? '▶' : String(i + 1);
+            const eta       = p.eta_min || Math.round((i + 1) * mediaMin);
+            return `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:${bgCard};border:${bordCard};">
+                <div style="width:26px;height:26px;border-radius:50%;background:${entregue ? '#27ae60' : cor};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:white;flex-shrink:0;">${lbl}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;font-weight:700;color:${isMe ? '#74b9ff' : isProxima ? '#f39c12' : 'rgba(255,255,255,0.85)'};">
+                        ${isMe ? '📍 Você' : (p.nome || 'Cliente')}
+                        ${entregue ? '<span style="font-size:10px;color:#27ae60;margin-left:6px;">✓ Entregue</span>' : ''}
+                        ${isProxima && !entregue ? '<span style="font-size:10px;color:#f39c12;margin-left:6px;">▶ Agora</span>' : ''}
+                    </div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">⏱️ ~${eta} min${p.endereco ? ' · ' + p.endereco : ''}</div>
                 </div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">
-                    ⏱️ ~${etaP} min${p.endereco ? ' · ' + p.endereco : ''}
-                </div>
-            </div>
-        </div>`;
-    }).join('');
+            </div>`;
+        }).join('');
 }
 
-async function atualizarPosicaoMoto() {
-    try {
-        const { data: gpsConfig } = await sb.from("config")
-            .select("value")
-            .eq("key", "admin_gps")
-            .maybeSingle();
-
-        if (!gpsConfig || !gpsConfig.value) {
-            document.getElementById('mapaEtaText').textContent = '📴 Entregador offline';
-            return;
-        }
-
-        const gps = typeof gpsConfig.value === 'string'
-            ? JSON.parse(gpsConfig.value)
-            : gpsConfig.value;
-
-        if (!gps || !gps.lat || !gps.lon) {
-            document.getElementById('mapaEtaText').textContent = '📴 GPS não ativo';
-            return;
-        }
-
-        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
-        const statusEl = document.getElementById('mapaEtaText');
-
-        if (segundos < 15) {
-            statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
-        } else if (segundos < 60) {
-            statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
-        } else {
-            statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
-            return; // posição muito antiga, não move
-        }
-
-        atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
-    } catch(e) { console.warn('polling erro:', e); }
-}
-
-function atualizarPosicaoMotoRealtime(pos, ts) {
-    if (!mapaEntregaObj || !window.L) return;
-
-    // Calcular bearing (direção) entre posição anterior e atual
-    if (ultimaPosAdmin) {
-        const bearing = calcBearing(ultimaPosAdmin, pos);
-        if (Math.abs(pos[0] - ultimaPosAdmin[0]) > 0.000005 || Math.abs(pos[1] - ultimaPosAdmin[1]) > 0.000005) {
-            motoBearing = bearing;
-            // Rotacionar o mapa na direção do movimento (norte = frente da moto)
-            if (mapaEntregaObj.setBearing) {
-                mapaEntregaObj.setBearing(-bearing); // negativo pq mapa gira oposto
-            } else {
-                // Fallback: rotacionar via CSS no container
-                const container = mapaEntregaObj.getContainer();
-                container.style.transform = `rotate(${-bearing}deg)`;
-                container.style.transformOrigin = 'center center';
-            }
-        }
-    }
-
-    // Mover moto suavemente
-    colocarMotoMapa(pos, true);
-
-    // Atualizar label
-    if (ts) {
-        const hora = new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · ${hora}`;
-    }
-}
+// ---------- UTILITÁRIOS ----------
 
 function calcBearing(c1, c2) {
-    const lat1 = c1[0] * Math.PI / 180;
-    const lat2 = c2[0] * Math.PI / 180;
+    const lat1 = c1[0] * Math.PI / 180, lat2 = c2[0] * Math.PI / 180;
     const dLon = (c2[1] - c1[1]) * Math.PI / 180;
     const y = Math.sin(dLon) * Math.cos(lat2);
     const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
     return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
-async function calcularMediaEtaCliente() {
+async function calcularMediaEta() {
     const ontem = new Date();
     ontem.setDate(ontem.getDate() - 1);
-    const ontemStr = ontem.toISOString().split('T')[0];
+    const base = ontem.toISOString().split('T')[0];
     const { data: hist } = await sb.from("delivery_routes")
         .select("paradas, saida_em, fim_em")
-        .gte("created_at", ontemStr + 'T00:00:00')
-        .lte("created_at", ontemStr + 'T23:59:59')
+        .gte("created_at", base + 'T00:00:00')
+        .lte("created_at", base + 'T23:59:59')
         .eq("status", "concluido").limit(5);
-
-    if (hist && hist.length > 0) {
-        const tempos = hist.filter(h => h.saida_em && h.fim_em && h.paradas?.length > 0).map(h => {
-            const mins = (new Date(h.fim_em) - new Date(h.saida_em)) / 60000;
-            return mins / h.paradas.length;
-        });
-        if (tempos.length > 0) return tempos.reduce((a, b) => a + b, 0) / tempos.length;
+    if (hist?.length) {
+        const ts = hist
+            .filter(h => h.saida_em && h.fim_em && h.paradas?.length)
+            .map(h => (new Date(h.fim_em) - new Date(h.saida_em)) / 60000 / h.paradas.length);
+        if (ts.length) return ts.reduce((a, b) => a + b, 0) / ts.length;
     }
-    return 12;
+    return 12; // fallback: 12 min por parada
 }
 
 function calcDist(c1, c2) {
     const R = 6371;
-    const dLat = (c2[0]-c1[0]) * Math.PI/180;
-    const dLon = (c2[1]-c1[1]) * Math.PI/180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function renderizarRotaMapa(rota, paradas, adminPos) {
-    if (!mapaEntregaObj || !window.L) return;
-
-    // Limpar todas as camadas exceto tile
-    mapaEntregaObj.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapaEntregaObj.removeLayer(l); });
-    rotaLayer = null;
-
-    const FABRICA = [-8.1837523, -34.9383004];
-    const todasComCoords = paradas.filter(p => p.coords);
-    const pendentes = paradas.filter(p => p.status !== 'entregue' && p.coords);
-    const proximaParada = pendentes[0] || null;
-    const minhaParada = paradas.find(p => p.cliente_phone === user?.phone && p.coords) || null;
-
-    // ── LINHA VERMELHA: percurso completo da rota (fábrica → todas as paradas)
-    // Mostra o trajeto inteiro que a moto vai/vai percorrer
-    const coordsRotaCompleta = [FABRICA, ...todasComCoords.map(p => p.coords)];
-    if (coordsRotaCompleta.length >= 2) {
-        L.polyline(coordsRotaCompleta, {
-            color: '#e74c3c', weight: 3, opacity: 0.5, dashArray: '8 6'
-        }).addTo(mapaEntregaObj);
-    }
-
-    // ── LINHA AZUL SÓLIDA: percurso atual — de onde a moto está até a próxima parada
-    if (adminPos && proximaParada) {
-        L.polyline([adminPos, proximaParada.coords], {
-            color: '#3498db', weight: 5, opacity: 1
-        }).addTo(mapaEntregaObj);
-
-        // Seta de direção no meio
-        const midLat = (adminPos[0] + proximaParada.coords[0]) / 2;
-        const midLon = (adminPos[1] + proximaParada.coords[1]) / 2;
-        L.marker([midLat, midLon], { icon: L.divIcon({
-            html: '<div style="font-size:16px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));">➡️</div>',
-            className: '', iconSize: [22, 22], iconAnchor: [11, 11]
-        })}).addTo(mapaEntregaObj);
-    }
-
-    // ── MARCADOR DA FÁBRICA (origem)
-    L.marker(FABRICA, { icon: L.divIcon({
-        html: '<div style="font-size:26px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.8));">🏭</div>',
-        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
-    })}).addTo(mapaEntregaObj).bindPopup('<b>🏭 Fábrica</b><br>Ponto de partida');
-
-    // ── MARCADORES DAS PARADAS
-    paradas.filter(p => p.coords).forEach((p, i) => {
-        const isMe = p.cliente_phone === user?.phone;
-        const entregue = p.status === 'entregue';
-        const isProxima = proximaParada && p.id === proximaParada.id;
-
-        let bg, tamanho, label, pulsar;
-        if (entregue)  { bg = '#27ae60'; tamanho = '28px'; label = '✓';  pulsar = false; }
-        else if (isMe) { bg = '#3498db'; tamanho = '38px'; label = '📍'; pulsar = true;  }
-        else           { bg = '#c0392b'; tamanho = '30px'; label = '👤'; pulsar = false; }
-
-        const icon = L.divIcon({
-            html: `<div style="
-                width:${tamanho};height:${tamanho};border-radius:50%;
-                background:${bg};
-                display:flex;align-items:center;justify-content:center;
-                font-size:13px;font-weight:900;color:white;
-                border:3px solid ${entregue ? 'rgba(255,255,255,0.4)' : 'white'};
-                box-shadow:0 3px 14px rgba(0,0,0,0.6);
-                opacity:${entregue ? '0.45' : '1'};
-                ${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}
-            ">${label}</div>
-            <style>@keyframes paradaPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,152,219,0.7)}70%{box-shadow:0 0 0 14px rgba(52,152,219,0)}}</style>`,
-            className: '', iconSize: [38, 38], iconAnchor: [19, 19]
-        });
-
-        const popupTitulo = entregue ? '✅ Entregue' : isMe ? '📍 Sua entrega' : '👤 Cliente';
-        L.marker(p.coords, { icon }).addTo(mapaEntregaObj)
-            .bindPopup(`<b>${popupTitulo}</b><br><span style="font-size:12px;">${p.nome || 'Cliente'}${p.endereco ? '<br>' + p.endereco : ''}</span>`);
-    });
-
-    // ── CENTRALIZAR: mostrar entregador + próxima parada + parada do cliente
-    const pontosFoco = [
-        adminPos,
-        proximaParada?.coords,
-        minhaParada?.coords
-    ].filter(Boolean);
-
-    if (pontosFoco.length >= 2) {
-        mapaEntregaObj.fitBounds(L.latLngBounds(pontosFoco), { padding: [60, 60] });
-    } else if (pontosFoco.length === 1) {
-        mapaEntregaObj.setView(pontosFoco[0], 15);
-    } else if (todasComCoords.length > 0) {
-        mapaEntregaObj.fitBounds(L.latLngBounds([FABRICA, ...todasComCoords.map(p => p.coords)]), { padding: [50, 50] });
-    }
-}
-
-function criarIconeMoto(bearing) {
-    return L.divIcon({
-        html: `
-        <div style="width:54px;height:54px;position:relative;">
-            <!-- Onda de pulso externa -->
-            <div style="
-                position:absolute;inset:-14px;border-radius:50%;
-                background:radial-gradient(circle, rgba(52,152,219,0.25) 0%, transparent 70%);
-                animation:ondaGps 2.2s ease-out infinite;
-            "></div>
-            <!-- Anel pulsante -->
-            <div style="
-                position:absolute;inset:-6px;border-radius:50%;
-                border:2px solid rgba(52,152,219,0.5);
-                animation:anelGps 2.2s ease-out infinite;
-            "></div>
-            <!-- Ícone direcional SVG -->
-            <svg width="54" height="54" viewBox="0 0 54 54"
-                style="transform:rotate(${bearing}deg);transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1);position:relative;z-index:2;">
-                <!-- Sombra difusa -->
-                <circle cx="27" cy="30" r="18" fill="rgba(0,0,0,0.35)" />
-                <!-- Gradiente circular -->
-                <defs>
-                    <radialGradient id="motoGrad" cx="40%" cy="35%" r="65%">
-                        <stop offset="0%" stop-color="#5dade2"/>
-                        <stop offset="100%" stop-color="#1a5276"/>
-                    </radialGradient>
-                    <filter id="glow">
-                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
-                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                    </filter>
-                </defs>
-                <!-- Círculo principal -->
-                <circle cx="27" cy="27" r="18" fill="url(#motoGrad)" stroke="white" stroke-width="2.5" filter="url(#glow)"/>
-                <!-- Seta de navegação -->
-                <polygon points="27,8 35,34 27,29 19,34" fill="white" opacity="0.97"/>
-                <circle cx="27" cy="27" r="3.5" fill="rgba(255,255,255,0.9)"/>
-            </svg>
-        </div>
-        <style>
-            @keyframes ondaGps {
-                0%   { transform:scale(0.6); opacity:0.8; }
-                80%  { transform:scale(1.8); opacity:0; }
-                100% { transform:scale(0.6); opacity:0; }
-            }
-            @keyframes anelGps {
-                0%   { transform:scale(0.7); opacity:1; }
-                100% { transform:scale(1.9); opacity:0; }
-            }
-        </style>`,
-        className: '', iconSize: [54, 54], iconAnchor: [27, 27]
-    });
-}
-
-function colocarMotoMapa(pos, centralizar = false) {
-    if (!mapaEntregaObj || !window.L) return;
-    if (motoMarker) {
-        motoMarker.setLatLng(pos);
-        motoMarker.setIcon(criarIconeMoto(motoBearing));
-    } else {
-        motoMarker = L.marker(pos, {
-            icon: criarIconeMoto(motoBearing),
-            zIndexOffset: 1000
-        }).addTo(mapaEntregaObj).bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
-    }
-    // Só segue a moto se o usuário não mexeu no mapa
-    if (seguindoMoto) {
-        mapaEntregaObj.flyTo(pos, mapaEntregaObj.getZoom() || 17, { duration: 0.6, easeLinearity: 0.5 });
-    }
-    ultimaPosAdmin = pos;
-}
-
-function fecharMapaEntrega() {
-    document.getElementById('modalMapaEntrega').style.display = 'none';
-    clearInterval(gpsUpdateInterval);
-    clearInterval(etaInterval);
-    clearInterval(window._rotaUpdateInterval);
-    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    // Resetar rotação do mapa
-    if (mapaEntregaObj) {
-        const container = mapaEntregaObj.getContainer();
-        container.style.transform = '';
-        if (mapaEntregaObj.setBearing) mapaEntregaObj.setBearing(0);
-    }
-    // Resetar marcador da moto para forçar reposicionamento na próxima abertura
-    if (motoMarker && mapaEntregaObj) {
-        mapaEntregaObj.removeLayer(motoMarker);
-        motoMarker = null;
-    }
-    ultimaPosAdmin = null;
-    seguindoMoto = true;
+    const dLat = (c2[0] - c1[0]) * Math.PI / 180;
+    const dLon = (c2[1] - c1[1]) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180) * Math.cos(c2[0]*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function loadScript(src) {
@@ -1737,6 +1656,8 @@ function loadScript(src) {
         document.head.appendChild(s);
     });
 }
+
+
 
 function atualizarLabelPainel() {
     setTimeout(() => {
