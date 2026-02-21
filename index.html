@@ -606,7 +606,7 @@ async function saveAsFavorite() {
     favorites[user.phone] = { items: { ...cart }, payment: method };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
 
-    // Monta texto e total do pedido salvo
+    // Monta texto e total — mesmo formato dos pedidos reais
     let pedidoTexto = "";
     let total = 0;
     for (let id in cart) {
@@ -617,7 +617,7 @@ async function saveAsFavorite() {
         }
     }
 
-    // Salva no Supabase para o Admin conseguir ler
+    // Persiste no Supabase para o Admin ler em Refazer Pedidos
     try {
         await sb.from("clients").update({
             saved_order: pedidoTexto.trim(),
