@@ -11,11 +11,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            // Limpar cache antigo para garantir versão atualizada
-            navigator.serviceWorker.getRegistrations().then(regs => {
-                regs.forEach(reg => reg.unregister());
-            });
-            caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
             navigator.serviceWorker.register('sw.js').catch(() => {});
         }
     </script>
