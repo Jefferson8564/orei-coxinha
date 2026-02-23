@@ -1293,18 +1293,33 @@ async function abrirMapaEntrega() {
     // Carregar rota e posição imediatamente
     await atualizarMapaCompleto();
 
-    // Parar intervalos anteriores
+    // Parar canais anteriores
     clearInterval(gpsUpdateInterval);
+    clearInterval(window._rotaUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
-    // Polling de posição da moto a cada 2s
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 2000);
+    // ── Realtime: recebe PUSH a cada update do entregador ──
+    // Substitui polling de GPS (2s) e rota (15s) por um único canal
+    realtimeChannel = sb.channel('delivery_routes_mapa')
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'delivery_routes'
+        }, (payload) => {
+            const r = payload.new;
+            // GPS atualizado — move moto imediatamente
+            if (r.gps_lat && r.gps_lon && r.status === 'em_andamento') {
+                atualizarPosicaoMotoRealtime([r.gps_lat, r.gps_lon], r.gps_ts);
+            }
+            // Parada entregue ou rota concluída — atualiza mapa completo
+            if (r.status === 'concluido' || r.phones_entregues?.length > 0) {
+                atualizarMapaCompleto().catch(e => console.warn('Realtime update erro:', e));
+            }
+        })
+        .subscribe();
 
-    // Atualização completa da rota (paradas, ETA, linhas) a cada 15s
-    clearInterval(window._rotaUpdateInterval);
-    window._rotaUpdateInterval = setInterval(() => {
-        atualizarMapaCompleto().catch(e => console.warn('Erro ao atualizar mapa completo:', e));
-    }, 15000);
+    // Fallback: polling leve a cada 10s caso Realtime falhe
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 10000);
 }
 
 function mostrarStatusGps(texto) {
@@ -1314,18 +1329,19 @@ function mostrarStatusGps(texto) {
 
 async function verificarConectividadeGPS() {
     try {
-        const { data, error } = await sb.from("config").select("value, updated_at").eq("key","admin_gps").maybeSingle();
+        const hoje = new Date().toISOString().split('T')[0];
+        const { data } = await sb.from("delivery_routes")
+            .select("gps_lat, gps_lon, gps_ts, status")
+            .in("status", ["em_andamento", "concluido"])
+            .gte("saida_em", hoje + 'T00:00:00')
+            .order("saida_em", { ascending: false })
+            .limit(1).maybeSingle();
         const el = document.getElementById('mapaEtaText');
-        if (error || !data) {
-            if (el) el.textContent = '⚠️ Sem dados de GPS no banco';
-            return;
-        }
-        const gps = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-        if (!gps || !gps.lat || !gps.lon) {
+        if (!data || !data.gps_lat || !data.gps_lon) {
             if (el) el.textContent = '📴 Entregador offline · GPS não ativo';
             return;
         }
-        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
+        const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
         if (segundos < 30) {
             if (el) el.textContent = `🟢 GPS ativo · atualizado há ${segundos}s`;
         } else if (segundos < 120) {
@@ -1337,53 +1353,47 @@ async function verificarConectividadeGPS() {
 }
 
 async function atualizarMapaCompleto() {
-    // 1. Buscar posição GPS do entregador
-    const { data: gpsConfig } = await sb.from("config").select("value").eq("key", "admin_gps").maybeSingle();
-    let adminPos = null;
-    if (gpsConfig && gpsConfig.value) {
-        try { const gps = JSON.parse(gpsConfig.value); if (gps.lat && gps.lon) adminPos = [gps.lat, gps.lon]; } catch(e) {}
-    }
-
-    // 2. Buscar rota em andamento
-    const { data: rotas } = await sb.from("delivery_routes")
-        .select("*").eq("status", "em_andamento")
-        .order("created_at", { ascending: false }).limit(1);
-    const rota = rotas && rotas.length > 0 ? rotas[0] : null;
-    const paradas = rota ? (rota.paradas || []) : [];
-
-    // 2b. Clientes no mapa:
-    //   - Aparece assim que faz pedido
-    //   - Some quando a entrega for concluída
-    //   - Às 11:30 limpa tudo — só mostra pedidos feitos após 11:30 de hoje
-    //   - Antes das 11:30 mostra pedidos de ontem + hoje (quem ainda não foi entregue)
     const agora = new Date();
     const hoje = agora.toISOString().split('T')[0];
     const ontem = new Date(agora - 86400000).toISOString().split('T')[0];
-    const horaAtual = agora.getHours();
-    const minAtual = agora.getMinutes();
-    const depoisDas1130 = horaAtual > 11 || (horaAtual === 11 && minAtual >= 30);
+    const depoisDas1130 = agora.getHours() > 11 || (agora.getHours() === 11 && agora.getMinutes() >= 30);
 
-    // Janela de pedidos: após 11:30 só mostra pedidos de hoje após 11:30
-    // Antes das 11:30 mostra ontem + hoje (pedidos pendentes do dia anterior)
-    const inicioJanela = depoisDas1130
-        ? hoje + 'T11:30:00'
-        : ontem + 'T11:30:00';
+    // ── UM ÚNICO SELECT: tudo que o cardápio precisa vem da delivery_routes ──
+    const { data: rotas } = await sb.from("delivery_routes")
+        .select("*")
+        .in("status", ["em_andamento", "concluido", "criada", "aguardando"])
+        .gte("created_at", hoje + 'T00:00:00')
+        .order("hora_saida", { ascending: true });
 
-    // Phones entregues dentro da janela ativa
-    const rotasFrom = depoisDas1130
-        ? hoje + 'T11:30:00'
-        : ontem + 'T11:30:00';
-    const { data: todasRotasEntregas } = await sb.from("delivery_routes")
-        .select("paradas")
-        .in("status", ["em_andamento", "concluido"])
-        .gte("saida_em", rotasFrom);
-    const phonesEntreguesHoje = new Set(
-        (todasRotasEntregas || []).flatMap(r => (r.paradas || []))
-            .filter(p => p.status === 'entregue' && p.cliente_phone)
-            .map(p => p.cliente_phone)
-    );
+    // Rota ativa: em_andamento primeiro, senão mais recente concluída hoje
+    const rota = (rotas || []).find(r => r.status === 'em_andamento')
+              || (rotas || []).find(r => r.status === 'concluido')
+              || null;
+    const paradas = rota ? (rota.paradas || []) : [];
 
-    // Pedidos dentro da janela ativa
+    // GPS vem direto da rota ativa
+    let adminPos = null;
+    if (rota && rota.gps_lat && rota.gps_lon) {
+        adminPos = [rota.gps_lat, rota.gps_lon];
+    }
+
+    // phones_entregues vem da coluna — sem SELECT extra
+    const phonesEntreguesHoje = new Set(rota?.phones_entregues || []);
+
+    // janela_inicio vem da coluna — sem calcular no front
+    const inicioJanela = rota?.janela_inicio
+        ? rota.janela_inicio.replace('Z','').replace('+00:00','')
+        : (depoisDas1130 ? hoje + 'T11:30:00' : ontem + 'T11:30:00');
+
+    // proximas_rotas vem da coluna — sem SELECT extra
+    const rotasOrdenadas = [
+        ...(rota ? [rota] : []),
+        ...((rota?.proximas_rotas || []).map(r => ({
+            ...r, paradas: [], status: 'criada'
+        })))
+    ];
+
+    // Pedidos dentro da janela (apenas SELECT de orders + clients)
     let clientesComPedido = [];
     const { data: pedidosHoje } = await sb.from("orders")
         .select("customer_phone")
@@ -1406,6 +1416,7 @@ async function atualizarMapaCompleto() {
             }));
     }
 
+    // Sem rota e sem GPS
     if (!adminPos && !rota) {
         document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
         document.getElementById('etaValor').textContent = '--';
@@ -1415,20 +1426,24 @@ async function atualizarMapaCompleto() {
         return;
     }
 
-    // 3. Buscar TODAS as rotas ativas ordenadas por hora_saida
-    const { data: todasRotas } = await sb.from("delivery_routes")
-        .select("paradas, status, nome, hora_saida")
-        .in("status", ["criada", "em_andamento", "aguardando"])
-        .order("hora_saida", { ascending: true });
+    // Rota concluída — entregador voltou à fábrica
+    if (rota && rota.status === 'concluido') {
+        const FABRICA = [-8.1837523, -34.9383004];
+        document.getElementById('mapaEtaText').textContent = '🏭 Entregador retornou à fábrica';
+        document.getElementById('etaValor').textContent = '✅';
+        document.getElementById('distanciaValor').textContent = '--';
+        document.getElementById('paradasRestantesValor').textContent = '0';
+        colocarMotoMapa(adminPos || FABRICA, 0);
+        renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido);
+        return;
+    }
 
-    // Ordena: em_andamento primeiro, depois as demais por hora_saida
-    const rotasOrdenadas = [...(todasRotas || [])].sort((a, b) => {
-        if (a.status === 'em_andamento') return -1;
-        if (b.status === 'em_andamento') return 1;
-        return (a.hora_saida || '').localeCompare(b.hora_saida || '');
-    });
+    // ── ETA: usa proximas_rotas da coluna ──────────────────────────────────
+    const VELOCIDADE_KMH = 25;
+    const TEMPO_POR_PARADA_MIN = 2;
+    const FABRICA = [-8.1837523, -34.9383004];
+    const pendentes = paradas.filter(p => p.status !== 'entregue');
 
-    // Descobrir em qual rota o cliente está e qual índice
     let minhaRota = null, minhaRotaIdx = -1, paradaIdx = -1, minhaParada = null;
     for (let ri = 0; ri < rotasOrdenadas.length; ri++) {
         const ps = rotasOrdenadas[ri].paradas || [];
@@ -1437,59 +1452,37 @@ async function atualizarMapaCompleto() {
     }
     const clienteNaRota = minhaRota !== null;
 
-    // 4. Calcular ETA somando todas as rotas anteriores + paradas antes de mim na minha rota
-    const VELOCIDADE_KMH = 25;
-    const TEMPO_POR_PARADA_MIN = 2;
-    const FABRICA = [-8.1837523, -34.9383004];
-
-    const pendentes = paradas.filter(p => p.status !== 'entregue');
-
-    let etaMin = null;
-    let distanciaTotal = null;
-    let totalNaFrente = 0;
-    let semRota = false;
+    let etaMin = null, distanciaTotal = null, totalNaFrente = 0, semRota = false;
 
     if (minhaParada && minhaParada.coords) {
-        // Monta sequência completa de pontos até chegar em mim
         const sequencia = [];
         const origem = adminPos || FABRICA;
         sequencia.push(origem);
 
-        // Rotas que vêm ANTES da minha (ainda não concluídas)
         for (let ri = 0; ri < minhaRotaIdx; ri++) {
             const ps = (rotasOrdenadas[ri].paradas || []).filter(p => p.status !== 'entregue' && p.coords);
             ps.forEach(p => { sequencia.push(p.coords); totalNaFrente++; });
-            // Volta à fábrica entre rotas (entregador retorna antes de iniciar próxima)
             if (ps.length > 0) sequencia.push(FABRICA);
         }
 
-        // Paradas pendentes da MINHA rota que vêm antes de mim
-        const minhaRotaParadas = minhaRota.paradas || [];
-        const parasAntesMim = minhaRotaParadas
+        const parasAntesMim = (minhaRota.paradas || [])
             .slice(0, paradaIdx)
             .filter(p => p.status !== 'entregue' && p.coords);
         parasAntesMim.forEach(p => { sequencia.push(p.coords); totalNaFrente++; });
-
-        // Meu ponto
         sequencia.push(minhaParada.coords);
 
-        // Soma distâncias segmento a segmento
         let kmTotal = 0;
-        for (let i = 0; i < sequencia.length - 1; i++) {
-            kmTotal += calcDist(sequencia[i], sequencia[i + 1]);
-        }
+        for (let i = 0; i < sequencia.length - 1; i++) kmTotal += calcDist(sequencia[i], sequencia[i + 1]);
         distanciaTotal = kmTotal;
-
         const minViagem = (kmTotal / VELOCIDADE_KMH) * 60;
         const minParadas = totalNaFrente * TEMPO_POR_PARADA_MIN;
         etaMin = Math.max(1, Math.round(minViagem + minParadas));
-
     } else if (!clienteNaRota) {
         semRota = true;
     }
 
     const proximaParada = pendentes[0] || null;
-    window._proximaParadaCache = proximaParada; // cache para recálculo em tempo real
+    window._proximaParadaCache = proximaParada;
 
     document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
     document.getElementById('paradasRestantesValor').textContent = pendentes.length;
@@ -1497,31 +1490,25 @@ async function atualizarMapaCompleto() {
         ? `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`
         : `✅ Todas as entregas concluídas`;
 
-    // Distância total do percurso até o cliente
     if (distanciaTotal !== null) {
         document.getElementById('distanciaValor').textContent = distanciaTotal.toFixed(1) + ' km';
     } else {
         document.getElementById('distanciaValor').textContent = '--';
     }
 
-    // 5. Renderizar mapa com linhas coloridas
     renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido);
 
-    // 6. Posicionar moto com rotação para a próxima parada
     const posicaoMoto = adminPos || (paradas.length > 0 && paradas[0].coords ? paradas[0].coords : [-8.05, -34.90]);
-    const bearingMoto = (adminPos && proximaParada?.coords)
-        ? calcBearing(adminPos, proximaParada.coords)
-        : 0;
+    const bearingMoto = (adminPos && proximaParada?.coords) ? calcBearing(adminPos, proximaParada.coords) : 0;
     colocarMotoMapa(posicaoMoto, bearingMoto);
 
-    // 7. Painel inferior — sem expor nomes/números
+    // ── Card status do cliente ──
     const list = document.getElementById('paradasList');
     const resumoEl = document.getElementById('paradasResumo');
     const clienteCard = document.getElementById('clienteStatusCard');
     const clienteText = document.getElementById('clienteStatusText');
     const clienteSub  = document.getElementById('clienteStatusSub');
 
-    // ── Card de status do cliente logado ──
     if (minhaParada) {
         clienteCard.style.display = 'block';
         clienteCard.style.background = 'rgba(52,152,219,0.15)';
@@ -1547,27 +1534,24 @@ async function atualizarMapaCompleto() {
         clienteSub.textContent = `Aguarde o início da sua rota`;
     }
 
-    // ── Resumo numérico (3 cards) ──
     const totalParadas = paradas.length;
     const entregues = paradas.filter(p => p.status === 'entregue').length;
     const restantes = totalParadas - entregues;
     resumoEl.innerHTML = [
-        { val: restantes,                                          label: 'restantes',     cor: '#f39c12' },
-        { val: minhaParada ? totalNaFrente : '--',                 label: 'na sua frente', cor: '#3498db' },
-        { val: etaMin !== null ? etaMin + ' min' : '--', label: 'estimativa',   cor: '#27ae60' },
+        { val: restantes,                                label: 'restantes',     cor: '#f39c12' },
+        { val: minhaParada ? totalNaFrente : '--',      label: 'na sua frente', cor: '#3498db' },
+        { val: etaMin !== null ? etaMin + ' min' : '--', label: 'estimativa',  cor: '#27ae60' },
     ].map(c => `
         <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:10px 6px;text-align:center;border:1px solid rgba(255,255,255,0.07);">
             <div style="font-size:20px;font-weight:900;color:${c.cor};line-height:1;">${c.val}</div>
             <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:3px;">${c.label}</div>
         </div>`).join('');
 
-    // ── Rotas ativas com pontos anônimos (sem nome, sem número) ──
     if (!rota || paradas.length === 0) {
         list.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px;">Nenhuma rota em andamento</div>';
         return;
     }
 
-    // Cada rota mostra: nome da rota, barra de progresso, bolinhas anônimas
     const totalRota = paradas.length;
     const entreguesRota = paradas.filter(p => p.status === 'entregue').length;
     const pct = totalRota > 0 ? Math.round(entreguesRota / totalRota * 100) : 0;
@@ -1575,7 +1559,7 @@ async function atualizarMapaCompleto() {
     const bolinhas = paradas.map((p, i) => {
         const isMe = p.cliente_phone === user?.phone;
         const entregue = p.status === 'entregue';
-        if (entregue) return ''; // Entregues somem das bolinhas
+        if (entregue) return '';
         const isProx = proximaParada && p.id === proximaParada.id;
         let bg = isMe ? '#3498db' : isProx ? '#f39c12' : 'rgba(255,255,255,0.2)';
         let border = isMe ? '2px solid white' : 'none';
@@ -1603,38 +1587,30 @@ async function atualizarMapaCompleto() {
 
 async function atualizarPosicaoMoto() {
     try {
-        const { data: gpsConfig } = await sb.from("config")
-            .select("value")
-            .eq("key", "admin_gps")
-            .maybeSingle();
+        const hoje = new Date().toISOString().split('T')[0];
+        const { data } = await sb.from("delivery_routes")
+            .select("gps_lat, gps_lon, gps_ts, status")
+            .in("status", ["em_andamento"])
+            .gte("saida_em", hoje + 'T00:00:00')
+            .order("saida_em", { ascending: false })
+            .limit(1).maybeSingle();
 
-        if (!gpsConfig || !gpsConfig.value) {
-            document.getElementById('mapaEtaText').textContent = '📴 Entregador offline';
-            return;
-        }
-
-        const gps = typeof gpsConfig.value === 'string'
-            ? JSON.parse(gpsConfig.value)
-            : gpsConfig.value;
-
-        if (!gps || !gps.lat || !gps.lon) {
-            document.getElementById('mapaEtaText').textContent = '📴 GPS não ativo';
-            return;
-        }
-
-        const segundos = Math.round((Date.now() - new Date(gps.ts).getTime()) / 1000);
         const statusEl = document.getElementById('mapaEtaText');
+        if (!data || !data.gps_lat || !data.gps_lon) {
+            statusEl.textContent = '📴 Entregador offline';
+            return;
+        }
 
+        const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
         if (segundos < 15) {
             statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
         } else if (segundos < 60) {
             statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
         } else {
             statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
-            return; // posição muito antiga, não move
+            return;
         }
-
-        atualizarPosicaoMotoRealtime([gps.lat, gps.lon], gps.ts);
+        atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts);
     } catch(e) { console.warn('polling erro:', e); }
 }
 
