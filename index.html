@@ -415,6 +415,10 @@ function ontemStr() {
   const local = new Date(d.getTime() + (offset - d.getTimezoneOffset()) * 60000);
   return local.toISOString().split('T')[0];
 }
+function horasBRT(d) {
+  const offset = -3 * 60;
+  return new Date((d || new Date()).getTime() + (offset - (d || new Date()).getTimezoneOffset()) * 60000);
+}
 
 // ===== TOAST =====
 let toastTimer = null;
@@ -710,20 +714,6 @@ function pedirFavorito() {
     setTimeout(() => showPayModal(), 200);
 }
 
-function orderFavoriteWhatsApp() {
-    const fav = favorites[user.phone];
-    if (!fav || !fav.saved_order) return;
-
-    const total = Number(fav.saved_order_total) || 0;
-    let msg = msgTemplate
-        .replace('{nome}', user.name.toUpperCase())
-        .replace('{pedido}', fav.saved_order)
-        .replace('{total}', total.toFixed(2).replace('.', ','))
-        .replace('{pagamento}', method);
-    document.getElementById('favModal').classList.remove('active');
-    window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
-}
-
 // ===== PAGAMENTO =====
 function showPayModal() {
     document.getElementById('payModal').classList.add('active');
@@ -812,6 +802,45 @@ async function confirmOrder() {
         payment_method: method,
         items: pedidoTexto
     });
+
+    // ===== ROTA ESPECIAL: adiciona cliente na fila diretamente =====
+    try {
+        const { data: cfgData } = await sb.from('app_config').select('valor').eq('chave','rota_especial').maybeSingle();
+        if (cfgData) {
+            const cfg = JSON.parse(cfgData.valor);
+            // Verifica se está ativa e dentro do horário
+            if (cfg?.ativa) {
+                const agora = new Date();
+                const brt = new Date(agora.getTime() + (-3*60 - agora.getTimezoneOffset())*60000);
+                const hora = brt.toISOString().substring(11,16);
+                const dia = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][brt.getDay()];
+                const dentroHorario = hora >= cfg.hora_inicio && hora <= cfg.hora_fim;
+                const dentroDia = !cfg.dias?.length || cfg.dias.includes(dia);
+                if (dentroHorario && dentroDia) {
+                    // Busca endereço do cliente
+                    const { data: cli } = await sb.from('clients').select('delivery_lat,delivery_lon,delivery_address').eq('phone', user.phone).maybeSingle();
+                    if (cli?.delivery_lat && cli?.delivery_lon) {
+                        const fila = cfg.clientes_fila || [];
+                        // Evita duplicata
+                        if (!fila.find(x => x.phone === user.phone && x.status === 'pendente')) {
+                            fila.push({
+                                id: Date.now().toString(),
+                                phone: user.phone,
+                                nome: user.name,
+                                endereco: cli.delivery_address || `${cli.delivery_lat}, ${cli.delivery_lon}`,
+                                coords: [parseFloat(cli.delivery_lat), parseFloat(cli.delivery_lon)],
+                                hora_pedido: hora,
+                                status: 'pendente'
+                            });
+                            cfg.clientes_fila = fila;
+                            await sb.from('app_config').upsert({ chave:'rota_especial', valor: JSON.stringify(cfg) }, { onConflict:'chave' });
+                        }
+                    }
+                }
+            }
+        }
+    } catch(e) { console.warn('Rota especial:', e); }
+    // ===== FIM ROTA ESPECIAL =====
 
     // Atualizar dívida do cliente
     await sb.from("clients").update({ debt: newDebt }).eq("phone", user.phone);
@@ -1013,7 +1042,7 @@ async function salvarPrivacidade(valor) {
 
 function _fmtData(iso) {
     if (!iso) return '—';
-    const dt = new Date(iso);
+    const dt = horasBRT(new Date(iso));
     const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const diaSem = dias[dt.getDay()];
@@ -1023,12 +1052,6 @@ function _fmtData(iso) {
     const hora   = String(dt.getHours()).padStart(2,'0');
     const min    = String(dt.getMinutes()).padStart(2,'0');
     return `${diaSem}, ${dia} ${mes} ${ano} · ${hora}:${min}`;
-}
-
-function _spinnerHTML() {
-    return `<div style="text-align:center;padding:20px;">
-        <div class="spinner" style="margin:0 auto;width:26px;height:26px;border-width:3px;border-color:rgba(0,0,0,0.08);border-top-color:#6c3483;"></div>
-    </div>`;
 }
 
 async function renderHistoricoSaldo() {
@@ -1340,11 +1363,6 @@ async function abrirMapaEntrega() {
     gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 10000);
 }
 
-function mostrarStatusGps(texto) {
-    const el = document.getElementById('mapaEtaText');
-    if (el) el.textContent = texto;
-}
-
 async function verificarConectividadeGPS() {
     try {
         const hoje = hojeStr();
@@ -1374,7 +1392,7 @@ async function atualizarMapaCompleto() {
     const agora = new Date();
     const hoje = hojeStr();
     const ontem = ontemStr();
-    const depoisDas1130 = agora.getHours() > 11 || (agora.getHours() === 11 && agora.getMinutes() >= 30);
+    const depoisDas1130 = horasBRT(agora).getHours() > 11 || (horasBRT(agora).getHours() === 11 && horasBRT(agora).getMinutes() >= 30);
 
     // ── UM ÚNICO SELECT: tudo que o cardápio precisa vem da delivery_routes ──
     const { data: rotas } = await sb.from("delivery_routes")
@@ -1704,26 +1722,6 @@ function calcBearing(c1, c2) {
     const y = Math.sin(dLon) * Math.cos(lat2);
     const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
     return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
-}
-
-async function calcularMediaEtaCliente() {
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
-    const ontemStrData = ontemStr();
-    const { data: hist } = await sb.from("delivery_routes")
-        .select("paradas, saida_em, fim_em")
-        .gte("created_at", ontemStrData + 'T00:00:00')
-        .lte("created_at", ontemStrData + 'T23:59:59')
-        .eq("status", "concluido").limit(5);
-
-    if (hist && hist.length > 0) {
-        const tempos = hist.filter(h => h.saida_em && h.fim_em && h.paradas?.length > 0).map(h => {
-            const mins = (new Date(h.fim_em) - new Date(h.saida_em)) / 60000;
-            return mins / h.paradas.length;
-        });
-        if (tempos.length > 0) return tempos.reduce((a, b) => a + b, 0) / tempos.length;
-    }
-    return 12;
 }
 
 function calcDist(c1, c2) {
