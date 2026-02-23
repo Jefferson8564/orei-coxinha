@@ -398,6 +398,24 @@ const ADMIN_NUM = "81996603348";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ===== FUSO HORÁRIO BRASÍLIA (GMT-3) =====
+function agoraISO() {
+  const now = new Date();
+  const offset = -3 * 60;
+  const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
+  return local.toISOString().replace('Z', '-03:00');
+}
+function hojeStr() {
+  return agoraISO().split('T')[0];
+}
+function ontemStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const offset = -3 * 60;
+  const local = new Date(d.getTime() + (offset - d.getTimezoneOffset()) * 60000);
+  return local.toISOString().split('T')[0];
+}
+
 // ===== TOAST =====
 let toastTimer = null;
 function showToast(msg, type = 'success', duration = 2500) {
@@ -1329,7 +1347,7 @@ function mostrarStatusGps(texto) {
 
 async function verificarConectividadeGPS() {
     try {
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = hojeStr();
         const { data } = await sb.from("delivery_routes")
             .select("gps_lat, gps_lon, gps_ts, status")
             .in("status", ["em_andamento", "concluido"])
@@ -1354,8 +1372,8 @@ async function verificarConectividadeGPS() {
 
 async function atualizarMapaCompleto() {
     const agora = new Date();
-    const hoje = agora.toISOString().split('T')[0];
-    const ontem = new Date(agora - 86400000).toISOString().split('T')[0];
+    const hoje = hojeStr();
+    const ontem = ontemStr();
     const depoisDas1130 = agora.getHours() > 11 || (agora.getHours() === 11 && agora.getMinutes() >= 30);
 
     // ── UM ÚNICO SELECT: tudo que o cardápio precisa vem da delivery_routes ──
@@ -1587,7 +1605,7 @@ async function atualizarMapaCompleto() {
 
 async function atualizarPosicaoMoto() {
     try {
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = hojeStr();
         const { data } = await sb.from("delivery_routes")
             .select("gps_lat, gps_lon, gps_ts, status")
             .in("status", ["em_andamento"])
@@ -1691,11 +1709,11 @@ function calcBearing(c1, c2) {
 async function calcularMediaEtaCliente() {
     const ontem = new Date();
     ontem.setDate(ontem.getDate() - 1);
-    const ontemStr = ontem.toISOString().split('T')[0];
+    const ontemStrData = ontemStr();
     const { data: hist } = await sb.from("delivery_routes")
         .select("paradas, saida_em, fim_em")
-        .gte("created_at", ontemStr + 'T00:00:00')
-        .lte("created_at", ontemStr + 'T23:59:59')
+        .gte("created_at", ontemStrData + 'T00:00:00')
+        .lte("created_at", ontemStrData + 'T23:59:59')
         .eq("status", "concluido").limit(5);
 
     if (hist && hist.length > 0) {
