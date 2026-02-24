@@ -1466,18 +1466,21 @@ async function atualizarMapaCompleto() {
         })))
     ];
 
-    // Pedidos dentro da janela (apenas SELECT de orders + clients)
+    // Todos os pedidos de hoje (dia inteiro, fuso BRT correto)
     let clientesComPedido = [];
-    const { data: pedidosHoje } = await sb.from("orders")
+    const { data: pedidosHoje, error: errPedidos } = await sb.from("orders")
         .select("customer_phone")
-        .gte("created_at", inicioJanela)
+        .gte("created_at", hoje + 'T00:00:00-03:00')
         .lte("created_at", hoje + 'T23:59:59-03:00');
+    console.log("pedidosHoje:", pedidosHoje, "erro:", errPedidos);
     const phonesComPedido = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
+    console.log("phonesComPedido:", phonesComPedido);
 
     if (phonesComPedido.length > 0) {
-        const { data: clientesData } = await sb.from("clients")
+        const { data: clientesData, error: errClientes } = await sb.from("clients")
             .select("phone, delivery_lat, delivery_lon")
             .in("phone", phonesComPedido);
+        console.log("clientesData:", clientesData, "erro:", errClientes);
         clientesComPedido = (clientesData || [])
             .filter(c => c.delivery_lat && c.delivery_lon)
             .filter(c => !phonesEntreguesHoje.has(c.phone))
@@ -1487,15 +1490,22 @@ async function atualizarMapaCompleto() {
                 isMe: c.phone === user?.phone,
                 naRota: paradas.some(p => p.cliente_phone === c.phone && p.status !== 'entregue')
             }));
+        console.log("clientesComPedido final:", clientesComPedido);
     }
 
-    // Sem rota e sem GPS
+    // Sem rota e sem GPS — mas mostra o mapa com quem já pediu
     if (!adminPos && !rota) {
-        document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
+        const qtd = clientesComPedido.length;
+        document.getElementById('mapaEtaText').textContent = qtd > 0
+            ? `📦 ${qtd} cliente${qtd > 1 ? 's' : ''} aguardando entrega`
+            : 'Nenhum pedido no momento';
         document.getElementById('etaValor').textContent = '--';
         document.getElementById('distanciaValor').textContent = '--';
-        document.getElementById('paradasRestantesValor').textContent = '--';
-        document.getElementById('paradasList').innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
+        document.getElementById('paradasRestantesValor').textContent = qtd > 0 ? qtd : '--';
+        document.getElementById('paradasList').innerHTML = qtd > 0
+            ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Rota ainda não iniciada</div>'
+            : '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando pedidos...</div>';
+        if (qtd > 0) renderizarRotaMapa(null, [], null, clientesComPedido);
         return;
     }
 
