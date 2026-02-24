@@ -1339,9 +1339,8 @@ async function abrirMapaEntrega() {
     clearInterval(window._rotaUpdateInterval);
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
-    // ── Realtime: recebe PUSH a cada update do entregador ──
-    // Substitui polling de GPS (2s) e rota (15s) por um único canal
-    realtimeChannel = sb.channel('delivery_routes_mapa')
+    // ── Realtime: escuta delivery_routes E app_config (GPS avulso) ──
+    realtimeChannel = sb.channel('cardapio_live')
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
@@ -1357,10 +1356,24 @@ async function abrirMapaEntrega() {
                 atualizarMapaCompleto().catch(e => console.warn('Realtime update erro:', e));
             }
         })
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'app_config',
+            filter: 'chave=eq.entregador_gps'
+        }, (payload) => {
+            // GPS avulso (entregador sem rota ativa) — atualiza posição no mapa
+            try {
+                const g = JSON.parse(payload.new.valor);
+                if (g.lat && g.lon) {
+                    atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
+                }
+            } catch(e) {}
+        })
         .subscribe();
 
-    // Fallback: polling leve a cada 10s caso Realtime falhe
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 10000);
+    // Fallback: polling a cada 8s caso Realtime falhe
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 8000);
 }
 
 async function verificarConectividadeGPS() {
@@ -1648,6 +1661,9 @@ async function atualizarMapaCompleto() {
 async function atualizarPosicaoMoto() {
     try {
         const hoje = hojeStr();
+        const statusEl = document.getElementById('mapaEtaText');
+
+        // 1) Tenta rota em andamento
         const { data } = await sb.from("delivery_routes")
             .select("gps_lat, gps_lon, gps_ts, status")
             .in("status", ["em_andamento"])
@@ -1655,22 +1671,34 @@ async function atualizarPosicaoMoto() {
             .order("saida_em", { ascending: false })
             .limit(1).maybeSingle();
 
-        const statusEl = document.getElementById('mapaEtaText');
-        if (!data || !data.gps_lat || !data.gps_lon) {
-            statusEl.textContent = '📴 Entregador offline';
+        if (data?.gps_lat && data?.gps_lon) {
+            const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
+            if (segundos < 15) {
+                statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
+            } else if (segundos < 60) {
+                statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
+            } else {
+                statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
+                return;
+            }
+            atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts);
             return;
         }
 
-        const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
-        if (segundos < 15) {
-            statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
-        } else if (segundos < 60) {
-            statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
-        } else {
-            statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
-            return;
+        // 2) Fallback: GPS avulso salvo no app_config (entregador sem rota)
+        const { data: gpsAvulso } = await sb.from("app_config")
+            .select("valor").eq("chave", "entregador_gps").maybeSingle();
+        if (gpsAvulso?.valor) {
+            const g = JSON.parse(gpsAvulso.valor);
+            const segundos = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
+            if (g.lat && g.lon && segundos < 120) {
+                statusEl.textContent = `🟡 Entregador disponível · há ${segundos}s`;
+                atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
+                return;
+            }
         }
-        atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts);
+
+        statusEl.textContent = '📴 Entregador offline';
     } catch(e) { console.warn('polling erro:', e); }
 }
 
