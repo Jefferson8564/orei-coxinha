@@ -11,65 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-                navigator.serviceWorker.addEventListener('message', e => {
-                    if (e.data?.acao === 'abrir_mapa') {
-                        setTimeout(() => {
-                            if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
-                        }, 800);
-                    }
-                });
-            }).catch(() => {});
-
-            if (location.search.includes('abrir=mapa')) {
-                window.addEventListener('load', () => {
-                    setTimeout(() => {
-                        if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
-                    }, 1500);
-                });
-            }
-        }
-    </script>
-
-    <!-- ===== PUSH NOTIFICATIONS ===== -->
-    <script>
-        const VAPID_PUBLIC_KEY = 'BKpzD-7woo7ZrHNYEfFt4skqJulNk4k5ScyQh36tx0bTgIpQrPw1zMCdC6wiMz0snI_oBzFARr6qFPTWTkVf73Q';
-
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-        }
-
-        async function ativarNotificacoesPush(phone) {
-            try {
-                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                const permissao = await Notification.requestPermission();
-                if (permissao !== 'granted') return;
-
-                const reg = await navigator.serviceWorker.ready;
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                    });
-                }
-
-                await fetch('https://vpeyqgijajywgswmezlh.supabase.co/functions/v1/salvar-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ'
-                    },
-                    body: JSON.stringify({ phone, subscription: sub.toJSON() })
-                });
-
-                console.log('Push ativado para', phone);
-            } catch(err) {
-                console.warn('Push nao ativado:', err);
-            }
+            navigator.serviceWorker.register('sw.js').catch(() => {});
         }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -558,8 +500,6 @@ window.onload = async () => {
             checkFavoriteBtn();
             carregarPrivacidade();
             await loadProducts();
-            // Reativa push para quem já estava logado
-            ativarNotificacoesPush(savedPhone);
             return;
         }
     }
@@ -634,9 +574,6 @@ async function auth() {
     carregarPrivacidade();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
-
-    // Ativa push notifications para o cliente logado
-    ativarNotificacoesPush(phone);
 }
 
 function showLoginError(msg) {
@@ -1406,14 +1343,12 @@ async function abrirMapaEntrega() {
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
     // ── Realtime: escuta delivery_routes E app_config (GPS avulso) ──
-    let realtimeConectado = false;
-    realtimeChannel = sb.channel('cardapio_live_v2')
+    realtimeChannel = sb.channel('cardapio_live')
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
             table: 'delivery_routes'
         }, (payload) => {
-            realtimeConectado = true;
             const r = payload.new;
             // GPS atualizado — move moto imediatamente
             if (r.gps_lat && r.gps_lon && r.status === 'em_andamento') {
@@ -1427,26 +1362,21 @@ async function abrirMapaEntrega() {
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
-            table: 'app_config'
+            table: 'app_config',
+            filter: 'chave=eq.entregador_gps'
         }, (payload) => {
             // GPS avulso (entregador sem rota ativa) — atualiza posição no mapa
             try {
-                if (payload.new?.chave !== 'entregador_gps') return;
                 const g = JSON.parse(payload.new.valor);
                 if (g.lat && g.lon) {
-                    realtimeConectado = true;
                     atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
                 }
             } catch(e) {}
         })
-        .subscribe((status) => {
-            console.log('Realtime status:', status);
-            if (status === 'SUBSCRIBED') realtimeConectado = true;
-        });
+        .subscribe();
 
-    // Polling imediato + a cada 5s (robusto mesmo sem Realtime)
-    await atualizarPosicaoMoto();
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 5000);
+    // Fallback: polling a cada 8s caso Realtime falhe
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 8000);
 }
 
 function setGpsBadge(ativo) {
