@@ -1406,12 +1406,14 @@ async function abrirMapaEntrega() {
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
 
     // ── Realtime: escuta delivery_routes E app_config (GPS avulso) ──
-    realtimeChannel = sb.channel('cardapio_live')
+    let realtimeConectado = false;
+    realtimeChannel = sb.channel('cardapio_live_v2')
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
             table: 'delivery_routes'
         }, (payload) => {
+            realtimeConectado = true;
             const r = payload.new;
             // GPS atualizado — move moto imediatamente
             if (r.gps_lat && r.gps_lon && r.status === 'em_andamento') {
@@ -1425,21 +1427,26 @@ async function abrirMapaEntrega() {
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
-            table: 'app_config',
-            filter: 'chave=eq.entregador_gps'
+            table: 'app_config'
         }, (payload) => {
             // GPS avulso (entregador sem rota ativa) — atualiza posição no mapa
             try {
+                if (payload.new?.chave !== 'entregador_gps') return;
                 const g = JSON.parse(payload.new.valor);
                 if (g.lat && g.lon) {
+                    realtimeConectado = true;
                     atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
                 }
             } catch(e) {}
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('Realtime status:', status);
+            if (status === 'SUBSCRIBED') realtimeConectado = true;
+        });
 
-    // Fallback: polling a cada 8s caso Realtime falhe
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 8000);
+    // Polling imediato + a cada 5s (robusto mesmo sem Realtime)
+    await atualizarPosicaoMoto();
+    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 5000);
 }
 
 function setGpsBadge(ativo) {
