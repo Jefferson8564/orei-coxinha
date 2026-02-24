@@ -1369,11 +1369,22 @@ async function verificarConectividadeGPS() {
         const { data } = await sb.from("delivery_routes")
             .select("gps_lat, gps_lon, gps_ts, status")
             .in("status", ["em_andamento", "concluido"])
-            .gte("saida_em", hoje + 'T00:00:00')
+            .gte("saida_em", hoje + 'T00:00:00-03:00')
             .order("saida_em", { ascending: false })
             .limit(1).maybeSingle();
         const el = document.getElementById('mapaEtaText');
         if (!data || !data.gps_lat || !data.gps_lon) {
+            // Tenta posição avulsa como fallback
+            try {
+                const { data: gpsAvulso } = await sb.from("app_config")
+                    .select("valor").eq("chave", "entregador_gps").maybeSingle();
+                if (gpsAvulso?.valor) {
+                    const g = JSON.parse(gpsAvulso.valor);
+                    const seg = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
+                    if (g.lat && g.lon && seg < 60 && el) { el.textContent = `🟢 Entregador online · GPS há ${seg}s`; return; }
+                    if (g.lat && g.lon && seg < 300 && el) { el.textContent = `🟡 Entregador disponível · visto há ${Math.round(seg/60)} min`; return; }
+                }
+            } catch(e) {}
             if (el) el.textContent = '📴 Entregador offline · GPS não ativo';
             return;
         }
@@ -1398,7 +1409,7 @@ async function atualizarMapaCompleto() {
     const { data: rotas } = await sb.from("delivery_routes")
         .select("*")
         .in("status", ["em_andamento", "concluido", "criada", "aguardando"])
-        .gte("created_at", hoje + 'T00:00:00')
+        .gte("created_at", hoje + 'T00:00:00-03:00')
         .order("hora_saida", { ascending: true });
 
     // Rota ativa: em_andamento primeiro, senão mais recente concluída hoje
@@ -1407,10 +1418,23 @@ async function atualizarMapaCompleto() {
               || null;
     const paradas = rota ? (rota.paradas || []) : [];
 
-    // GPS vem direto da rota ativa
+    // GPS vem da rota ativa ou da posição avulsa salva pelo entregador
     let adminPos = null;
     if (rota && rota.gps_lat && rota.gps_lon) {
         adminPos = [rota.gps_lat, rota.gps_lon];
+    } else {
+        // Sem rota: tenta posição avulsa do app_config (salva pelo index.html mesmo sem rota)
+        try {
+            const { data: gpsAvulso } = await sb.from("app_config")
+                .select("valor").eq("chave", "entregador_gps").maybeSingle();
+            if (gpsAvulso?.valor) {
+                const g = JSON.parse(gpsAvulso.valor);
+                const segundosAtras = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
+                if (g.lat && g.lon && segundosAtras < 300) { // válido por até 5 minutos
+                    adminPos = [g.lat, g.lon];
+                }
+            }
+        } catch(e) {}
     }
 
     // phones_entregues vem da coluna — sem SELECT extra
@@ -1434,7 +1458,7 @@ async function atualizarMapaCompleto() {
     const { data: pedidosHoje } = await sb.from("orders")
         .select("customer_phone")
         .gte("created_at", inicioJanela)
-        .lte("created_at", hoje + 'T23:59:59');
+        .lte("created_at", hoje + 'T23:59:59-03:00');
     const phonesComPedido = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
 
     if (phonesComPedido.length > 0) {
@@ -1627,7 +1651,7 @@ async function atualizarPosicaoMoto() {
         const { data } = await sb.from("delivery_routes")
             .select("gps_lat, gps_lon, gps_ts, status")
             .in("status", ["em_andamento"])
-            .gte("saida_em", hoje + 'T00:00:00')
+            .gte("saida_em", hoje + 'T00:00:00-03:00')
             .order("saida_em", { ascending: false })
             .limit(1).maybeSingle();
 
