@@ -11,7 +11,65 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                navigator.serviceWorker.addEventListener('message', e => {
+                    if (e.data?.acao === 'abrir_mapa') {
+                        setTimeout(() => {
+                            if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
+                        }, 800);
+                    }
+                });
+            }).catch(() => {});
+
+            if (location.search.includes('abrir=mapa')) {
+                window.addEventListener('load', () => {
+                    setTimeout(() => {
+                        if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
+                    }, 1500);
+                });
+            }
+        }
+    </script>
+
+    <!-- ===== PUSH NOTIFICATIONS ===== -->
+    <script>
+        const VAPID_PUBLIC_KEY = 'BKpzD-7woo7ZrHNYEfFt4skqJulNk4k5ScyQh36tx0bTgIpQrPw1zMCdC6wiMz0snI_oBzFARr6qFPTWTkVf73Q';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+        }
+
+        async function ativarNotificacoesPush(phone) {
+            try {
+                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                const permissao = await Notification.requestPermission();
+                if (permissao !== 'granted') return;
+
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                    });
+                }
+
+                await fetch('https://vpeyqgijajywgswmezlh.supabase.co/functions/v1/salvar-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ'
+                    },
+                    body: JSON.stringify({ phone, subscription: sub.toJSON() })
+                });
+
+                console.log('Push ativado para', phone);
+            } catch(err) {
+                console.warn('Push nao ativado:', err);
+            }
         }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -500,6 +558,8 @@ window.onload = async () => {
             checkFavoriteBtn();
             carregarPrivacidade();
             await loadProducts();
+            // Reativa push para quem já estava logado
+            ativarNotificacoesPush(savedPhone);
             return;
         }
     }
@@ -574,6 +634,9 @@ async function auth() {
     carregarPrivacidade();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
+
+    // Ativa push notifications para o cliente logado
+    ativarNotificacoesPush(phone);
 }
 
 function showLoginError(msg) {
@@ -814,7 +877,8 @@ async function confirmOrder() {
                 const brt = new Date(agora.getTime() + (-3*60 - agora.getTimezoneOffset())*60000);
                 const hora = brt.toISOString().substring(11,16);
                 const dia = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][brt.getDay()];
-                const dentroHorario = hora >= cfg.hora_inicio && hora <= cfg.hora_fim;
+                const toMin = h => { const [hh, mm] = (h || '00:00').split(':').map(Number); return hh * 60 + mm; };
+                const dentroHorario = toMin(hora) >= toMin(cfg.hora_inicio) && toMin(hora) <= toMin(cfg.hora_fim);
                 const dentroDia = !cfg.dias?.length || cfg.dias.includes(dia);
                 if (dentroHorario && dentroDia) {
                     // Busca endereço do cliente
@@ -986,10 +1050,12 @@ async function salvarPrivacidade(valor) {
 
         <!-- Modal Mapa Entrega -->
         <div id="modalMapaEntrega" style="display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,0.9); flex-direction:column;">
+            <!-- Badge GPS no canto -->
+            <div id="gpsStatusBadge" style="position:absolute;bottom:12px;left:10px;z-index:9999;font-size:9px;font-weight:700;color:rgba(255,255,255,0.75);background:rgba(0,0,0,0.55);padding:3px 7px;border-radius:20px;pointer-events:none;letter-spacing:0.3px;"></div>
             <div style="background:linear-gradient(135deg,#1a1a2e,#0d0d1a); color:white; padding:16px 16px 12px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
                 <div>
                     <div style="font-size:16px;font-weight:800;">🛵 Rastreamento da Entrega</div>
-                    <div id="mapaEtaText" style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">Calculando rota...</div>
+                    <div id="mapaEtaText" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;">Calculando rota...</div>
                 </div>
                 <button onclick="fecharMapaEntrega()" style="background:rgba(255,255,255,0.15);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
             </div>
@@ -1376,6 +1442,13 @@ async function abrirMapaEntrega() {
     gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 8000);
 }
 
+function setGpsBadge(ativo) {
+    const badge = document.getElementById('gpsStatusBadge');
+    if (!badge) return;
+    badge.textContent = ativo ? '🟢 GPS ativo' : '🔴 GPS inativo';
+    badge.style.color = ativo ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)';
+}
+
 async function verificarConectividadeGPS() {
     try {
         const hoje = hojeStr();
@@ -1385,30 +1458,21 @@ async function verificarConectividadeGPS() {
             .gte("saida_em", hoje + 'T00:00:00-03:00')
             .order("saida_em", { ascending: false })
             .limit(1).maybeSingle();
-        const el = document.getElementById('mapaEtaText');
         if (!data || !data.gps_lat || !data.gps_lon) {
-            // Tenta posição avulsa como fallback
             try {
                 const { data: gpsAvulso } = await sb.from("app_config")
                     .select("valor").eq("chave", "entregador_gps").maybeSingle();
                 if (gpsAvulso?.valor) {
                     const g = JSON.parse(gpsAvulso.valor);
                     const seg = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
-                    if (g.lat && g.lon && seg < 60 && el) { el.textContent = `🟢 Entregador online · GPS há ${seg}s`; return; }
-                    if (g.lat && g.lon && seg < 300 && el) { el.textContent = `🟡 Entregador disponível · visto há ${Math.round(seg/60)} min`; return; }
+                    if (g.lat && g.lon && seg < 300) { setGpsBadge(true); return; }
                 }
             } catch(e) {}
-            if (el) el.textContent = '📴 Entregador offline · GPS não ativo';
+            setGpsBadge(false);
             return;
         }
         const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
-        if (segundos < 30) {
-            if (el) el.textContent = `🟢 GPS ativo · atualizado há ${segundos}s`;
-        } else if (segundos < 120) {
-            if (el) el.textContent = `🟡 GPS lento · atualizado há ${segundos}s`;
-        } else {
-            if (el) el.textContent = `🔴 GPS inativo · última posição há ${Math.round(segundos/60)} min`;
-        }
+        setGpsBadge(segundos < 120);
     } catch(e) { console.warn('verificarConectividade erro:', e); }
 }
 
@@ -1422,7 +1486,7 @@ async function atualizarMapaCompleto() {
     const { data: rotas } = await sb.from("delivery_routes")
         .select("*")
         .in("status", ["em_andamento", "concluido", "criada", "aguardando"])
-        .gte("created_at", hoje + 'T00:00:00-03:00')
+        .gte("saida_em", hoje + 'T00:00:00-03:00')
         .order("hora_saida", { ascending: true });
 
     // Rota ativa: em_andamento primeiro, senão mais recente concluída hoje
@@ -1466,21 +1530,18 @@ async function atualizarMapaCompleto() {
         })))
     ];
 
-    // Todos os pedidos de hoje (dia inteiro, fuso BRT correto)
+    // Pedidos dentro da janela (apenas SELECT de orders + clients)
     let clientesComPedido = [];
-    const { data: pedidosHoje, error: errPedidos } = await sb.from("orders")
+    const { data: pedidosHoje } = await sb.from("orders")
         .select("customer_phone")
-        .gte("created_at", hoje + 'T00:00:00-03:00')
+        .gte("created_at", inicioJanela)
         .lte("created_at", hoje + 'T23:59:59-03:00');
-    console.log("pedidosHoje:", pedidosHoje, "erro:", errPedidos);
     const phonesComPedido = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
-    console.log("phonesComPedido:", phonesComPedido);
 
     if (phonesComPedido.length > 0) {
-        const { data: clientesData, error: errClientes } = await sb.from("clients")
+        const { data: clientesData } = await sb.from("clients")
             .select("phone, delivery_lat, delivery_lon")
             .in("phone", phonesComPedido);
-        console.log("clientesData:", clientesData, "erro:", errClientes);
         clientesComPedido = (clientesData || [])
             .filter(c => c.delivery_lat && c.delivery_lon)
             .filter(c => !phonesEntreguesHoje.has(c.phone))
@@ -1490,22 +1551,15 @@ async function atualizarMapaCompleto() {
                 isMe: c.phone === user?.phone,
                 naRota: paradas.some(p => p.cliente_phone === c.phone && p.status !== 'entregue')
             }));
-        console.log("clientesComPedido final:", clientesComPedido);
     }
 
-    // Sem rota e sem GPS — mas mostra o mapa com quem já pediu
+    // Sem rota e sem GPS
     if (!adminPos && !rota) {
-        const qtd = clientesComPedido.length;
-        document.getElementById('mapaEtaText').textContent = qtd > 0
-            ? `📦 ${qtd} cliente${qtd > 1 ? 's' : ''} aguardando entrega`
-            : 'Nenhum pedido no momento';
+        document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
         document.getElementById('etaValor').textContent = '--';
         document.getElementById('distanciaValor').textContent = '--';
-        document.getElementById('paradasRestantesValor').textContent = qtd > 0 ? qtd : '--';
-        document.getElementById('paradasList').innerHTML = qtd > 0
-            ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Rota ainda não iniciada</div>'
-            : '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando pedidos...</div>';
-        if (qtd > 0) renderizarRotaMapa(null, [], null, clientesComPedido);
+        document.getElementById('paradasRestantesValor').textContent = '--';
+        document.getElementById('paradasList').innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
         return;
     }
 
@@ -1683,14 +1737,8 @@ async function atualizarPosicaoMoto() {
 
         if (data?.gps_lat && data?.gps_lon) {
             const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
-            if (segundos < 15) {
-                statusEl.textContent = `🟢 Ao vivo · há ${segundos}s`;
-            } else if (segundos < 60) {
-                statusEl.textContent = `🟡 Atualizado há ${segundos}s`;
-            } else {
-                statusEl.textContent = `🔴 GPS inativo · ${Math.round(segundos/60)} min atrás`;
-                return;
-            }
+            setGpsBadge(segundos < 120);
+            // Sempre mostra a última posição conhecida
             atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts);
             return;
         }
@@ -1702,13 +1750,13 @@ async function atualizarPosicaoMoto() {
             const g = JSON.parse(gpsAvulso.valor);
             const segundos = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
             if (g.lat && g.lon && segundos < 120) {
-                statusEl.textContent = `🟡 Entregador disponível · há ${segundos}s`;
+                setGpsBadge(true);
                 atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
                 return;
             }
         }
 
-        statusEl.textContent = '📴 Entregador offline';
+        setGpsBadge(false);
     } catch(e) { console.warn('polling erro:', e); }
 }
 
@@ -1914,9 +1962,9 @@ async function renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido = [
 
     // ── MARCADOR DA FÁBRICA (origem e destino final)
     L.marker(FABRICA, { icon: L.divIcon({
-        html: '<div style="font-size:28px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.9));">🏭</div>',
+        html: '<div style="font-size:28px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.9));">⛺</div>',
         className: '', iconSize: [34, 34], iconAnchor: [17, 17]
-    })}).addTo(mapaEntregaObj).bindPopup('<b>🏭 Fábrica</b><br>Ponto de partida e retorno');
+    })}).addTo(mapaEntregaObj).bindPopup('<b>⛺ Fábrica</b><br>Ponto de partida e retorno');
 
     // ── MARCADORES DAS PARADAS — emoji 👤 escurecido, anônimo (entregues não aparecem)
     paradas.filter(p => p.coords && p.status !== 'entregue').forEach((p, i) => {
@@ -1925,18 +1973,18 @@ async function renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido = [
         const isProxima = proximaParada && p.id === proximaParada.id;
 
         // Você: azul escuro pulsando + nome em cima
-        // Próxima parada: verde
-        // Outros pendentes: azul
+        // Próxima parada: roxo vibrante
+        // Outros pendentes: roxo
         let filtro, tamanho, pulsar, labelCima;
         if (isMe) {
             filtro = 'brightness(0.5) sepia(1) hue-rotate(185deg) saturate(6) drop-shadow(0 0 7px rgba(20,80,180,1))';
             tamanho = '26px'; pulsar = true;
             labelCima = `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.85);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">Você</div>`;
         } else if (isProxima) {
-            filtro = 'brightness(0.5) sepia(1) hue-rotate(90deg) saturate(6) drop-shadow(0 0 6px rgba(0,180,80,0.9))';
+            filtro = 'brightness(0.45) sepia(1) hue-rotate(245deg) saturate(7) drop-shadow(0 0 6px rgba(130,0,200,0.9))';
             tamanho = '30px'; pulsar = false; labelCima = '';
         } else {
-            filtro = 'brightness(0.55) sepia(1) hue-rotate(185deg) saturate(5)';
+            filtro = 'brightness(0.5) sepia(1) hue-rotate(245deg) saturate(6)';
             tamanho = '26px'; pulsar = false; labelCima = '';
         }
 
@@ -1990,7 +2038,7 @@ async function renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido = [
         const isMe = c.isMe;
         const filtro = isMe
             ? 'brightness(0.5) sepia(1) hue-rotate(185deg) saturate(6) drop-shadow(0 0 7px rgba(20,80,180,1))'
-            : 'brightness(0.55) sepia(1) hue-rotate(185deg) saturate(5)';
+            : 'brightness(0.5) sepia(1) hue-rotate(245deg) saturate(6)';
         const labelCima = isMe
             ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.85);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">Você</div>`
             : '';
