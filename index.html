@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🛵 Entregador — O Rei da Coxinha</title>
+<link rel="icon" href="icone.png">
+<link rel="apple-touch-icon" href="icone.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rei Entregas">
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+  --border: rgba(255,255,255,0.07); --primary: #f5a623;
+  --primary-glow: rgba(245,166,35,0.3); --green: #00e87a;
+  --blue: #3d9cff; --red: #ff4757;
+  --text: #f0f0f8; --text-dim: rgba(240,240,248,0.5);
+  --text-muted: rgba(240,240,248,0.28);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; }
+#map { position:fixed; inset:0; z-index:1; }
+
+/* LOADING */
+#loadingScreen { position:fixed; inset:0; z-index:9999; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+.load-logo { font-size:56px; animation:logoPulse 1.4s ease-in-out infinite; filter:drop-shadow(0 0 24px var(--primary-glow)); }
+@keyframes logoPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+.load-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:900; }
+.load-sub { font-size:13px; color:var(--text-muted); }
+.load-bar-wrap { width:160px; height:3px; background:rgba(255,255,255,0.08); border-radius:10px; overflow:hidden; }
+.load-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--primary),#ff8c00); border-radius:10px; animation:loadBar 1.8s ease forwards; }
+@keyframes loadBar{to{width:100%;}}
+
+/* HEADER */
+#appHeader { position:fixed; top:0; left:0; right:0; z-index:400; padding:14px 12px; display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
+#appHeader > * { pointer-events:all; }
+.tabs { display:flex; gap:6px; }
+.tab-btn { padding:8px 14px; border:1px solid var(--border); border-radius:22px; font-size:12px; font-weight:700; cursor:pointer; background:rgba(10,10,15,0.82); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); color:var(--text-dim); transition:all 0.2s; font-family:'DM Sans',sans-serif; }
+.tab-btn:active { transform:scale(0.94); }
+.tab-btn.active { background:rgba(245,166,35,0.18); border-color:rgba(245,166,35,0.45); color:var(--primary); }
+
+/* GPS BADGE */
+.gps-badge { display:flex; align-items:center; gap:6px; padding:7px 13px; border-radius:22px; font-size:11px; font-weight:700; background:rgba(0,232,122,0.15); border:1px solid rgba(0,232,122,0.35); color:var(--green); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); white-space:nowrap; transition:all 0.3s; }
+.gps-badge.off { background:rgba(255,71,87,0.1); border-color:rgba(255,71,87,0.25); color:var(--red); }
+.gps-dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:gpsDot 1.2s ease-in-out infinite; }
+.gps-badge.off .gps-dot { animation:none; }
+@keyframes gpsDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(0.7);}}
+
+/* BOTÕES FLUTUANTES */
+#btnRecentrar { position:fixed; bottom:26px; right:18px; z-index:500; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#f5a828,#e07012); border:none; cursor:pointer; font-size:26px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 22px var(--primary-glow),0 2px 6px rgba(0,0,0,0.3); transition:transform 0.2s; }
+#btnRecentrar:active { transform:scale(0.92); }
+#btnToggle3D { position:fixed; bottom:98px; right:18px; z-index:500; width:48px; height:48px; border-radius:50%; background:rgba(10,10,15,0.88); border:1px solid rgba(61,156,255,0.4); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; font-weight:900; font-family:'Syne',sans-serif; color:var(--blue); box-shadow:0 2px 14px rgba(0,0,0,0.5); transition:all 0.2s; }
+#btnToggle3D:active { transform:scale(0.9); }
+#btnToggle3D.ativo { background:rgba(61,156,255,0.2); border-color:rgba(61,156,255,0.7); box-shadow:0 2px 20px rgba(61,156,255,0.3); }
+#indicadorRotacao { position:fixed; top:70px; right:16px; z-index:500; width:44px; height:44px; border-radius:50%; background:rgba(10,10,15,0.88); border:1px solid var(--border); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; box-shadow:0 2px 14px rgba(0,0,0,0.5); }
+#indicadorRotacao .seta { display:block; font-size:20px; transition:transform 0.5s ease; }
+#headingBadge { position:fixed; bottom:158px; right:18px; z-index:500; padding:5px 10px; border-radius:12px; background:rgba(10,10,15,0.85); border:1px solid var(--border); backdrop-filter:blur(10px); font-size:10px; font-weight:700; color:var(--primary); font-family:'Syne',sans-serif; display:none; text-align:center; }
+
+/* CHIP PROXIMIDADE */
+#proximidadeChip { position:fixed; top:70px; left:50%; transform:translateX(-50%); z-index:500; white-space:nowrap; padding:8px 16px; border-radius:20px; font-size:12px; font-weight:700; backdrop-filter:blur(12px); display:none; }
+#proximidadeChip.chegando { background:rgba(0,232,122,0.2); border:1px solid rgba(0,232,122,0.5); color:var(--green); animation:chipPulse 1s ease-in-out infinite; }
+#proximidadeChip.longe { background:rgba(61,156,255,0.15); border:1px solid rgba(61,156,255,0.35); color:var(--blue); }
+@keyframes chipPulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
+
+/* NAV AVULSA */
+#navAvulsaChip { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); z-index:600; display:none; align-items:center; gap:10px; padding:10px 16px 10px 14px; border-radius:24px; background:rgba(10,10,15,0.92); border:1.5px solid rgba(0,232,122,0.55); box-shadow:0 4px 24px rgba(0,232,122,0.2); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); white-space:nowrap; }
+#navAvulsaChip.visivel { display:flex; animation:chipEntrada 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes chipEntrada{from{transform:translateX(-50%) translateY(20px);opacity:0;}to{transform:translateX(-50%) translateY(0);opacity:1;}}
+.nav-chip-dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:gpsDot 1s ease-in-out infinite; flex-shrink:0; }
+.nav-chip-info { flex:1; }
+.nav-chip-nome { font-family:'Syne',sans-serif; font-size:13px; font-weight:900; color:var(--green); }
+.nav-chip-dist { font-size:11px; color:var(--text-dim); margin-top:1px; }
+.nav-chip-fechar { width:28px; height:28px; border-radius:50%; background:rgba(255,71,87,0.15); border:1px solid rgba(255,71,87,0.4); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; flex-shrink:0; }
+
+/* PAINEL INFERIOR */
+#paradasPanel { position:fixed; bottom:0; left:0; right:0; background:rgba(12,12,26,0.97); backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); border-top:1px solid var(--border); border-radius:22px 22px 0 0; z-index:700; display:flex; flex-direction:column; max-height:80vh; box-shadow:0 -6px 40px rgba(0,0,0,0.6); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.32,0.72,0,1); padding-bottom:24px; }
+#paradasPanel.aberto { transform:translateY(0); }
+#overlayPainel { position:fixed; inset:0; z-index:690; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); display:none; }
+#overlayPainel.visivel { display:block; }
+.drag-handle { width:40px; height:4px; background:rgba(255,255,255,0.15); border-radius:2px; margin:12px auto 6px; flex-shrink:0; }
+.panel-tabs { display:flex; gap:6px; padding:0 14px 8px; flex-shrink:0; border-bottom:1px solid var(--border); }
+.tab-content { display:none; padding:14px; overflow-y:auto; }
+.tab-content.active { display:block; }
+
+/* ROTA ATIVA */
+.rota-ativa-card { background:linear-gradient(135deg,rgba(245,166,35,0.12),rgba(255,140,0,0.06)); border:1px solid rgba(245,166,35,0.25); border-radius:18px; padding:14px 16px; margin-bottom:12px; }
+.rota-ativa-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.rota-nome { font-family:'Syne',sans-serif; font-size:16px; font-weight:900; color:var(--primary); }
+.rota-status-badge { font-size:10px; font-weight:700; padding:4px 10px; border-radius:20px; background:rgba(0,232,122,0.15); color:var(--green); border:1px solid rgba(0,232,122,0.3); }
+.rota-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.rota-stat { background:rgba(255,255,255,0.04); border-radius:12px; padding:10px 8px; text-align:center; }
+.rota-stat-val { font-family:'Syne',sans-serif; font-size:20px; font-weight:900; }
+.rota-stat-lbl { font-size:10px; color:var(--text-muted); margin-top:2px; }
+
+/* PRÓXIMA PARADA */
+.proxima-card { background:var(--surface2); border-radius:18px; padding:14px 16px; margin-bottom:12px; border:1px solid var(--border); position:relative; overflow:hidden; }
+.proxima-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--blue); border-radius:2px 0 0 2px; }
+.proxima-card.chegando::before { background:var(--green); }
+.proxima-lbl { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+.proxima-nome { font-family:'Syne',sans-serif; font-size:17px; font-weight:800; }
+.proxima-end { font-size:12px; color:var(--text-dim); margin-top:4px; }
+.proxima-dist { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.dist-badge { padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; background:rgba(61,156,255,0.15); color:var(--blue); border:1px solid rgba(61,156,255,0.3); }
+.eta-badge { padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; background:rgba(245,166,35,0.12); color:var(--primary); border:1px solid rgba(245,166,35,0.25); }
+.nav-btns { display:flex; gap:6px; margin-top:10px; }
+.btn-nav-maps { flex:1; padding:9px; border:1px solid rgba(52,152,219,0.3); border-radius:10px; background:rgba(52,152,219,0.12); color:#5dade2; font-size:12px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.btn-nav-waze { flex:1; padding:9px; border:1px solid rgba(39,174,96,0.3); border-radius:10px; background:rgba(39,174,96,0.12); color:#2ecc71; font-size:12px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+/* PARADAS */
+.parada-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; margin-bottom:8px; background:var(--surface2); border:1px solid var(--border); transition:opacity 0.3s; }
+.parada-item.entregue { opacity:0.4; }
+.parada-num { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; flex-shrink:0; }
+.parada-num.pendente { background:rgba(61,156,255,0.2); color:var(--blue); border:1.5px solid rgba(61,156,255,0.4); }
+.parada-num.proxima { background:rgba(245,166,35,0.2); color:var(--primary); border:1.5px solid rgba(245,166,35,0.4); animation:gpsDot 1.2s infinite; }
+.parada-num.entregue { background:rgba(0,232,122,0.15); color:var(--green); border:1.5px solid rgba(0,232,122,0.3); }
+.parada-info { flex:1; min-width:0; }
+.parada-nome-item { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.parada-end-item { font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.parada-eta { font-size:11px; color:var(--text-muted); flex-shrink:0; }
+
+/* EMPTY STATE */
+.empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
+.empty-icon { font-size:48px; margin-bottom:12px; opacity:0.5; }
+.empty-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:var(--text-dim); margin-bottom:6px; }
+.empty-sub { font-size:13px; line-height:1.6; }
+
+/* TOAST */
+#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:12px 20px; border-radius:20px; font-size:13px; font-weight:700; z-index:9998; opacity:0; transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1); white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,0.5); pointer-events:none; }
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.success { background:rgba(0,232,122,0.15); border-color:rgba(0,232,122,0.4); color:var(--green); }
+#toast.warn { background:rgba(245,166,35,0.15); border-color:rgba(245,166,35,0.4); color:var(--primary); }
+
+/* CONFIRM MODAL */
+#confirmModal { position:fixed; inset:0; z-index:8000; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); display:none; align-items:flex-end; justify-content:center; }
+#confirmModal.show { display:flex; }
+.confirm-box { background:var(--surface); border-radius:28px 28px 0 0; padding:24px 20px 36px; width:100%; max-width:500px; border-top:1px solid var(--border); animation:slideUp 0.35s cubic-bezier(0.34,1.4,0.64,1); }
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.confirm-icon { font-size:42px; text-align:center; margin-bottom:12px; }
+.confirm-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:900; text-align:center; margin-bottom:6px; }
+.confirm-sub { font-size:13px; color:var(--text-dim); text-align:center; margin-bottom:20px; }
+.confirm-btn { width:100%; padding:16px; border:none; border-radius:16px; font-size:15px; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; background:var(--green); color:#000; margin-bottom:8px; }
+.confirm-cancel { width:100%; padding:14px; border:1px solid var(--border); border-radius:16px; background:transparent; color:var(--text-muted); font-size:14px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+/* PAGAMENTO MODAL */
+#pagamentoModal { position:fixed; top:16px; left:12px; right:12px; z-index:8500; display:none; max-width:420px; margin:0 auto; }
+#pagamentoModal.show { display:block; animation:slideDown 0.45s cubic-bezier(0.34,1.4,0.64,1); }
+@keyframes slideDown { from{transform:translateY(-120%);opacity:0;} to{transform:translateY(0);opacity:1;} }
+.pag-box { background:rgba(18,18,26,0.97); border:1px solid rgba(245,166,35,0.35); border-radius:22px; padding:16px 16px 14px; box-shadow:0 8px 40px rgba(0,0,0,0.7); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+.pag-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.pag-icon { width:44px; height:44px; border-radius:14px; background:rgba(245,166,35,0.15); border:1px solid rgba(245,166,35,0.3); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.pag-info { flex:1; min-width:0; }
+.pag-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pag-sub { font-size:12px; color:var(--text-muted); margin-top:2px; }
+.pag-valor { font-family:'Syne',sans-serif; font-size:20px; font-weight:900; color:var(--primary); flex-shrink:0; }
+
+.pag-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pag-sim { padding:13px; border:none; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; background:var(--green); color:#000; }
+.pag-nao { padding:13px; border:1.5px solid rgba(255,71,87,0.4); border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; background:rgba(255,71,87,0.1); color:var(--red); }
+
+/* MAPLIBRE POPUP */
+.maplibregl-popup-content { background:rgba(16,16,36,0.97) !important; color:white !important; border-radius:16px !important; padding:12px 16px !important; font-size:13px !important; box-shadow:0 8px 32px rgba(0,0,0,0.6) !important; border:1px solid rgba(255,255,255,0.09) !important; font-family:'DM Sans',sans-serif !important; }
+.maplibregl-popup-close-button { color:rgba(255,255,255,0.5) !important; font-size:17px !important; right:6px !important; top:4px !important; }
+.maplibregl-ctrl-attrib, .maplibregl-ctrl-bottom-right { display:none !important; }
+
+@keyframes destinoPulse{0%{box-shadow:0 0 0 0 rgba(0,232,122,0.8);}70%{box-shadow:0 0 0 18px rgba(0,232,122,0);}100%{box-shadow:0 0 0 0 rgba(0,232,122,0);}}
+@keyframes paradaPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,166,35,0.7)}70%{box-shadow:0 0 0 12px rgba(245,166,35,0)}}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <div class="load-logo">🛵</div>
+  <div class="load-title">O Rei da Coxinha</div>
+  <div class="load-sub">Carregando rotas...</div>
+  <div class="load-bar-wrap"><div class="load-bar"></div></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- PAGAMENTO MODAL -->
+<div id="pagamentoModal">
+  <div class="pag-box">
+    <div class="pag-top">
+      <div class="pag-icon">💰</div>
+      <div class="pag-info">
+        <div class="pag-title" id="pagNome">Cliente pagou?</div>
+        <div class="pag-sub">Pagar na entrega</div>
+      </div>
+      <div class="pag-valor" id="pagValor">R$ 0,00</div>
+    </div>
+
+    <div class="pag-btns">
+      <button class="pag-nao" onclick="responderPagamento(false)">❌ Não</button>
+      <button class="pag-sim" onclick="responderPagamento(true)">✅ Sim</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINALIZAR ROTA MODAL -->
+<div id="finalizarModal" style="position:fixed;inset:0;z-index:8300;background:rgba(0,0,0,0.78);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surface);border-radius:28px 28px 0 0;padding:28px 20px 40px;width:100%;max-width:500px;border-top:1px solid rgba(0,232,122,0.3);animation:slideUp 0.35s cubic-bezier(0.34,1.4,0.64,1);">
+    <div style="font-size:44px;text-align:center;margin-bottom:12px;">🏁</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;text-align:center;margin-bottom:6px;">Finalizar rota?</div>
+    <div style="font-size:13px;color:var(--text-dim);text-align:center;margin-bottom:8px;line-height:1.6;" id="finalizarSub">Todas as paradas serão marcadas como entregues e a rota será concluída.</div>
+    <div style="font-size:12px;color:var(--primary);text-align:center;margin-bottom:24px;font-weight:700;" id="finalizarInfo"></div>
+    <button onclick="executarFinalizarRota()" style="width:100%;padding:16px;border:none;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--green);color:#000;margin-bottom:10px;">🏁 Sim, finalizar rota</button>
+    <button onclick="document.getElementById('finalizarModal').style.display='none'" style="width:100%;padding:14px;border:1px solid var(--border);border-radius:16px;background:transparent;color:var(--text-muted);font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">Cancelar</button>
+  </div>
+</div>
+
+<!-- DESISTIR MODAL -->
+<div id="desistirModal" style="position:fixed;inset:0;z-index:8200;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surface);border-radius:28px 28px 0 0;padding:28px 20px 40px;width:100%;max-width:500px;border-top:1px solid rgba(255,71,87,0.3);animation:slideUp 0.35s cubic-bezier(0.34,1.4,0.64,1);">
+    <div style="font-size:44px;text-align:center;margin-bottom:12px;">⚠️</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;text-align:center;margin-bottom:6px;">Desistir da rota?</div>
+    <div style="font-size:13px;color:var(--text-dim);text-align:center;margin-bottom:8px;line-height:1.6;" id="desistirSub">As entregas já realizadas serão mantidas. A rota voltará para o status inicial.</div>
+    <div style="font-size:12px;color:var(--red);text-align:center;margin-bottom:24px;font-weight:700;" id="desistirPendentes"></div>
+    <button onclick="executarDesistirRota()" style="width:100%;padding:16px;border:none;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--red);color:#fff;margin-bottom:10px;">⚠️ Sim, desistir</button>
+    <button onclick="document.getElementById('desistirModal').style.display='none'" style="width:100%;padding:14px;border:1px solid var(--border);border-radius:16px;background:transparent;color:var(--text-muted);font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">Cancelar</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirmModal">
+  <div class="confirm-box">
+    <div class="confirm-icon">✅</div>
+    <div class="confirm-title" id="confirmTitle">Chegou!</div>
+    <div class="confirm-sub" id="confirmSub"></div>
+    <button class="confirm-btn" onclick="confirmarEntregaModal()">✓ Confirmar entrega</button>
+    <button class="confirm-cancel" onclick="fecharConfirmModal()">Cancelar</button>
+  </div>
+</div>
+
+<div id="overlayPainel" onclick="fecharPainel()"></div>
+<div id="map"></div>
+
+<!-- HEADER -->
+<div id="appHeader">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="abrirTab('rota',event)">🗺️ Rota</button>
+    <button class="tab-btn" onclick="abrirTab('paradas',event)">📋 Paradas</button>
+    <button class="tab-btn" onclick="abrirTab('todas',event)">📁 Todas</button>
+  </div>
+  <div class="gps-badge off" id="gpsBadge">
+    <div class="gps-dot"></div>
+    <span id="gpsText">GPS erro</span>
+  </div>
+</div>
+
+<div id="indicadorRotacao" onclick="resetarRotacao()" title="Tocar para nortear">
+  <span class="seta" id="setaNorte">⬆️</span>
+</div>
+<button id="btnToggle3D" onclick="toggle3D()" class="ativo">3D</button>
+<div id="headingBadge">0°</div>
+<div id="proximidadeChip">📍 Calculando...</div>
+
+<div id="navAvulsaChip">
+  <div class="nav-chip-dot"></div>
+  <div class="nav-chip-info">
+    <div class="nav-chip-nome" id="navAvulsaNome">Cliente</div>
+    <div class="nav-chip-dist" id="navAvulsaDist">Calculando...</div>
+  </div>
+  <div class="nav-chip-fechar" onclick="cancelarNavAvulsa()">✕</div>
+</div>
+
+<button id="btnRecentrar" onclick="recentrarMapa()">🛵</button>
+
+<!-- PAINEL INFERIOR -->
+<div id="paradasPanel">
+  <div class="drag-handle"></div>
+  <div class="panel-tabs tabs">
+    <button class="tab-btn active" id="panelTabBtn-rota" onclick="abrirTab('rota',event)">🗺️ Rota</button>
+    <button class="tab-btn" id="panelTabBtn-paradas" onclick="abrirTab('paradas',event)">📋 Paradas</button>
+    <button class="tab-btn" id="panelTabBtn-todas" onclick="abrirTab('todas',event)">📁 Todas</button>
+  </div>
+  <div id="tab-rota" class="tab-content active"><div id="rotaAtivaContent"></div></div>
+  <div id="tab-paradas" class="tab-content"><div id="paradasContent"></div></div>
+  <div id="tab-todas" class="tab-content"><div id="todasRotasContent"></div></div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const FABRICA = [-8.1837523, -34.9383004]; // [lat, lng]
+const RAIO_ENTREGA = 40; // metros
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving/';
+
+// ===== FUSO HORÁRIO BRASÍLIA (GMT-3) =====
+function agoraISO() {
+  // Retorna ISO string no horário de Brasília
+  const now = new Date();
+  const offset = -3 * 60; // GMT-3 em minutos
+  const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
+  return local.toISOString().replace('Z', '-03:00');
+}
+function hojeStr() {
+  // Retorna "YYYY-MM-DD" no horário de Brasília
+  return agoraISO().split('T')[0];
+}
+function horasBRT(d) {
+  const offset = -3 * 60;
+  return new Date((d || new Date()).getTime() + (offset - (d || new Date()).getTimezoneOffset()) * 60000);
+}
+
+// ===== ESTADO =====
+let map, meuMarcador = null, meuMarcadorEl = null;
+let minhaPosicao = null; // [lng, lat] MapLibre
+let posAtual = null;     // [lat, lng] cálculos
+let ultimaPosicao = null, ultimaDirecao = 0;
+let seguindoMoto = true, modo3DAtivo = true;
+let bearingHistorico = [];
+let autoResumeTimer = null;
+const MAX_HIST = 5;
+
+let rotaAtual = null, paradasList = [], todasAsRotas = [], todosOsClientes = [];
+let mediaMinPorParada = 12, realtimeCh = null, toastTimer = null;
+let paradaEmConfirmacao = null, paradaAtualId = null, estavaNaParada = false;
+let paradaPagamentoPendente = null;
+
+let marcadoresMapLibre = [];
+let cacheRotaCompleta = null, cacheRotaCompletaKey = '';
+let ultimaProximaId = null;
+
+let navAvulsaDestino = null, navAvulsaInterval = null, navAvulsaMarcador = null;
+let gpsOk = false, ultimoEnvioGPS = 0;
+const THROTTLE_GPS_MS = 3000;
+
+// ===== ROTA ESPECIAL =====
+let _reConfig = null;            // config carregada do rota_especial_gps
+let _dentroFabrica = true;       // começa assumindo que está na fábrica
+let _rotaEspecialId = null;      // id da rota especial em andamento
+let _realtimePedidos = null;     // canal realtime de pedidos
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  carregarDados().catch(e => console.warn('Dados:', e));
+  iniciarGPS();
+  iniciarRealtime();
+  iniciarRotaEspecial(); // monitor de pedidos + GPS da fábrica
+});
+
+// ===== MAPA =====
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    center: [FABRICA[1], FABRICA[0]], zoom: 14, pitch: 0, bearing: 0,
+    attributionControl: false
+  });
+  map.on('load', () => {
+    ['rota-completa','rota-proxima','rota-avulsa'].forEach(src => {
+      map.addSource(src, { type:'geojson', data:{ type:'FeatureCollection', features:[] } });
+    });
+    map.addLayer({ id:'rota-completa-layer', type:'line', source:'rota-completa',
+      paint:{ 'line-color':'#ff4757', 'line-width':3, 'line-opacity':0.55, 'line-dasharray':[8,5] } });
+    map.addLayer({ id:'rota-proxima-layer', type:'line', source:'rota-proxima',
+      paint:{ 'line-color':'#3d9cff', 'line-width':5, 'line-opacity':0.9 } });
+    map.addLayer({ id:'rota-avulsa-layer', type:'line', source:'rota-avulsa',
+      paint:{ 'line-color':'#00e87a', 'line-width':5, 'line-opacity':0.92 } });
+    document.getElementById('loadingScreen').style.display = 'none';
+    if (todosOsClientes.length || paradasList.length) renderizarMarcadores();
+  });
+  map.on('dragstart', () => { 
+    seguindoMoto = false;
+    if (autoResumeTimer) clearTimeout(autoResumeTimer);
+    autoResumeTimer = setTimeout(() => {
+      seguindoMoto = true;
+      if (posAtual) moverEntregador(posAtual[0], posAtual[1], null);
+    }, 5000); // volta a seguir após 5s sem interação
+  });
+}
+
+// ===== GPS-STYLE MOVER MOTO — NÃO ALTERAR =====
+function calcularAngulo(lat1, lng1, lat2, lng2) {
+  const r = d => d * Math.PI / 180;
+  const dL = r(lng2 - lng1);
+  const y = Math.sin(dL) * Math.cos(r(lat2));
+  const x = Math.cos(r(lat1)) * Math.sin(r(lat2)) - Math.sin(r(lat1)) * Math.cos(r(lat2)) * Math.cos(dL);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function suavizarBearing(b) {
+  bearingHistorico.push(b);
+  if (bearingHistorico.length > MAX_HIST) bearingHistorico.shift();
+  let s = 0, c = 0;
+  bearingHistorico.forEach(v => { s += Math.sin(v*Math.PI/180); c += Math.cos(v*Math.PI/180); });
+  return (Math.atan2(s, c) * 180 / Math.PI + 360) % 360;
+}
+function moverEntregador(novaLat, novaLng, headingGPS) {
+  let angulo = ultimaDirecao;
+  if (ultimaPosicao) {
+    const dLat = Math.abs(novaLat - ultimaPosicao.lat);
+    const dLng = Math.abs(novaLng - ultimaPosicao.lng);
+    if (dLat + dLng > 0.00002) {
+      const raw = calcularAngulo(ultimaPosicao.lat, ultimaPosicao.lng, novaLat, novaLng);
+      angulo = modo3DAtivo ? suavizarBearing(raw) : raw;
+    }
+  } else if (headingGPS != null && !isNaN(headingGPS)) {
+    angulo = headingGPS;
+  }
+  ultimaDirecao = angulo;
+  minhaPosicao = [novaLng, novaLat];
+  posAtual = [novaLat, novaLng];
+
+  if (!meuMarcador) {
+    const el = document.createElement('div');
+    el.innerHTML = `<div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:-16px;border-radius:50%;background:radial-gradient(circle,rgba(245,166,35,0.18) 0%,transparent 70%);animation:ondaMoto 2.5s ease-out infinite;pointer-events:none;"></div>
+      <div style="position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(245,166,35,0.35);animation:anelMoto 2.5s ease-out infinite;pointer-events:none;"></div>
+      <img src="data:image/png;base64,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" style="width:50px;height:75px;object-fit:contain;position:relative;z-index:2;filter:drop-shadow(0 2px 12px rgba(245,166,35,0.8));transform-origin:center center;" id="motoImg" />
+      <style>@keyframes ondaMoto{0%{transform:scale(0.5);opacity:0.8}80%{transform:scale(2.2);opacity:0}100%{transform:scale(0.5);opacity:0}}@keyframes anelMoto{0%{transform:scale(0.6);opacity:1}100%{transform:scale(2.4);opacity:0}}</style>
+    </div>`;
+    meuMarcadorEl = el;
+    meuMarcador = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([novaLng, novaLat]).addTo(map);
+    map.setPitch(65);
+  } else {
+    meuMarcador.setLngLat([novaLng, novaLat]);
+  }
+
+  const seta = document.getElementById('setaNorte');
+  if (seta) seta.style.transform = `rotate(${angulo}deg)`;
+  const badge = document.getElementById('headingBadge');
+  if (badge) { badge.textContent = `${Math.round(((angulo%360)+360)%360)}°`; badge.style.display = modo3DAtivo ? 'block' : 'none'; }
+
+  if (seguindoMoto && modo3DAtivo) {
+    map.easeTo({ center:[novaLng,novaLat], bearing:angulo, pitch:65, zoom:17, duration:800, easing:t=>t, essential:true });
+    // Garante que o marcador está visível após o easeTo
+    setTimeout(() => {
+      if (meuMarcador && posAtual) meuMarcador.setLngLat([posAtual[1], posAtual[0]]);
+    }, 850);
+  } else if (seguindoMoto) {
+    map.easeTo({ center:[novaLng,novaLat], pitch:0, bearing:0, zoom:17, duration:1000 });
+  }
+  ultimaPosicao = { lat: novaLat, lng: novaLng };
+}
+
+function toggle3D() {
+  modo3DAtivo = !modo3DAtivo;
+  document.getElementById('btnToggle3D').classList.toggle('ativo', modo3DAtivo);
+  if (!modo3DAtivo) {
+    map.easeTo({ pitch:0, bearing:0, duration:600 });
+    document.getElementById('headingBadge').style.display = 'none';
+  } else {
+    seguindoMoto = true;
+    if (posAtual) moverEntregador(posAtual[0], posAtual[1], null);
+  }
+}
+function resetarRotacao() {
+  ultimaDirecao = 0; bearingHistorico = [];
+  map.easeTo({ bearing:0, pitch:modo3DAtivo?65:0, duration:600 });
+  document.getElementById('setaNorte').style.transform = 'rotate(0deg)';
+  document.getElementById('headingBadge').textContent = '0°';
+  seguindoMoto = true;
+}
+function recentrarMapa() {
+  if (autoResumeTimer) { clearTimeout(autoResumeTimer); autoResumeTimer = null; }
+  seguindoMoto = true; modo3DAtivo = true;
+  document.getElementById('btnToggle3D').classList.add('ativo');
+  if (posAtual) moverEntregador(posAtual[0], posAtual[1], null);
+  else map.flyTo({ center:[FABRICA[1],FABRICA[0]], zoom:17 });
+}
+
+// ===== GPS =====
+function iniciarGPS() {
+  if (!navigator.geolocation) { setBadge(false,'Sem GPS'); return; }
+  setBadge(true,'Conectando...');
+  navigator.geolocation.watchPosition(
+    pos => processarPosicao(pos),
+    () => setBadge(false,'GPS erro'),
+    { enableHighAccuracy:true, timeout:15000, maximumAge:3000 }
+  );
+}
+async function processarPosicao(pos) {
+  const lat = pos.coords.latitude, lon = pos.coords.longitude;
+  const acc = pos.coords.accuracy, heading = pos.coords.heading;
+  setBadge(true, `±${Math.round(acc)}m`);
+  gpsOk = true;
+  let distMovida = 999;
+  if (posAtual) distMovida = calcDistM(posAtual[0],posAtual[1],lat,lon);
+
+  moverEntregador(lat, lon, heading);
+  _onMoveNavAvulsa();
+
+  const agora = Date.now();
+  if (agora - ultimoEnvioGPS >= THROTTLE_GPS_MS) {
+    ultimoEnvioGPS = agora;
+    await enviarPosicaoSupabase(lat, lon, acc);
+  }
+  if (rotaAtual && paradasList.length) await verificarProximidade(lat, lon);
+  if (rotaAtual && distMovida > 50) {
+    const prox = paradasList.find(p => p.status==='pendente' && p.coords);
+    if (prox) { ultimaProximaId = null; desenharRotaProxima([lat,lon], prox); }
+  }
+  // Detectar saída/chegada da fábrica para rota especial
+  await tickRotaEspecial(lat, lon);
+}
+async function enviarPosicaoSupabase(lat, lon, acc=0) {
+  try {
+    const ts = agoraISO();
+    if (rotaAtual?.id) {
+      // GPS direto na rotas — cardápio lê via Realtime
+      await sb.from("rotas")
+        .update({ gps_lat:lat, gps_lon:lon, gps_ts:ts, gps_precisao:acc,
+                  posicao_entregador:{lat,lon,ts,precisao:acc} })
+        .eq("id", rotaAtual.id);
+    }
+    // Sempre salva posição avulsa no rota_especial_gps — cardápio consegue ver mesmo sem rota ativa
+    await sb.from("rota_especial_gps").upsert(
+      { chave: "entregador_gps", valor: JSON.stringify({ lat, lon, ts, precisao: acc }) },
+      { onConflict: "chave" }
+    );
+  } catch(e) { console.warn("GPS send:", e); }
+}
+function setBadge(on, txt) {
+  document.getElementById('gpsBadge').className = 'gps-badge' + (on?'':' off');
+  document.getElementById('gpsText').textContent = txt;
+}
+
+// ===== PROXIMIDADE =====
+async function verificarProximidade(lat, lon) {
+  // Se todas entregues, verifica se chegou na fábrica
+  if (rotaAtual && paradasList.length && paradasList.every(p => p.status==='entregue')) {
+    const distFab = calcDistM(lat, lon, FABRICA[0], FABRICA[1]);
+    const chip = document.getElementById('proximidadeChip');
+    chip.style.display = 'block';
+    if (distFab <= RAIO_ENTREGA * 3) { // raio maior para fábrica (120m)
+      chip.className = 'proximidadeChip chegando';
+      chip.textContent = '🏭 Chegou na fábrica!';
+      // Finaliza a rota automaticamente
+      const rotaId = rotaAtual.id;
+      rotaAtual = null; setGJ('rota-completa',null); setGJ('rota-proxima',null);
+      await sb.from("rotas").update({
+        status:'concluido', fim_em:agoraISO(),
+        gps_lat:null, gps_lon:null, gps_ts:null
+      }).eq("id", rotaId);
+      chip.style.display = 'none';
+      showToast('🏭 Rota finalizada! Próxima rota disponível.', 'success');
+      renderTudo(); renderizarMarcadores();
+    } else {
+      chip.className = 'proximidadeChip longe';
+      chip.textContent = `🏭 ${Math.round(distFab)}m da fábrica`;
+    }
+    return;
+  }
+
+  let continuar = true;
+  while (continuar) {
+    continuar = false;
+    const prox = paradasList.find(p => p.status==='pendente' && p.coords);
+    if (!prox) { document.getElementById('proximidadeChip').style.display='none'; return; }
+    const dist = calcDistM(lat, lon, prox.coords[0], prox.coords[1]);
+    const chip = document.getElementById('proximidadeChip');
+    chip.style.display = 'block';
+    if (dist <= RAIO_ENTREGA) {
+      chip.className = 'proximidadeChip chegando';
+      chip.textContent = `✅ Entregando ${prox.nome}...`;
+      if (paradaAtualId !== prox.id) {
+        paradaAtualId = prox.id; estavaNaParada = true;
+        verificarPagamentoEntrega(prox);
+        await executarMarcarEntregue(prox.id, prox.nome);
+        paradaAtualId = null; estavaNaParada = false; continuar = true;
+      }
+    } else {
+      chip.className = 'proximidadeChip longe';
+      chip.textContent = dist<=200 ? `🛵 ${Math.round(dist)}m de ${prox.nome}` : `🏁 ${Math.round(dist)}m — ${prox.nome}`;
+      estavaNaParada = false; paradaAtualId = null;
+      renderProximaCard(prox, dist);
+    }
+  }
+}
+
+// ===== PAGAMENTO NA ENTREGA (FILA) =====
+let filaPagamentos = [];
+let pagamentoEmAndamento = false;
+
+async function verificarPagamentoEntrega(parada) {
+  if (!parada.cliente_phone) return;
+  const hoje = hojeStr();
+  const { data: pedidos } = await sb.from("pedidos")
+    .select("id,total,payment_method,customer_name")
+    .eq("customer_phone", parada.cliente_phone)
+    .gte("created_at", hoje+'T00:00:00').lte("created_at", hoje+'T23:59:59')
+    .order("created_at",{ascending:false}).limit(1);
+  if (!pedidos?.length) return;
+  const pedido = pedidos[0];
+  if ((pedido.payment_method||'').toUpperCase() !== 'PAGA NA ENTREGA') return;
+  // Adiciona na fila em vez de sobrescrever
+  filaPagamentos.push({ parada, pedido });
+  processarFilaPagamentos();
+}
+
+function processarFilaPagamentos() {
+  if (pagamentoEmAndamento || filaPagamentos.length === 0) return;
+  pagamentoEmAndamento = true;
+  const { parada, pedido } = filaPagamentos[0];
+  paradaPagamentoPendente = { parada, pedido };
+  const total = filaPagamentos.length;
+  document.getElementById('pagNome').textContent = `${parada.nome} pagou?`;
+  document.getElementById('pagSub').textContent = `Pagamento: ${pedido.payment_method} · Pedido de hoje${total > 1 ? ` · (${filaPagamentos.indexOf(filaPagamentos[0])+1}/${total} pendentes)` : ''}`;
+  document.getElementById('pagValor').textContent = `R$ ${Number(pedido.total).toFixed(2).replace('.',',')}`;
+  setTimeout(() => {
+    document.getElementById('confirmModal').classList.remove('show');
+    document.getElementById('pagamentoModal').classList.add('show');
+  }, 400);
+}
+
+async function responderPagamento(pagou) {
+  document.getElementById('pagamentoModal').classList.remove('show');
+  if (!paradaPagamentoPendente) return;
+  const { parada, pedido } = paradaPagamentoPendente;
+  paradaPagamentoPendente = null;
+  pagamentoEmAndamento = false;
+  filaPagamentos.shift(); // remove o primeiro da fila
+  if (pagou) {
+    await sb.from("pedidos").update({ payment_method: pedido.payment_method+' ✓' }).eq("id", pedido.id);
+    showToast(`✅ Pagamento de ${parada.nome} confirmado!`, 'success');
+  } else {
+    await sb.from("pedidos").update({ payment_method:'FIADO' }).eq("id", pedido.id);
+    const { data: cli } = await sb.from("cadastros").select("debt").eq("phone", parada.cliente_phone).maybeSingle();
+    await sb.from("cadastros").update({ debt:(cli?.debt||0)+Number(pedido.total) }).eq("phone", parada.cliente_phone);
+    showToast(`⚠️ ${parada.nome} lançado no fiado — R$ ${Number(pedido.total).toFixed(2).replace('.',',')}`, 'warn');
+  }
+  // Processa o próximo da fila se houver
+  if (filaPagamentos.length > 0) {
+    setTimeout(() => processarFilaPagamentos(), 600);
+  }
+}
+
+function fecharConfirmModal() { document.getElementById('confirmModal').classList.remove('show'); }
+async function confirmarEntregaModal() {
+  fecharConfirmModal();
+  if (paradaEmConfirmacao) {
+    estavaNaParada = false; paradaAtualId = null;
+    await executarMarcarEntregue(paradaEmConfirmacao.id, paradaEmConfirmacao.nome);
+    paradaEmConfirmacao = null;
+  }
+}
+
+async function executarMarcarEntregue(id, nome) {
+  const p = paradasList.find(x => x.id===id);
+  if (!p || p.status==='entregue') return;
+  p.status = 'entregue';
+  p.entregue_em = agoraISO();
+  cacheRotaCompleta = null; cacheRotaCompletaKey = ''; ultimaProximaId = null;
+  setGJ('rota-proxima', null);
+
+  // Busca phones_entregues atual e adiciona o novo
+  const { data: rotaAtual_db } = await sb.from("rotas")
+    .select("phones_entregues, entregas_realizadas")
+    .eq("id", rotaAtual.id).single();
+  const phonesAtuais = rotaAtual_db?.phones_entregues || [];
+  const jaEsta = phonesAtuais.includes(p.cliente_phone);
+  const novosPhones = jaEsta ? phonesAtuais : [...phonesAtuais, p.cliente_phone];
+  const novasEntregas = (rotaAtual_db?.entregas_realizadas || 0) + (jaEsta ? 0 : 1);
+
+  await sb.from("rotas").update({
+    paradas: paradasList,
+    phones_entregues: novosPhones,
+    entregas_realizadas: novasEntregas
+  }).eq("id", rotaAtual.id);
+
+  const proxNome = paradasList.find(x => x.status==='pendente')?.nome;
+  showToast(proxNome ? `✅ ${nome} entregue! Próximo: ${proxNome}` : `✅ ${nome} entregue! Rota concluída!`, 'success');
+  if (paradasList.every(p2 => p2.status==='entregue')) {
+    showToast('🏁 Todas as entregas concluídas! Retornando à fábrica...', 'success');
+  }
+  renderTudo(); renderizarMarcadores();
+}
+
+// ===== OSRM =====
+async function buscarOSRM(pontos) {
+  if (pontos.length < 2) return null;
+  const url = `${OSRM_BASE}${pontos.map(p=>`${p[1]},${p[0]}`).join(';')}?overview=full&geometries=geojson&steps=false`;
+  try {
+    const r = await fetch(url, { signal:AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.code==='Ok' && j.routes?.length ? j.routes[0].geometry.coordinates : null;
+  } catch(e) { return null; }
+}
+function setGJ(src, coords, fallbackPts) {
+  try {
+    if (!coords && !fallbackPts) { map.getSource(src)?.setData({type:'FeatureCollection',features:[]}); return; }
+    const lnglat = coords || fallbackPts.map(p=>[p[1],p[0]]);
+    map.getSource(src)?.setData({type:'Feature',geometry:{type:'LineString',coordinates:lnglat}});
+  } catch(e){}
+}
+async function desenharRotaCompleta(paradas) {
+  const key = paradas.map(p=>p.id+p.status).join('|');
+  let coords;
+  if (cacheRotaCompletaKey===key && cacheRotaCompleta) { coords = cacheRotaCompleta; }
+  else { coords = await buscarOSRM([FABRICA,...paradas.map(p=>p.coords)]); if(coords){cacheRotaCompleta=coords;cacheRotaCompletaKey=key;} }
+  setGJ('rota-completa', coords, [FABRICA,...paradas.map(p=>p.coords)]);
+}
+async function desenharRotaProxima(pa, prox) {
+  if (!pa || !prox?.coords) { setGJ('rota-proxima',null); ultimaProximaId=null; return; }
+  if (ultimaProximaId===prox.id) return;
+  ultimaProximaId = prox.id;
+  const coords = await buscarOSRM([pa, prox.coords]);
+  setGJ('rota-proxima', coords, [pa, prox.coords]);
+}
+
+// ===== NAVEGAÇÃO AVULSA =====
+async function ativarNavAvulsa(cliente) {
+  const nome = cliente.name||cliente.nome||'Cliente';
+  const coords = cliente.coords;
+  if (navAvulsaDestino?.nome===nome && navAvulsaDestino?.coords[0]===coords[0]) { cancelarNavAvulsa(); return; }
+  cancelarNavAvulsa(false);
+  navAvulsaDestino = { nome, coords };
+
+  if (navAvulsaMarcador) { navAvulsaMarcador.remove(); navAvulsaMarcador=null; }
+  const el = document.createElement('div');
+  el.innerHTML = `<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,232,122,0.9);display:flex;align-items:center;justify-content:center;font-size:22px;border:3px solid #fff;animation:destinoPulse 1.4s ease-out infinite;">📍</div>`;
+  navAvulsaMarcador = new maplibregl.Marker({ element:el, anchor:'bottom' })
+    .setLngLat([coords[1],coords[0]])
+    .setPopup(new maplibregl.Popup().setHTML(`<b>🎯 ${nome}</b><br><small>Segurar para cancelar</small>`))
+    .addTo(map);
+
+  const c = await buscarOSRM([posAtual||FABRICA, coords]);
+  setGJ('rota-avulsa', c, [posAtual||FABRICA, coords]);
+
+  document.getElementById('navAvulsaNome').textContent = `🎯 ${nome}`;
+  _atualizarDistNavAvulsa();
+  document.getElementById('navAvulsaChip').classList.add('visivel');
+  navAvulsaInterval = setInterval(_atualizarDistNavAvulsa, 4000);
+  showToast(`🗺️ Rota para ${nome} ativada!`, 'success');
+}
+function _atualizarDistNavAvulsa() {
+  if (!navAvulsaDestino||!posAtual) return;
+  const d = calcDistM(posAtual[0],posAtual[1],navAvulsaDestino.coords[0],navAvulsaDestino.coords[1]);
+  const el = document.getElementById('navAvulsaDist');
+  if (!el) return;
+  el.textContent = d<1000 ? `📡 ${Math.round(d)}m até ${navAvulsaDestino.nome}` : `📡 ${(d/1000).toFixed(1)}km até ${navAvulsaDestino.nome}`;
+  if (d<30) { showToast(`✅ Chegou em ${navAvulsaDestino.nome}!`,'success'); cancelarNavAvulsa(); }
+}
+function cancelarNavAvulsa(toast=true) {
+  setGJ('rota-avulsa',null);
+  if (navAvulsaMarcador) { navAvulsaMarcador.remove(); navAvulsaMarcador=null; }
+  if (navAvulsaInterval) { clearInterval(navAvulsaInterval); navAvulsaInterval=null; }
+  if (navAvulsaDestino && toast) showToast(`❌ Rota para ${navAvulsaDestino.nome} cancelada`);
+  navAvulsaDestino = null;
+  document.getElementById('navAvulsaChip').classList.remove('visivel');
+}
+function _onMoveNavAvulsa() {
+  if (!navAvulsaDestino||!posAtual) return;
+  _atualizarDistNavAvulsa();
+  if (!_onMoveNavAvulsa._last) { _onMoveNavAvulsa._last=posAtual; return; }
+  if (calcDistM(_onMoveNavAvulsa._last[0],_onMoveNavAvulsa._last[1],posAtual[0],posAtual[1])>80) {
+    _onMoveNavAvulsa._last=posAtual;
+    buscarOSRM([posAtual,navAvulsaDestino.coords]).then(c=>setGJ('rota-avulsa',c,[posAtual,navAvulsaDestino.coords]));
+  }
+}
+
+// ===== DADOS =====
+async function carregarDados() {
+  await calcularMediaEta();
+  const hoje = hojeStr();
+  const agora = new Date();
+  const agoraBRT = horasBRT(agora);
+  const horaAgora = agoraBRT.getHours() * 60 + agoraBRT.getMinutes(); // minutos desde meia-noite (BRT)
+  const diaSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][agoraBRT.getDay()];
+
+  const [{ data:rotas },{ data:clientes },{ data:pedidosHoje }] = await Promise.all([
+    sb.from("rotas").select('*, "Rotas" as nome').order("hora_saida",{ascending:true}),
+    sb.from("cadastros").select("*"),
+    sb.from("pedidos")
+      .select("customer_phone, customer_name, client_name, total, payment_method, id, details, items")
+      .gte("created_at",hoje+'T00:00:00').lte("created_at",hoje+'T23:59:59')
+  ]);
+
+  const phonesComPedido = new Set((pedidosHoje||[]).map(p=>p.customer_phone).filter(Boolean));
+  // Mapa phone → pedido completo (para enriquecer paradas)
+  const pedidoPorPhone = {};
+  (pedidosHoje||[]).forEach(p=>{ if(p.customer_phone) pedidoPorPhone[p.customer_phone]=p; });
+
+  // Normaliza status das rotas conforme o dia
+  todasAsRotas = (rotas||[]).map(r => {
+    const cHoje = r.fim_em?.startsWith(hoje), aHoje = r.saida_em?.startsWith(hoje);
+    if (r.status==='concluido'&&!cHoje) return {...r,status:'criada'};
+    if (r.status==='em_andamento'&&!aHoje) return {...r,status:'criada'};
+    return r;
+  });
+
+  // Filtra apenas rotas do dia de hoje
+  // (rota especial não tem dias_semana, mas também não tem paradas_template — é incluída sempre)
+  todasAsRotas = todasAsRotas.filter(r =>
+    !r.dias_semana || r.dias_semana.length===0 || r.dias_semana.includes(diaSemana)
+  );
+
+  // Mapa de clientes por phone para enriquecer coordenadas
+  const clientePorPhone = {};
+  (clientes||[]).forEach(c=>{ if(c.phone) clientePorPhone[c.phone]=c; });
+
+  for (const rota of todasAsRotas) {
+    const tmpl = rota.paradas_template||[];
+    if (!tmpl.length) continue;
+
+    // Monta paradas ativas cruzando template × pedidos de hoje
+    const ativas = tmpl
+      .filter(p => p.cliente_phone && phonesComPedido.has(p.cliente_phone))
+      .map((p, i) => {
+        const pedido = pedidoPorPhone[p.cliente_phone];
+        const cli    = clientePorPhone[p.cliente_phone];
+
+        // Tenta obter coordenadas: template → cliente cadastrado
+        let coords = p.coords || null;
+        if (!coords && cli?.delivery_lat && cli?.delivery_lon)
+          coords = [parseFloat(cli.delivery_lat), parseFloat(cli.delivery_lon)];
+
+        // Endereço: template → cliente
+        const endereco = p.endereco || cli?.delivery_address || '';
+
+        // Status preservado se rota já em andamento
+        const statusSalvo = rota.status==='em_andamento'
+          ? (rota.paradas?.find(a=>a.cliente_phone===p.cliente_phone)?.status || 'pendente')
+          : 'pendente';
+
+        return {
+          ...p,
+          coords,
+          endereco,
+          nome: p.nome || p.name || cli?.name || pedido?.customer_name || pedido?.client_name || p.cliente_phone,
+          status: statusSalvo,
+          eta_min: Math.round((i+1)*mediaMinPorParada),
+          total: pedido?.total || p.total || 0,
+          payment_method: pedido?.payment_method || p.payment_method || ''
+        };
+      })
+      // Só inclui paradas que têm coordenadas
+      .filter(p => p.coords);
+
+    // Persiste paradas se mudaram (só em rotas ainda não iniciadas)
+    if (rota.status==='criada' && JSON.stringify(rota.paradas||[])!==JSON.stringify(ativas)) {
+      await sb.from("rotas").update({paradas:ativas}).eq("id",rota.id);
+    }
+    rota.paradas = ativas;
+  }
+
+  todosOsClientes = (clientes||[]).map(c => {
+    const coords = c.delivery_lat&&c.delivery_lon
+      ? [parseFloat(c.delivery_lat),parseFloat(c.delivery_lon)] : null;
+    return {...c, nome:c.name, coords, temPedidoHoje: phonesComPedido.has(c.phone)};
+  }).filter(c => c.coords); // todos com endereço cadastrado aparecem no mapa
+
+  // Verifica se alguma rota do dia deve ser iniciada automaticamente
+  await verificarAutoInicioRotas(horaAgora);
+
+  const em = todasAsRotas.find(r=>r.status==='em_andamento');
+  rotaAtual = em||null; paradasList = em?.paradas||[];
+  renderTudo();
+  if (map.isStyleLoaded()) renderizarMarcadores();
+  else map.once('load', renderizarMarcadores);
+}
+
+// ===== AUTO-INÍCIO DE ROTA =====
+async function verificarAutoInicioRotas(horaAgoraMin) {
+  // Já tem rota em andamento → nada a fazer
+  if (todasAsRotas.some(r=>r.status==='em_andamento')) return;
+
+  // Encontra rotas prontas: status criada/aguardando, com paradas, e horário chegou
+  const candidatas = todasAsRotas.filter(r => {
+    if (r.status==='em_andamento'||r.status==='concluido') return false;
+    if (!r.paradas?.length) return false;
+    if (!r.hora_saida) return true; // sem horário definido → sempre elegível
+    const [h,m] = r.hora_saida.split(':').map(Number);
+    const horaSaida = h*60 + m;
+    // Só inicia se estiver dentro da janela: horário chegou E não passou mais de 60 min
+    return horaAgoraMin >= horaSaida && horaAgoraMin <= horaSaida + 60;
+  });
+
+  if (candidatas.length === 0) return;
+
+  // Apenas uma candidata → inicia automaticamente sem perguntar
+  if (candidatas.length === 1) {
+    await iniciarRota(candidatas[0]);
+    return;
+  }
+
+  // Múltiplas candidatas → mostra modal de seleção
+  mostrarModalSelecaoRota(candidatas);
+}
+
+async function iniciarRota(rota) {
+  const ts = agoraISO();
+  const agora = new Date();
+  const agoraBRT2 = horasBRT(agora);
+  const hoje = hojeStr();
+  const ontem = new Date(new Date().getTime() - 86400000 + (-3*60 - new Date().getTimezoneOffset())*60000).toISOString().split('T')[0];
+  const depoisDas1130 = agoraBRT2.getHours() > 11 || (agoraBRT2.getHours() === 11 && agoraBRT2.getMinutes() >= 30);
+  const janela_inicio = depoisDas1130 ? hoje + 'T11:30:00' : ontem + 'T11:30:00';
+
+  // Rotas ainda não iniciadas (proximas_rotas para o cardápio calcular ETA)
+  const proximas = todasAsRotas
+    .filter(r => r.id !== rota.id && r.status === 'criada' && r.paradas?.length > 0)
+    .map(r => ({ id: r.id, nome: r.nome, hora_saida: r.hora_saida, qtd_paradas: r.paradas.length }));
+
+  await sb.from("rotas").update({
+    status: 'em_andamento',
+    saida_em: ts,
+    janela_inicio,
+    proximas_rotas: proximas,
+    total_paradas_dia: rota.paradas?.length || 0,
+    entregas_realizadas: 0,
+    phones_entregues: []
+  }).eq("id", rota.id);
+
+  rota.status = 'em_andamento';
+  rota.saida_em = ts;
+  rotaAtual = rota;
+  paradasList = rota.paradas || [];
+
+  showToast(`🛵 Rota "${rota.nome}" iniciada!`, 'success');
+  renderTudo();
+  if (map.isStyleLoaded()) renderizarMarcadores();
+}
+
+// ===== MODAL SELEÇÃO DE ROTA =====
+function mostrarModalSelecaoRota(rotas) {
+  // Cria modal dinamicamente se não existir
+  let modal = document.getElementById('modalSelecaoRota');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modalSelecaoRota';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;';
+    document.body.appendChild(modal);
+  }
+
+  const lista = rotas.map(r => {
+    const qtd = r.paradas?.length || 0;
+    const hora = r.hora_saida ? `⏰ ${r.hora_saida.substring(0,5)}` : '';
+    return `<button onclick="window._selecionarRota('${r.id}')" style="
+      width:100%;padding:16px;border:1px solid rgba(245,166,35,0.3);border-radius:16px;
+      background:rgba(245,166,35,0.08);color:var(--text);text-align:left;cursor:pointer;
+      font-family:'DM Sans',sans-serif;margin-bottom:10px;transition:background 0.2s;
+    ">
+      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:15px;color:var(--primary);">${r.nome}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${hora} &nbsp;📦 ${qtd} entrega${qtd!==1?'s':''}</div>
+    </button>`;
+  }).join('');
+
+  modal.innerHTML = `<div style="
+    background:var(--surface);border-radius:28px 28px 0 0;padding:24px 20px 40px;
+    width:100%;max-width:500px;border-top:1px solid var(--border);
+    animation:slideUp 0.35s cubic-bezier(0.34,1.4,0.64,1);
+  ">
+    <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 20px;"></div>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:6px;">🛵 Qual rota iniciar?</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Múltiplas rotas disponíveis para agora. Escolha uma para começar.</div>
+    ${lista}
+    <button onclick="document.getElementById('modalSelecaoRota').style.display='none'" style="
+      width:100%;padding:14px;border:1px solid var(--border);border-radius:16px;
+      background:transparent;color:var(--text-muted);font-size:14px;font-weight:700;
+      cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;
+    ">Agora não</button>
+  </div>`;
+
+  modal.style.display = 'flex';
+
+  // Handler global temporário
+  window._selecionarRota = async (rotaId) => {
+    modal.style.display = 'none';
+    const rota = todasAsRotas.find(r=>r.id===rotaId);
+    if (rota) await iniciarRota(rota);
+  };
+}
+
+async function calcularMediaEta() {
+  const ontem = new Date(); ontem.setDate(ontem.getDate()-1);
+  const base = new Date(ontem.getTime() + (-3*60 - ontem.getTimezoneOffset())*60000).toISOString().split('T')[0];
+  const {data:hist} = await sb.from("rotas").select("paradas,saida_em,fim_em")
+    .gte("created_at",base+'T00:00:00').lte("created_at",base+'T23:59:59').eq("status","concluido").limit(5);
+  if (hist?.length) {
+    const ts = hist.filter(h=>h.saida_em&&h.fim_em&&h.paradas?.length).map(h=>(new Date(h.fim_em)-new Date(h.saida_em))/60000/h.paradas.length);
+    if (ts.length) { mediaMinPorParada=ts.reduce((a,b)=>a+b,0)/ts.length; return; }
+  }
+  mediaMinPorParada = 12;
+}
+function iniciarRealtime() {
+  if (realtimeCh) { try{sb.removeChannel(realtimeCh);}catch(e){} }
+  realtimeCh = sb.channel('entregador_rotas')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rotas'}, async()=>{ await carregarDados(); })
+    .subscribe();
+}
+
+// ===== MARCADORES =====
+function limparMarcadores() { marcadoresMapLibre.forEach(m=>m.remove()); marcadoresMapLibre=[]; }
+
+function renderizarMarcadores() {
+  limparMarcadores();
+  const prox = paradasList.find(p=>p.status==='pendente');
+  const RAIO_GRUPO = 0.00027;
+  const grupos = [], usados = new Set();
+
+  todosOsClientes.forEach((p,i) => {
+    if (usados.has(i)) return;
+    const grupo = [p]; usados.add(i);
+    todosOsClientes.forEach((q,j) => {
+      if (usados.has(j)) return;
+      if (Math.abs(p.coords[0]-q.coords[0])<RAIO_GRUPO && Math.abs(p.coords[1]-q.coords[1])<RAIO_GRUPO) { grupo.push(q); usados.add(j); }
+    });
+    grupos.push({ coords:p.coords, clientes:grupo });
+  });
+
+  // Fábrica
+  const fabEl = document.createElement('div');
+  fabEl.innerHTML = `<div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f5a623,#e67e22);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px rgba(245,166,35,0.5);border:2px solid rgba(255,255,255,0.2);">🏭</div>`;
+  const fm = new maplibregl.Marker({element:fabEl,anchor:'center'})
+    .setLngLat([FABRICA[1],FABRICA[0]])
+    .setPopup(new maplibregl.Popup({offset:25}).setHTML('<b>🏭 Fábrica</b>'))
+    .addTo(map);
+  marcadoresMapLibre.push(fm);
+
+  // Rotas
+  const pCoordsArr = paradasList.filter(p=>p.coords);
+  if (pCoordsArr.length) desenharRotaCompleta(pCoordsArr); else setGJ('rota-completa',null);
+  desenharRotaProxima(posAtual, prox);
+
+  // Clientes
+  grupos.forEach(({ coords, clientes }) => {
+    const R=17, C=2*Math.PI*R;
+    const clientesHTML = clientes.map((p,ci) => {
+      const pa = paradasList.find(x => x.coords && x.coords[0]===p.coords[0] && x.coords[1]===p.coords[1] && (x.nome===(p.name||p.nome)||x.client_id===p.id||x.cliente_phone===p.phone));
+      const entregue=pa?.status==='entregue', isProx=prox&&pa?.id===prox.id, isPendente=pa&&pa.status==='pendente';
+      // 🟡 Amarelo=próxima parada | 🟣 Roxo=pendente na rota | 🟢 Verde=entregue | 🔵 Azul=sem rota ativa
+      let bg,bc,lb,lc,rc;
+      if(entregue){bg='#00e87a';bc='rgba(0,232,122,0.4)';lb='rgba(0,0,0,0.65)';lc='#00e87a';rc='#00e87a';}
+      else if(isProx){bg='#f5e623';bc='rgba(245,230,35,0.7)';lb='rgba(100,80,0,0.92)';lc='#1a1200';rc='#f5e623';}
+      else if(isPendente){bg='#3d9cff';bc='rgba(61,156,255,0.4)';lb='rgba(10,10,15,0.85)';lc='#f0f0f8';rc='#3d9cff';}
+      else{bg='#9b59b6';bc='rgba(155,89,182,0.45)';lb='rgba(40,10,60,0.85)';lc='rgba(240,220,255,0.85)';rc='#9b59b6';}
+      const pulse=isProx?'animation:paradaPulse 1.5s ease-in-out infinite;':'';
+      const nome=p.name||p.nome;
+      const uid=`cm_${coords[0].toFixed(5).replace('.','')}_${coords[1].toFixed(5).replace('.','')}_${ci}`;
+      return `<div id="${uid}" data-uid="${uid}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;-webkit-user-select:none;user-select:none;">
+        <div style="background:${lb};color:${lc};font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;border:1px solid ${bc};box-shadow:0 2px 8px rgba(0,0,0,0.6);backdrop-filter:blur(6px);pointer-events:none;">${nome}</div>
+        <div style="position:relative;width:44px;height:44px;">
+          <svg style="position:absolute;inset:0;width:44px;height:44px;transform:rotate(-90deg);pointer-events:none;" viewBox="0 0 44 44">
+            <circle cx="22" cy="22" r="${R}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3"/>
+            <circle id="${uid}_ring" cx="22" cy="22" r="${R}" fill="none" stroke="${rc}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}" style="transition:stroke-dashoffset 0.05s linear;filter:drop-shadow(0 0 4px ${rc});"/>
+          </svg>
+          <div id="${uid}_ico" style="position:absolute;inset:0;width:44px;height:44px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:20px;border:2.5px solid rgba(255,255,255,0.25);box-shadow:0 3px 12px rgba(0,0,0,0.5);opacity:${entregue?0.5:1};transition:transform 0.15s ease;${pulse}">👤</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const el = document.createElement('div');
+    el.style.cssText='display:flex;flex-direction:row;align-items:flex-end;gap:4px;';
+    el.innerHTML = clientesHTML;
+
+    // Popup
+    const popupHTML = clientes.map(p => {
+      const pa=paradasList.find(x=>x.coords&&x.coords[0]===p.coords[0]&&x.coords[1]===p.coords[1]&&(x.nome===(p.name||p.nome)||x.client_id===p.id||x.cliente_phone===p.phone));
+      const ent=pa?.status==='entregue', isP=prox&&pa?.id===prox.id, isPend=pa&&pa.status==='pendente';
+      const sl=ent?'✅ Entregue':isP?'🟡 Próxima parada':isPend?'🟣 Pendente na rota':'🔵 Sem rota ativa';
+      const sc=ent?'#00e87a':isP?'#f5e623':isPend?'#9b59b6':'#3d9cff';
+      return `<div style="padding:6px 0;${clientes.length>1?'border-bottom:1px solid rgba(255,255,255,0.08);':''}">
+        <div style="font-weight:800;font-size:13px;">${p.name||p.nome}</div>
+        <div style="font-size:11px;color:rgba(240,240,248,0.55);">📍 ${p.delivery_address||p.endereco||''}</div>
+        ${p.phone?`<div style="font-size:11px;color:rgba(240,240,248,0.45);">📞 ${p.phone}</div>`:''}
+        ${p.debt>0?`<div style="font-size:11px;font-weight:700;color:#ff4757;">💳 Fiado: R$ ${Number(p.debt).toFixed(2).replace('.',',')}</div>`:''}
+        <div style="font-size:11px;font-weight:700;color:${sc};margin-top:2px;">${sl}</div>
+      </div>`;
+    }).join('');
+
+    const marker = new maplibregl.Marker({ element:el, anchor:'bottom' })
+      .setLngLat([coords[1],coords[0]])
+      .setPopup(new maplibregl.Popup({offset:[0,-10],maxWidth:'240px'}).setHTML(`<div style="min-width:160px;max-width:220px;">${popupHTML}</div>`))
+      .addTo(map);
+    marcadoresMapLibre.push(marker);
+
+    // LONG-PRESS 2s
+    const HOLD_MS=2000;
+    let pTimer=null,rAF=null,pStart=0,pAtivo=false,uidAtivo=null;
+    function iniciarHold(e) {
+      let elT=e.target||e; let uid=null;
+      for(let i=0;i<6&&elT;i++){if(elT.dataset?.uid){uid=elT.dataset.uid;break;}elT=elT.parentElement;}
+      if(!uid) uid=`cm_${coords[0].toFixed(5).replace('.','')}_${coords[1].toFixed(5).replace('.','')}_0`;
+      uidAtivo=uid; pAtivo=true; pStart=performance.now();
+      const ico=document.getElementById(uid+'_ico');
+      if(ico)ico.style.transform='scale(1.1)';
+      function tick(){
+        if(!pAtivo)return;
+        const pct=Math.min((performance.now()-pStart)/HOLD_MS,1);
+        const ring=document.getElementById(uid+'_ring');
+        if(ring)ring.style.strokeDashoffset=(C*(1-pct)).toFixed(2);
+        if(pct<1)rAF=requestAnimationFrame(tick); else completarHold(uid);
+      }
+      rAF=requestAnimationFrame(tick);
+      pTimer=setTimeout(()=>completarHold(uid),HOLD_MS+50);
+    }
+    async function completarHold(uid){
+      pAtivo=false; cancelAnimationFrame(rAF); clearTimeout(pTimer);
+      const ring=document.getElementById(uid+'_ring'),ico=document.getElementById(uid+'_ico');
+      if(ring){ring.style.transition='stroke-dashoffset 0s,opacity 0.4s';ring.style.strokeDashoffset='0';ring.style.opacity='1';
+        setTimeout(()=>{ring.style.transition='stroke-dashoffset 0.15s linear,opacity 0.3s';ring.style.opacity='0';
+          setTimeout(()=>{ring.style.strokeDashoffset=C.toFixed(1);ring.style.opacity='1';ring.style.transition='stroke-dashoffset 0.05s linear';},350);},280);}
+      if(ico){ico.style.transform='scale(1.25)';setTimeout(()=>{ico.style.transform='';},300);}
+      const ci=parseInt((uid.split('_').pop()))||0;
+      await ativarNavAvulsa(clientes[Math.min(ci,clientes.length-1)]);
+    }
+    function cancelarHold(){
+      if(!pAtivo)return; pAtivo=false; cancelAnimationFrame(rAF); clearTimeout(pTimer);
+      if(uidAtivo){
+        const ring=document.getElementById(uidAtivo+'_ring'),ico=document.getElementById(uidAtivo+'_ico');
+        if(ring){ring.style.transition='stroke-dashoffset 0.2s ease';ring.style.strokeDashoffset=C.toFixed(1);}
+        if(ico)ico.style.transform='';
+      }
+      uidAtivo=null;
+    }
+    el.addEventListener('mousedown',iniciarHold);
+    el.addEventListener('touchstart',iniciarHold,{passive:true});
+    el.addEventListener('mouseup',cancelarHold);
+    el.addEventListener('mouseleave',cancelarHold);
+    el.addEventListener('touchend',cancelarHold);
+    el.addEventListener('touchcancel',cancelarHold);
+  });
+}
+
+// ===== RENDER UI =====
+function renderTudo() { renderRotaAtiva(); renderParadas(); renderTodasRotas(); }
+
+function renderRotaAtiva() {
+  const el=document.getElementById('rotaAtivaContent');
+  if(!rotaAtual){
+    const agora = new Date();
+    const horaAgoraMin = horasBRT(agora).getHours()*60 + horasBRT(agora).getMinutes();
+    const disponiveis=todasAsRotas.filter(r=>(r.status==='criada'||r.status==='aguardando')&&r.paradas?.length);
+    if(disponiveis.length>0){
+      el.innerHTML=`<div style="text-align:center;padding:32px 20px 16px;">
+        <div style="font-size:48px;margin-bottom:12px;">🛵</div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:900;color:var(--text);margin-bottom:6px;">Pronto para sair?</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:24px;line-height:1.6;">${disponiveis.length} rota${disponiveis.length>1?'s disponíveis':' disponível'} com pedidos de hoje.</div>
+        ${disponiveis.map(r=>{
+          const horaSaidaMin = r.hora_saida ? (Number(r.hora_saida.split(':')[0])*60 + Number(r.hora_saida.split(':')[1])) : 0;
+          const liberado = !r.hora_saida || horaAgoraMin >= horaSaidaMin;
+          return liberado
+            ? `<button onclick="iniciarRotaManual('${r.id}')" style="display:block;width:100%;padding:16px;margin-bottom:10px;background:linear-gradient(135deg,rgba(245,166,35,0.18),rgba(255,140,0,0.1));border:1px solid rgba(245,166,35,0.45);border-radius:16px;color:var(--primary);font-family:'Syne',sans-serif;font-size:15px;font-weight:900;cursor:pointer;text-align:left;">
+                <div>🛵 ${r.nome}</div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:4px;">📦 ${r.paradas.length} entrega${r.paradas.length!==1?'s':''} ${r.hora_saida?'· ⏰ '+r.hora_saida.substring(0,5):''}</div>
+              </button>`
+            : `<div style="display:block;width:100%;padding:16px;margin-bottom:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;text-align:left;box-sizing:border-box;">
+                <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:var(--text-muted);">🕐 ${r.nome}</div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:4px;">📦 ${r.paradas.length} entrega${r.paradas.length!==1?'s':''} · Disponível às ${r.hora_saida.substring(0,5)}</div>
+              </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      el.innerHTML=`<div class="empty-state"><div class="empty-icon">🏭</div><div class="empty-title">Nenhuma rota disponível</div><div class="empty-sub">Não há pedidos para hoje ou a rota ainda não foi configurada.</div></div>`;
+    }
+    return;
+  }
+  const ent=paradasList.filter(p=>p.status==='entregue').length, total=paradasList.length;
+  const pend=total-ent, min=Math.round(pend*mediaMinPorParada);
+  const prox=paradasList.find(p=>p.status==='pendente');
+  const navBtns=prox?.coords?`<div class="nav-btns"><button class="btn-nav-maps" onclick="navegarMaps(${prox.coords[0]},${prox.coords[1]})">🗺️ Maps</button><button class="btn-nav-waze" onclick="navegarWaze(${prox.coords[0]},${prox.coords[1]})">🚗 Waze</button></div>`:'';
+  el.innerHTML=`
+  <div class="rota-ativa-card">
+    <div class="rota-ativa-header"><div class="rota-nome">${rotaAtual.nome}</div><div class="rota-status-badge">🟢 Em andamento</div></div>
+    <div class="rota-stats">
+      <div class="rota-stat"><div class="rota-stat-val" style="color:var(--green);">${ent}</div><div class="rota-stat-lbl">Entregues</div></div>
+      <div class="rota-stat"><div class="rota-stat-val" style="color:var(--primary);">${pend}</div><div class="rota-stat-lbl">Restantes</div></div>
+      <div class="rota-stat"><div class="rota-stat-val" style="color:var(--blue);">${min}</div><div class="rota-stat-lbl">min est.</div></div>
+    </div>
+  </div>
+  <button onclick="confirmarDesistirRota()" style="width:100%;margin-top:4px;margin-bottom:4px;padding:11px;border:1px solid rgba(255,71,87,0.3);border-radius:14px;background:rgba(255,71,87,0.08);color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.2px;">⚠️ Desistir da rota</button>
+  <button onclick="abrirFinalizarRota()" style="width:100%;margin-top:0;margin-bottom:8px;padding:11px;border:1px solid rgba(0,232,122,0.3);border-radius:14px;background:rgba(0,232,122,0.08);color:var(--green);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.2px;">🏁 Finalizar rota</button>
+  ${prox?`<div class="proxima-card" id="proximaCard">
+    <div class="proxima-lbl">▶ Próxima parada</div>
+    <div class="proxima-nome">${prox.nome}</div>
+    <div class="proxima-end">📍 ${prox.endereco}</div>
+    <div class="proxima-dist"><div class="dist-badge" id="distBadge">📡 aguardando GPS...</div><div class="eta-badge">⏱️ ~${prox.eta_min}min</div></div>
+    ${navBtns}
+  </div>`:`<div style="text-align:center;padding:20px;">
+    <div style="font-size:32px;">🏭</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:16px;margin-top:8px;color:var(--green);">Todas as entregas concluídas!</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">Retornando à fábrica — a rota finaliza automaticamente ao chegar.</div>
+  </div>`}`;
+}
+function renderProximaCard(parada, dist) {
+  const b=document.getElementById('distBadge'); if(!b)return;
+  if(dist<=RAIO_ENTREGA){b.style.cssText='background:rgba(0,232,122,0.15);color:var(--green);border-color:rgba(0,232,122,0.4);';b.textContent=`✅ Na área! ${Math.round(dist)}m`;document.getElementById('proximaCard')?.classList.add('chegando');}
+  else{b.style.cssText='background:rgba(61,156,255,0.15);color:var(--blue);border-color:rgba(61,156,255,0.3);';b.textContent=`📡 ${Math.round(dist)}m`;document.getElementById('proximaCard')?.classList.remove('chegando');}
+}
+function renderParadas() {
+  const el=document.getElementById('paradasContent');
+  if(!rotaAtual||!paradasList.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem paradas</div><div class="empty-sub">As paradas aparecerão aqui quando a rota for iniciada.</div></div>`;return;}
+  const prox=paradasList.find(p=>p.status==='pendente');
+  el.innerHTML=paradasList.map((p,i)=>{
+    const ent=p.status==='entregue', isP=prox&&p.id===prox.id;
+    return `<div class="parada-item ${ent?'entregue':''}"><div class="parada-num ${ent?'entregue':isP?'proxima':'pendente'}">${ent?'✓':String(i+1)}</div><div class="parada-info"><div class="parada-nome-item">${p.name||p.nome}</div><div class="parada-end-item">📍 ${p.endereco}</div></div><div class="parada-eta">⏱️ ${p.eta_min}min</div></div>`;
+  }).join('');
+}
+function renderTodasRotas() {
+  const el=document.getElementById('todasRotasContent');
+
+  // Card de status da Rota Especial sempre visível no topo
+  const pendentes = (_reConfig?.clientes_fila || []).filter(c => c.status === 'pendente');
+  const emRota    = (_reConfig?.clientes_fila || []).filter(c => c.status === 'em_rota');
+  const reAtivaAgora = reAtiva();
+  const reCardHTML = `
+    <div style="background:linear-gradient(135deg,rgba(245,166,35,0.12),rgba(255,140,0,0.06));border:1px solid rgba(245,166,35,0.3);border-radius:16px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">⚡</span>
+          <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:14px;color:var(--primary);">Rota Especial</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:${reAtivaAgora?'rgba(0,232,122,0.15)':'rgba(255,255,255,0.05)'};color:${reAtivaAgora?'var(--green)':'var(--text-muted)'};">${reAtivaAgora?'🟢 Ativa':'⚫ Inativa'}</span>
+      </div>
+      ${_reConfig ? `
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">⏰ ${_reConfig.hora_inicio||'--'} – ${_reConfig.hora_fim||'--'} · ${(_reConfig.dias||[]).join(' ')||'todos os dias'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:8px;text-align:center;">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--primary);">${pendentes.length}</div>
+            <div style="font-size:10px;color:var(--text-muted);">Na fila</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:8px;text-align:center;">
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--blue);">${emRota.length}</div>
+            <div style="font-size:10px;color:var(--text-muted);">Em rota</div>
+          </div>
+        </div>
+        ${pendentes.length > 0 ? `<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">${pendentes.map(c=>`👤 ${c.nome}`).join(' · ')}</div>` : ''}
+      ` : `<div style="font-size:12px;color:var(--text-muted);">⚠️ Tabela rota_especial_gps não encontrada no Supabase. Crie-a pelo painel ADM.</div>`}
+    </div>`;
+
+  if(!todasAsRotas.length){el.innerHTML=reCardHTML+`<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-title">Sem rotas</div><div class="empty-sub">Nenhuma rota cadastrada para hoje.</div></div>`;return;}
+  const cores={criada:'#f5a623',aguardando:'#3d9cff',em_andamento:'#00e87a',concluido:'#555'};
+  const labels={criada:'⏳ Aguardando',aguardando:'🏭 Na fábrica',em_andamento:'🛵 Em andamento',concluido:'✅ Concluída'};
+  el.innerHTML=reCardHTML+todasAsRotas.map(r=>{
+    const ent=(r.paradas||[]).filter(p=>p.status==='entregue').length, tot=(r.paradas||[]).length, cor=cores[r.status]||'#555';
+    const agora = new Date();
+    const horaAgoraMin = horasBRT(agora).getHours()*60 + horasBRT(agora).getMinutes();
+    const horaSaidaMin = r.hora_saida ? (Number(r.hora_saida.split(':')[0])*60 + Number(r.hora_saida.split(':')[1])) : 0;
+    const horarioLiberado = !r.hora_saida || horaAgoraMin >= horaSaidaMin;
+    const podeIniciar=(r.status==='criada'||r.status==='aguardando')&&tot>0&&r.id!==rotaAtual?.id&&horarioLiberado&&!rotaAtual;
+    const btnIniciar=podeIniciar
+      ? `<button onclick="iniciarRotaManual('${r.id}')" style="margin-top:12px;width:100%;padding:12px;border:1px solid rgba(245,166,35,0.45);border-radius:12px;background:rgba(245,166,35,0.12);color:var(--primary);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">🛵 Iniciar esta rota</button>`
+      : (r.status==='criada'||r.status==='aguardando')&&tot>0&&r.hora_saida&&!horarioLiberado
+        ? `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;">⏰ Disponível às ${r.hora_saida.substring(0,5)}</div>`
+        : '';
+    return `<div style="background:var(--surface2);border-radius:16px;padding:14px;margin-bottom:8px;border-left:3px solid ${cor};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;">${r.nome}</div><div style="font-size:11px;color:var(--text-muted);margin-top:3px;">⏰ ${r.hora_saida||'--'} · ${(r.dias_semana||[]).join(' ')}</div></div>
+        <span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:${cor}22;color:${cor};flex-shrink:0;">${labels[r.status]||r.status}</span>
+      </div>
+      ${tot>0?`<div style="margin-top:10px;"><div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(ent/tot*100)}%;background:${cor};border-radius:4px;transition:width 0.5s;"></div></div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">📦 ${ent}/${tot} entregas</div></div>`:''}
+      ${btnIniciar}
+    </div>`;
+  }).join('');
+}
+
+// ===== DESISTIR DA ROTA =====
+function confirmarDesistirRota() {
+  if (!rotaAtual) return;
+  const pend = paradasList.filter(p => p.status === 'pendente').length;
+  const ent  = paradasList.filter(p => p.status === 'entregue').length;
+  document.getElementById('desistirPendentes').textContent =
+    pend > 0 ? `⚠️ Ainda há ${pend} entrega${pend>1?'s':''} pendente${pend>1?'s':''}.` : '';
+  document.getElementById('desistirSub').textContent =
+    ent > 0
+      ? `${ent} entrega${ent>1?'s foram':' foi'} realizada${ent>1?'s':''}. A rota voltará ao status inicial.`
+      : 'Nenhuma entrega foi realizada. A rota voltará ao status inicial.';
+  document.getElementById('desistirModal').style.display = 'flex';
+  fecharPainel();
+}
+async function executarDesistirRota() {
+  document.getElementById('desistirModal').style.display = 'none';
+  if (!rotaAtual) return;
+  // Reseta paradas pendentes mantendo as entregues
+  const paradasReset = paradasList.map(p => ({...p, status: p.status === 'entregue' ? 'entregue' : 'pendente'}));
+  await sb.from("rotas").update({
+    status: 'criada',
+    saida_em: null,
+    paradas: paradasReset,
+    gps_lat: null, gps_lon: null, gps_ts: null
+  }).eq("id", rotaAtual.id);
+  showToast(`❌ Rota "${rotaAtual.nome}" abandonada.`, 'warn');
+  rotaAtual = null; paradasList = [];
+  cacheRotaCompleta = null; cacheRotaCompletaKey = ''; ultimaProximaId = null;
+  setGJ('rota-completa', null); setGJ('rota-proxima', null);
+  await carregarDados();
+}
+
+// ===== FINALIZAR ROTA MANUAL =====
+function abrirFinalizarRota() {
+  if (!rotaAtual) return;
+  fecharPainel();
+  const ent = paradasList.filter(p => p.status === 'entregue').length;
+  const pend = paradasList.length - ent;
+  document.getElementById('finalizarSub').textContent =
+    pend > 0
+      ? `Ainda há ${pend} parada${pend>1?'s':''} pendente${pend>1?'s':''}. Ao confirmar, todas serão marcadas como entregues e a rota será finalizada.`
+      : 'Todas as paradas já estão entregues. A rota será marcada como concluída.';
+  document.getElementById('finalizarInfo').textContent =
+    `📦 ${ent}/${paradasList.length} entregues`;
+  document.getElementById('finalizarModal').style.display = 'flex';
+}
+
+async function executarFinalizarRota() {
+  document.getElementById('finalizarModal').style.display = 'none';
+  if (!rotaAtual) return;
+  const paradasFinal = paradasList.map(p => ({...p, status: 'entregue', entregue_em: p.entregue_em || agoraISO()}));
+  await sb.from("rotas").update({
+    status: 'concluido',
+    fim_em: agoraISO(),
+    paradas: paradasFinal,
+    entregas_realizadas: paradasFinal.length,
+    gps_lat: null, gps_lon: null, gps_ts: null
+  }).eq("id", rotaAtual.id);
+  showToast(`🏁 Rota "${rotaAtual.nome}" finalizada!`, 'success');
+  rotaAtual = null; paradasList = [];
+  cacheRotaCompleta = null; cacheRotaCompletaKey = ''; ultimaProximaId = null;
+  setGJ('rota-completa', null); setGJ('rota-proxima', null);
+  await carregarDados();
+}
+
+async function iniciarRotaManual(rotaId) {
+  const rota = todasAsRotas.find(r=>r.id===rotaId);
+  if (!rota) return;
+
+  // Verifica horário — nunca inicia antes do horário definido
+  if (rota.hora_saida) {
+    const agora = new Date();
+    const horaAgoraMin = horasBRT(agora).getHours()*60 + horasBRT(agora).getMinutes();
+    const [h,m] = rota.hora_saida.split(':').map(Number);
+    const horaSaidaMin = h*60 + m;
+    if (horaAgoraMin < horaSaidaMin) {
+      showToast(`⏰ Esta rota só pode iniciar às ${rota.hora_saida.substring(0,5)}`, 'error');
+      return;
+    }
+  }
+
+  await iniciarRota(rota);
+  fecharPainel();
+}
+
+// ===== TABS =====
+let tabAtual = 'rota';
+function abrirTab(nome, ev) {
+  const painel=document.getElementById('paradasPanel');
+  const painelAberto=painel.classList.contains('aberto');
+  if(painelAberto && tabAtual===nome){fecharPainel();return;}
+  tabAtual=nome;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick')?.includes(`'${nome}'`))b.classList.add('active'); });
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+nome)?.classList.add('active');
+  painel.classList.add('aberto');
+  document.getElementById('overlayPainel').classList.add('visivel');
+  // Ao abrir "Todas", recarrega config da rota especial e re-renderiza
+  if (nome === 'todas') {
+    carregarConfigRE().then(() => renderTodasRotas());
+  }
+}
+function fecharPainel() { document.getElementById('paradasPanel').classList.remove('aberto'); document.getElementById('overlayPainel').classList.remove('visivel'); }
+
+// ===== NAVEGAÇÃO EXTERNA =====
+function navegarMaps(lat,lon){window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`,'_blank');}
+function navegarWaze(lat,lon){window.open(`https://waze.com/ul?ll=${lat},${lon}&navigate=yes`,'_blank');}
+
+// ===== TOAST =====
+function showToast(msg, type='') {
+  const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+type;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.className='';},4000);
+}
+
+// ===== ROTA ESPECIAL — LÓGICA COMPLETA =====
+
+async function carregarConfigRE() {
+  try {
+    const { data } = await sb.from('rota_especial_gps').select('valor').eq('chave','rota_especial').maybeSingle();
+    _reConfig = data ? JSON.parse(data.valor) : null;
+  } catch(e) { console.warn('RE config:', e); _reConfig = null; }
+}
+
+function reAtiva() {
+  if (!_reConfig?.ativa) return false;
+  const agora = agoraISO();
+  const dias  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const hoje  = dias[new Date().getDay()];
+  if (_reConfig.dias?.length && !_reConfig.dias.includes(hoje)) return false;
+  // Compara como minutos para evitar bug de string ("8:00" vs "08:00")
+  const toMin = h => { const [hh, mm] = (h || '00:00').split(':').map(Number); return hh * 60 + mm; };
+  const agoraMin = toMin(agora.substring(11, 16));
+  return agoraMin >= toMin(_reConfig.hora_inicio) && agoraMin <= toMin(_reConfig.hora_fim);
+}
+
+async function tickRotaEspecial(lat, lon) {
+  const dist = calcDistM(lat, lon, FABRICA[0], FABRICA[1]);
+  const dentroAgora = dist <= 60;
+
+  // Saiu da fábrica
+  if (_dentroFabrica && !dentroAgora) {
+    _dentroFabrica = false;
+    await carregarConfigRE();
+    if (reAtiva()) {
+      const rota = await criarRotaEspecial();
+      if (rota) {
+        _rotaEspecialId = rota.id;
+        await carregarDados(); // atualiza UI
+      }
+    }
+  }
+
+  // Voltou à fábrica — DELETA rota especial do Supabase e limpa fila
+  if (!_dentroFabrica && dentroAgora) {
+    _dentroFabrica = true;
+    if (_rotaEspecialId) {
+      // Deleta a rota para não acumular dados no Supabase
+      await sb.from('rotas').delete().eq('id', _rotaEspecialId);
+      _rotaEspecialId = null;
+      rotaAtual = null; paradasList = [];
+      setGJ('rota-completa', null); setGJ('rota-proxima', null);
+    }
+    // Limpa da fila só os clientes que foram em_rota (já entregues) → mantém os pendentes para próxima saída
+    await carregarConfigRE();
+    if (_reConfig) {
+      _reConfig.clientes_fila = (_reConfig.clientes_fila || []).filter(c => c.status === 'pendente');
+      await sb.from('rota_especial_gps').upsert({ chave:'rota_especial', valor:JSON.stringify(_reConfig) }, { onConflict:'chave' });
+    }
+    const filaAcum = (_reConfig?.clientes_fila || []).filter(c => c.status === 'pendente').length;
+    showToast(filaAcum > 0 ? `🏭 Voltou! ${filaAcum} cliente(s) aguardando próxima saída` : '🏭 Voltou à fábrica!', 'success');
+    await carregarDados();
+  }
+}
+
+async function criarRotaEspecial() {
+  const fila = (_reConfig?.clientes_fila || []).filter(c => c.status === 'pendente' && c.coords);
+  if (!fila.length) { showToast('⚡ Saiu — nenhum cliente na fila', 'warn'); return null; }
+
+  const paradas = fila.map((c, i) => ({
+    id: Date.now().toString() + '_' + i,
+    cliente_phone: c.phone,
+    nome: c.nome,
+    endereco: c.endereco,
+    coords: c.coords,
+    status: 'pendente',
+    eta_min: (i + 1) * mediaMinPorParada
+  }));
+
+  const agora = agoraISO();
+  const { data: rota, error } = await sb.from('rotas').insert({
+    "Rotas": "⚡ Rota Especial",
+    status: 'em_andamento',
+    saida_em: agora,
+    hora_saida: agora.substring(11, 16),
+    janela_inicio: agora,
+    paradas,
+    total_paradas_dia: paradas.length,
+    entregas_realizadas: 0,
+    phones_entregues: [],
+    gps_lat: FABRICA[0], gps_lon: FABRICA[1], gps_ts: agora
+  }).select().single();
+
+  if (error) { console.error('Erro criar rota especial:', error); return null; }
+
+  // Marca clientes como em_rota
+  _reConfig.clientes_fila = (_reConfig.clientes_fila || []).map(c =>
+    fila.find(f => f.phone === c.phone) ? { ...c, status: 'em_rota' } : c
+  );
+  await sb.from('rota_especial_gps').upsert({ chave:'rota_especial', valor:JSON.stringify(_reConfig) }, { onConflict:'chave' });
+
+  showToast(`⚡ Rota especial criada! ${paradas.length} entrega(s)`, 'success');
+  return rota;
+}
+
+async function adicionarNaFilaRE(pedido) {
+  await carregarConfigRE();
+  if (!_reConfig || !reAtiva()) return;
+
+  const { data: cli } = await sb.from('cadastros').select('name,phone,delivery_lat,delivery_lon,delivery_address').eq('phone', pedido.customer_phone).maybeSingle();
+  if (!cli?.delivery_lat || !cli?.delivery_lon) return;
+
+  const fila = _reConfig.clientes_fila || [];
+  // Só bloqueia se já tiver pendente
+  if (fila.find(x => x.phone === pedido.customer_phone && x.status === 'pendente')) return;
+
+  const agora = agoraISO();
+  fila.push({
+    id: Date.now().toString(),
+    phone: cli.phone,
+    nome: cli.name || pedido.customer_name,
+    endereco: cli.delivery_address || `${cli.delivery_lat}, ${cli.delivery_lon}`,
+    coords: [parseFloat(cli.delivery_lat), parseFloat(cli.delivery_lon)],
+    hora_pedido: agora.substring(11, 16),
+    status: 'pendente'
+  });
+  _reConfig.clientes_fila = fila;
+  await sb.from('rota_especial_gps').upsert({ chave:'rota_especial', valor:JSON.stringify(_reConfig) }, { onConflict:'chave' });
+  showToast(`⚡ ${cli.name} entrou na fila!`, 'success');
+}
+
+function iniciarRotaEspecial() {
+  // Carrega config inicial
+  carregarConfigRE();
+
+  // Escuta novos pedidos em tempo real
+  if (_realtimePedidos) { try { sb.removeChannel(_realtimePedidos); } catch(e) {} }
+  _realtimePedidos = sb.channel('re_pedidos')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'pedidos' }, async (payload) => {
+      await adicionarNaFilaRE(payload.new);
+    })
+    .subscribe();
+}
+
+// ===== UTILS =====
+function calcDistM(lat1,lon1,lat2,lon2){
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+</script>
+
+<!-- WAKE LOCK -->
+<script>
+let wakeLock=null;
+async function ativarWakeLock(){if(!('wakeLock'in navigator))return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ativarWakeLock();});
+window.addEventListener('load',ativarWakeLock);
+</script>
+
+<!-- CACHE DE TILES -->
+<script>
+const TILE_CACHE='rei-coxinha-tiles-v2';
+function bboxToTiles(swLat,swLon,neLat,neLon,z){
+  const l2t=lon=>Math.floor((lon+180)/360*Math.pow(2,z));
+  const lat2t=lat=>Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+  return{xMin:l2t(swLon),xMax:l2t(neLon),yMin:lat2t(neLat),yMax:lat2t(swLat)};
+}
+(function(){
+  if(!('caches'in window))return;
+  const oF=window.fetch.bind(window);
+  window.fetch=async function(input,init){
+    const url=typeof input==='string'?input:(input?.url||'');
+    if(!url.includes('cartocdn.com')&&!url.includes('openstreetmap.org'))return oF(input,init);
+    try{
+      const cache=await caches.open(TILE_CACHE),cached=await cache.match(url);
+      if(cached)return cached.clone();
+      const r=await oF(input,init);
+      if(r&&r.ok)cache.put(url,r.clone()).catch(()=>{});
+      return r;
+    }catch(e){try{const c=await caches.open(TILE_CACHE),ca=await c.match(url);if(ca)return ca.clone();}catch(_){}throw e;}
+  };
+})();
+async function cachearTiles(){
+  if(!('caches'in window))return;
+  try{const c=await caches.open(TILE_CACHE);const k=await c.keys();if(k.length>500)return;}catch(e){return;}
+  const bbox={swLat:-8.26,swLon:-35.10,neLat:-8.05,neLon:-34.85},sv=['a','b','c'],z=[12,13,14,15,16,17],urls=[];
+  z.forEach(zl=>{const{xMin,xMax,yMin,yMax}=bboxToTiles(bbox.swLat,bbox.swLon,bbox.neLat,bbox.neLon,zl);
+    for(let x=xMin;x<=xMax;x++)for(let y=yMin;y<=yMax;y++){const s=sv[Math.abs(x+y)%3];urls.push(`https://${s}.basemaps.cartocdn.com/dark_all/${zl}/${x}/${y}.png`);if(urls.length>=1400)return;}
+  });
+  try{const c=await caches.open(TILE_CACHE);for(let i=0;i<urls.length;i+=15){await Promise.allSettled(urls.slice(i,i+15).map(u=>fetch(u,{mode:'cors'}).then(r=>{if(r.ok)c.put(u,r);}).catch(()=>{})));await new Promise(r=>setTimeout(r,60));}}catch(e){}
+}
+window.addEventListener('load',()=>setTimeout(()=>cachearTiles().catch(()=>{}),4000));
+</script>
+
+<!-- SERVICE WORKER -->
+<script>
+if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});}
+</script>
+</body>
+</html>
