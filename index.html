@@ -1018,7 +1018,10 @@ async function auth() {
     ativarNotificacoesPush(phone);
     
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
-    setTimeout(() => mostrarPopupInstalacao(), 500);
+    setTimeout(() => {
+        mostrarPopupInstalacao();
+        verificarDesinstalacao();
+    }, 500);
 }
 
 function showLoginError(msg) {
@@ -1056,21 +1059,22 @@ let jaVerificouDesinstalacao = false;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    
-    // Verificar desinstalação apenas uma vez ao acessar
-    if (!jaVerificouDesinstalacao) {
+});
+
+// Verificar desinstalação assim que o usuário faz login
+function verificarDesinstalacao() {
+    // Se foi instalado antes mas agora é possível instalar novamente = foi desinstalado
+    if (!jaVerificouDesinstalacao && deferredPrompt) {
         jaVerificouDesinstalacao = true;
         
-        // Se foi instalado antes mas agora recebeu beforeinstallprompt = foi desinstalado
         if (localStorage.getItem('app_installed') === 'true') {
+            // App foi desinstalado!
             localStorage.setItem('app_installed', 'false');
-            // Se usuário estiver logado, mostra pop-up
-            if (user) {
-                mostrarPopupInstalacao();
-            }
+            // Mostrar pop-up
+            mostrarPopupInstalacao();
         }
     }
-});
+}
 
 function mostrarPopupInstalacao() {
     // Mostra TODA VEZ que entra (se pode instalar e não está instalado)
