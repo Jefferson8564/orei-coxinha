@@ -804,26 +804,36 @@ async function auth() {
     btn.disabled = true; btn.textContent = "Entrando...";
     document.getElementById('loginError').style.display = 'none';
 
-    const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
-    if (partialPhone.length < 8) {
-        showLoginError("Digite o número completo");
-        btn.disabled = false; btn.textContent = "Entrar";
-        return;
+    // Verificar se já tem número salvo (usuário já se cadastrou antes)
+    let savedPhone = localStorage.getItem('salgados_phone');
+    let phone;
+
+    if (savedPhone) {
+        // ✅ USUÁRIO JÁ CADASTRADO - usa número salvo automaticamente
+        phone = savedPhone;
+    } else {
+        // ❌ PRIMEIRO CADASTRO - pedir número
+        const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
+        if (partialPhone.length < 8) {
+            showLoginError("Digite o número completo");
+            btn.disabled = false; btn.textContent = "Entrar";
+            return;
+        }
+
+        phone = "819" + partialPhone;
+
+        // Mapeamento de aliases: números alternativos que apontam para a conta principal
+        const phoneAliases = {
+            "81987650178": "81986633773"
+        };
+        if (phoneAliases[phone]) phone = phoneAliases[phone];
     }
-
-    let phone = "819" + partialPhone;
-
-    // Mapeamento de aliases: números alternativos que apontam para a conta principal
-    const phoneAliases = {
-        "81987650178": "81986633773"
-    };
-    if (phoneAliases[phone]) phone = phoneAliases[phone];
 
     // Buscar cliente
     let { data: client } = await sb.from("cadastros").select("*").eq("phone", phone).maybeSingle();
 
     if (!client) {
-        // Mostrar campo de nome
+        // Mostrar campo de nome (apenas no primeiro cadastro)
         const nb = document.getElementById('nameBox');
         if (nb.style.display === 'none' || nb.style.display === '') {
             nb.style.display = 'block';
@@ -838,6 +848,9 @@ async function auth() {
         }
         const { data: newClient } = await sb.from("cadastros").insert({ name, phone, fiado: false, debt: 0 }).select().single();
         client = newClient;
+        
+        // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
+        localStorage.setItem('salgados_phone', phone);
     }
 
     user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
@@ -853,7 +866,7 @@ async function auth() {
     }
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
 
-    // Salvar número para próximos acessos
+    // Salvar número para próximos acessos (segurança extra)
     localStorage.setItem('salgados_phone', phone);
 
     document.getElementById('loginScreen').style.display = 'none';
@@ -874,6 +887,28 @@ function showLoginError(msg) {
     const el = document.getElementById('loginError');
     el.textContent = msg;
     el.style.display = 'block';
+}
+
+// ===== LOGOUT =====
+function logout() {
+    if (confirm('Deseja sair da conta?')) {
+        // Limpar dados salvos
+        localStorage.removeItem('salgados_phone');
+        cart = {};
+        user = null;
+        favorites = {};
+        
+        // Voltar para tela de login
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+        
+        // Limpar inputs
+        document.getElementById('userPhone').value = '';
+        document.getElementById('userName').value = '';
+        document.getElementById('nameBox').style.display = 'none';
+        
+        showToast("Você saiu da conta", 'success');
+    }
 }
 
 // ===== PRODUTOS =====
@@ -1397,8 +1432,27 @@ async function salvarPrivacidade(valor) {
         <!-- Lista de notificações -->
         <div id="listaHistorico" style="display:flex;flex-direction:column;gap:8px;"></div>
 
+        <!-- Botão Sair -->
+        <div style="padding:16px 0 8px;margin-top:auto;border-top:1px solid rgba(255,255,255,0.08);">
+            <button onclick="logout()" style="
+                width:100%;
+                padding:14px;
+                background:linear-gradient(135deg,#e74c3c,#c0392b);
+                color:white;
+                border:none;
+                border-radius:16px;
+                font-weight:800;
+                font-size:15px;
+                cursor:pointer;
+                box-shadow:0 4px 14px rgba(231,76,60,0.35);
+                transition:all 0.2s;
+            " ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
+                🚪 Sair da Conta
+            </button>
+        </div>
+
         <!-- Rodapé -->
-        <div style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:20px;font-weight:500;letter-spacing:0.3px;">
+        <div style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:10px;font-weight:500;letter-spacing:0.3px;">
             O Rei da Coxinha 🍗 · Painel v1.0
         </div>
 
