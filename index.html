@@ -1054,7 +1054,6 @@ function logout() {
 
 // ===== PWA INSTALL =====
 let deferredPrompt = null;
-let jaVerificouDesinstalacao = false;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -1064,20 +1063,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // Verificar desinstalação assim que o usuário faz login
 function verificarDesinstalacao() {
     // Se foi instalado antes mas agora é possível instalar novamente = foi desinstalado
-    if (!jaVerificouDesinstalacao && deferredPrompt) {
-        jaVerificouDesinstalacao = true;
-        
-        if (localStorage.getItem('app_installed') === 'true') {
-            // App foi desinstalado!
-            localStorage.setItem('app_installed', 'false');
-            // Mostrar pop-up
-            mostrarPopupInstalacao();
-        }
+    if (deferredPrompt && localStorage.getItem('app_installed') === 'true') {
+        // App foi desinstalado!
+        localStorage.setItem('app_installed', 'false');
+        // Mostrar pop-up
+        mostrarPopupInstalacao();
     }
 }
 
 function mostrarPopupInstalacao() {
     // Mostra TODA VEZ que entra (se pode instalar e não está instalado)
+    // Nunca salva que foi "fechado", apenas se foi instalado mesmo
     if (deferredPrompt && localStorage.getItem('app_installed') !== 'true') {
         const modal = document.getElementById('modalInstalarApp');
         if (modal) {
@@ -1089,7 +1085,8 @@ function mostrarPopupInstalacao() {
 function fecharPopupInstalacao() {
     const modal = document.getElementById('modalInstalarApp');
     if (modal) modal.classList.remove('active');
-    // Não salva que foi fechado - vai aparecer novamente na próxima entrada
+    // NÃO salva nada - vai aparecer novamente na próxima entrada!
+    // Isso garante que o pop-up insista sempre que o usuário entrar
 }
 
 function instalarApp() {
