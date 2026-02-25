@@ -7,7 +7,7 @@
     <link rel="icon" href="icone.png">
     <link rel="apple-touch-icon" href="icone.png">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#c75b24">
+    <meta name="theme-color" content="#934224">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
@@ -87,11 +87,40 @@
             --bg: #f0f2f6;
             --card-shadow: 0 4px 20px rgba(0,0,0,0.08);
             --card-shadow-hover: 0 8px 30px rgba(0,0,0,0.13);
+            --theme-gradient: linear-gradient(135deg, #4dd0ff 0%, #0099ff 25%, #0052cc 50%, #003d99 75%, #0066ff 100%);
+            --theme-header-bg: #001a33;
+            --theme-header-border: rgba(0, 153, 255, 0.2);
+            --theme-shadow: 0 12px 40px rgba(0, 153, 255, 0.6);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
 
-        body { background: var(--bg); padding-bottom: 130px; }
+        #app {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            display: block;
+        }
+
+        html {
+            background-color: #934224;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            overscroll-behavior-y: none;
+        }
+
+        body {
+            background-color: #934224;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            padding-bottom: 130px;
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+            width: 100%;
+            position: relative;
+        }
 
         /* ===== LOADING ===== */
         #loadingOverlay {
@@ -107,7 +136,7 @@
         #toast {
             position: fixed; top: 20px; left: 50%;
             transform: translateX(-50%) translateY(-30px);
-            background: #1a1a2e; color: white;
+            color: white;
             padding: 13px 26px; border-radius: 30px;
             font-size: 14px; font-weight: 700; z-index: 9998;
             opacity: 0; transition: opacity 0.3s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
@@ -116,7 +145,6 @@
             letter-spacing: 0.2px;
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        #toast.success { background: linear-gradient(135deg, #25d366, #1aad52); }
         #toast.error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
         #toast.warning { background: linear-gradient(135deg, #f1c40f, #e67e22); color: #fff; }
 
@@ -126,6 +154,7 @@
             border: 4px solid rgba(255,255,255,0.25);
             border-top-color: white; border-radius: 50%;
             animation: spin 0.75s linear infinite;
+            will-change: transform;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeSlide { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
@@ -193,12 +222,44 @@
 
         /* ===== HEADER ===== */
         .header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            background: var(--theme-gradient);
             padding: 14px 17px; color: white;
             display: flex; align-items: center; justify-content: space-between;
-            position: sticky; top: 8px; z-index: 100;
-            height: 75px; border-radius: 23px; margin: 8px 10px 0;
-            box-shadow: 0 6px 24px rgba(199,91,36,0.35);
+            position: sticky; top: 0; z-index: 100;
+            height: 75px; border-radius: 30px;
+            margin: 12px 12px 0 12px;
+            width: calc(100% - 24px);
+            box-shadow: var(--theme-shadow), inset 0 2px 6px rgba(255,255,255,0.3);
+            position: relative;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+            border-radius: 30px 30px 0 0;
+            pointer-events: none;
+        }
+        .header-badge {
+            background: white;
+            color: #e74c3c;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 auto;
+        }
+        .header-title {
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            margin: 0;
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
@@ -209,16 +270,24 @@
         .header-btn:active { transform: scale(0.88); background: rgba(255,255,255,0.35); }
 
         /* ===== GRID DE PRODUTOS ===== */
-        .products-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 14px 12px; }
+        .products-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 16px; 
+            padding: 16px 12px; 
+            margin: 0;
+            margin-bottom: 80px;
+            width: 100%;
+        }
         .card {
-            background: white; border-radius: 20px; overflow: hidden;
-            box-shadow: var(--card-shadow);
+            background: transparent; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
             display: flex; flex-direction: column;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .card:active { transform: scale(0.97); box-shadow: var(--card-shadow-hover); }
+        .card:active { transform: scale(0.97); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
         .card-img {
-            height: 120px; background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+            height: 140px; background: linear-gradient(135deg, #fff3e0, #ffe0b2);
             display: flex; align-items: center; justify-content: center; font-size: 44px;
             position: relative; overflow: hidden;
         }
@@ -227,6 +296,93 @@
             background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.04));
         }
         .card-img img { width: 100%; height: 100%; object-fit: cover; }
+        .card-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-grow: 1;
+            background: var(--theme-gradient);
+            border-radius: 0 0 20px 20px;
+            box-shadow: var(--theme-shadow), inset 0 2px 6px rgba(255,255,255,0.4), inset 0 -2px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .card-body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+            border-radius: 0 0 20px 20px;
+            pointer-events: none;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        .card-price {
+            font-size: 16px;
+            font-weight: 700;
+            color: #f0f0f0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        .card-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 8px 10px;
+        }
+        .qty-display {
+            flex: 1;
+            text-align: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #ffffff;
+            border: none;
+            background: transparent;
+            outline: none;
+            width: 40px;
+        }
+        .qty-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .qty-btn.minus {
+            background: #d84545;
+            color: white;
+            box-shadow: 0 4px 12px rgba(216,69,69,0.4);
+        }
+        .qty-btn.minus:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 6px rgba(216,69,69,0.3);
+        }
+        .qty-btn.plus {
+            background: #2ecc71;
+            color: white;
+            box-shadow: 0 4px 12px rgba(46,204,113,0.4);
+        }
+        .qty-btn.plus:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 6px rgba(46,204,113,0.3);
+        }
         .qty-input {
             width: 38px; border: none; background: transparent;
             text-align: center; font-weight: 800; font-size: 16px;
@@ -237,16 +393,35 @@
 
         /* ===== FOOTER ===== */
         .footer {
-            position: fixed; bottom: 0; width: 100%;
-            background: white; padding: 14px 16px 18px;
-            border-top: 1px solid rgba(0,0,0,0.06);
+            position: fixed; bottom: 12px; left: 12px; right: 12px; width: calc(100% - 24px);
+            background: var(--theme-gradient);
+            padding: 14px 16px 18px;
+            border-top: 1px solid rgba(255,255,255,0.1);
             display: flex; align-items: center; justify-content: space-between;
             gap: 10px; z-index: 900;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            box-shadow: var(--theme-shadow);
+            border-radius: 24px;
+        }
+        .footer-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .footer-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .footer-total {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
         }
         .btn-pedir {
-            flex: 2; background: #d1d8e0; color: white;
-            border: none; padding: 14px; border-radius: 16px;
+            flex: 1; background: #d1d8e0; color: white;
+            border: none; padding: 14px 20px; border-radius: 18px;
             font-weight: 800; pointer-events: none;
             transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
             font-size: 15px; letter-spacing: 0.3px;
@@ -483,6 +658,23 @@ let toastTimer = null;
 function showToast(msg, type = 'success', duration = 2500) {
     const t = document.getElementById('toast');
     t.textContent = msg;
+    
+    // Pega o tema selecionado
+    const temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
+    
+    if (type === 'success') {
+        if (temaSelecionado === 'roxo') {
+            t.style.background = 'linear-gradient(135deg, #c77dff, #9d4edd)';
+        } else {
+            t.style.background = 'linear-gradient(135deg, #4dd0ff, #0099ff)';
+        }
+    } else if (type === 'error') {
+        t.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+    } else if (type === 'warning') {
+        t.style.background = 'linear-gradient(135deg, #f1c40f, #e67e22)';
+        t.style.color = '#fff';
+    }
+    
     t.className = 'show ' + type;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.className = ''; }, duration);
@@ -496,6 +688,7 @@ let currentOrderTotal = 0;
 let creditDiscount = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
+let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
 
 // ===== INIT =====
 window.onload = async () => {
@@ -529,6 +722,42 @@ window.onload = async () => {
     }
     window.addEventListener('online', mostrarStatusOnline);
     window.addEventListener('offline', mostrarStatusOnline);
+    
+    // Listener para o botão voltar do navegador/celular
+    window.addEventListener('popstate', (e) => {
+        // Tentar fechar modais na seguinte ordem de prioridade:
+        
+        // 1. Modal do mapa de entrega
+        const modalMapa = document.getElementById('modalMapaEntrega');
+        if (modalMapa && modalMapa.style.display !== 'none') {
+            fecharMapaEntrega();
+            return;
+        }
+        
+        // 2. Painel de controle
+        const painelControle = document.getElementById('painelControle');
+        if (painelControle && painelControle.style.transform !== 'translateY(100%)') {
+            fecharPainelControle();
+            return;
+        }
+        
+        // 3. Modal de pagamento
+        const payModal = document.getElementById('payModal');
+        if (payModal && payModal.classList.contains('active')) {
+            payModal.classList.remove('active');
+            return;
+        }
+        
+        // 4. Modal de favoritos
+        const favModal = document.getElementById('favModal');
+        if (favModal && favModal.classList.contains('active')) {
+            favModal.classList.remove('active');
+            return;
+        }
+    });
+    
+    // Adicionar histórico inicial
+    window.history.pushState({ state: 'home' }, '', window.location.href);
     // Carregar template de mensagem
     const { data: cfg } = await sb.from("configuracoes").select("*").eq("key", "msg_template").maybeSingle();
     if (cfg) msgTemplate = cfg.value;
@@ -557,6 +786,7 @@ window.onload = async () => {
             atualizarCabecalho();
             checkFavoriteBtn();
             carregarPrivacidade();
+            carregarTemaSalvo();
             await loadProducts();
             // Reativa push para quem já estava logado
             ativarNotificacoesPush(savedPhone);
@@ -632,6 +862,7 @@ async function auth() {
     atualizarCabecalho();
     checkFavoriteBtn();
     carregarPrivacidade();
+    carregarTemaSalvo();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 
@@ -653,32 +884,80 @@ async function loadProducts() {
     render();
 }
 
-function render() {
-    const g = document.getElementById('grid');
-    g.innerHTML = products.map(p => `
-        <div class="card">
-            <div class="card-img">${p.img ? `<img src="${p.img}">` : '🥟'}</div>
-            <div style="padding:10px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
-                <div><strong>${p.name}</strong><br><span style="color:var(--primary); font-weight:bold;">R$ ${p.price.toFixed(2)}</span></div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f1f2f6; border-radius:20px; padding:4px; margin-top:10px;">
-                    <button onclick="qty('${p.id}',-1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--danger);color:white;">-</button>
-                    <input type="number" class="qty-input" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)">
-                    <button onclick="qty('${p.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--success);color:white;">+</button>
-                </div>
-            </div>
-        </div>`).join('');
-
-    let total = 0;
-    for (let id in cart) { const p = products.find(x => x.id == id); if (p) total += p.price * cart[id]; }
-    currentOrderTotal = total;
-    document.getElementById('totalLabel').innerText = "R$ " + total.toFixed(2).replace('.',',');
-    const hasItems = total > 0;
-    document.getElementById('btnMain').className = hasItems ? "btn-pedir active" : "btn-pedir";
-    document.getElementById('btnSaveFav').style.display = hasItems ? "block" : "none";
+// ===== OTIMIZAÇÃO: Throttle para eventos frequentes =====
+let scrollTimeout;
+let lastScrollTime = 0;
+function throttledScroll(callback, delay = 100) {
+    const now = Date.now();
+    if (now - lastScrollTime > delay) {
+        callback();
+        lastScrollTime = now;
+    } else {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(callback, delay - (now - lastScrollTime));
+    }
 }
 
-function qty(id, d) { cart[id] = (cart[id] || 0) + d; if (cart[id] <= 0) delete cart[id]; render(); }
-function setQty(id, val) { let n = parseInt(val); if (isNaN(n) || n <= 0) delete cart[id]; else cart[id] = n; render(); }
+let renderScheduled = false;
+
+function render() {
+    // Evitar múltiplos renders simultâneos
+    if (renderScheduled) return;
+    renderScheduled = true;
+    
+    requestAnimationFrame(() => {
+        const g = document.getElementById('grid');
+        if (!g) return;
+        
+        g.innerHTML = products.map(p => `
+            <div class="card">
+                <div class="card-img">${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}</div>
+                <div class="card-body">
+                    <div><strong class="card-title">${p.name}</strong><br><span class="card-price">R$ ${p.price.toFixed(2)}</span></div>
+                    <div class="card-controls">
+                        <button onclick="qty('${p.id}',-1)" class="qty-btn minus">-</button>
+                        <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)">
+                        <button onclick="qty('${p.id}',1)" class="qty-btn plus">+</button>
+                    </div>
+                </div>
+            </div>`).join('');
+
+        // Calcular total otimizado
+        let total = 0;
+        const cartIds = Object.keys(cart);
+        for (let i = 0; i < cartIds.length; i++) {
+            const p = products.find(x => x.id == cartIds[i]);
+            if (p) total += p.price * cart[cartIds[i]];
+        }
+        
+        currentOrderTotal = total;
+        const totalLabel = document.getElementById('totalLabel');
+        if (totalLabel) totalLabel.innerText = "R$ " + total.toFixed(2).replace('.',',');
+        
+        const btnMain = document.getElementById('btnMain');
+        if (btnMain) {
+            const hasItems = total > 0;
+            btnMain.className = hasItems ? "btn-pedir active" : "btn-pedir";
+            const btnSaveFav = document.getElementById('btnSaveFav');
+            if (btnSaveFav) btnSaveFav.style.display = hasItems ? "block" : "none";
+        }
+        
+        renderScheduled = false;
+    });
+}
+
+function qty(id, d) { 
+    cart[id] = (cart[id] || 0) + d; 
+    if (cart[id] <= 0) delete cart[id]; 
+    render(); 
+}
+
+function setQty(id, val) { 
+    let n = parseInt(val); 
+    if (isNaN(n) || n <= 0) delete cart[id]; 
+    else cart[id] = n; 
+    render(); 
+}
 
 // ===== CABEÇALHO =====
 function atualizarCabecalho() {
@@ -757,6 +1036,7 @@ function openFavoriteModal() {
 
     document.getElementById('favDetails').innerHTML = html;
     document.getElementById('favModal').classList.add('active');
+    window.history.pushState({ state: 'fav_modal_aberto' }, '', window.location.href);
 }
 
 function addFavToCart() {
@@ -780,6 +1060,7 @@ function pedirFavorito() {
 // ===== PAGAMENTO =====
 function showPayModal() {
     document.getElementById('payModal').classList.add('active');
+    window.history.pushState({ state: 'pay_modal_aberto' }, '', window.location.href);
     const fiadoBtn = document.getElementById('fBtnModal');
     const entregaBtn = document.getElementById('btnEntrega');
     if (user.fiado) {
@@ -953,6 +1234,8 @@ function abrirPainelControle() {
     document.getElementById('painelControle').style.transform = 'translateY(0)';
     atualizarLabelPainel();
     renderHistoricoSaldo();
+    // Adicionar ao histórico para habilitar botão voltar
+    window.history.pushState({ state: 'painel_aberto' }, '', window.location.href);
 }
 
 function fecharPainelControle() {
@@ -1032,20 +1315,39 @@ async function salvarPrivacidade(valor) {
             </div>
         </div>
 
-        <!-- Acompanhar Entrega -->
+        <!-- Acompanhar Entrega + Mudar Tema -->
         <div style="display:flex;align-items:center;gap:6px;padding:6px 4px 10px;">
             <div style="width:6px;height:6px;border-radius:50%;background:#3498db;"></div>
-            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Entrega</span>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Entrega & Personalização</span>
         </div>
-        <div onclick="abrirMapaEntrega()" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; margin-bottom:14px; border:1px solid rgba(52,152,219,0.3); display:flex; align-items:center; justify-content:space-between; gap:16px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
-            <div style="display:flex;align-items:center;gap:13px;flex:1;">
-                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#2980b9,#1a5276);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(41,128,185,0.5);">🛵</div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <!-- Acompanhar Entrega -->
+            <div onclick="abrirMapaEntrega()" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(52,152,219,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s; text-align:center;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+                <div style="font-size:28px;">🛵</div>
                 <div>
-                    <div style="font-size:14px;font-weight:800;color:white;margin-bottom:4px;">Acompanhar Entrega</div>
-                    <div id="entregaStatusText" style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.55;">Toque para ver o mapa e a rota do entregador em tempo real</div>
+                    <div style="font-size:13px;font-weight:800;color:white;margin-bottom:2px;">Acompanhar</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.55);">Entrega</div>
                 </div>
             </div>
-            <div style="font-size:20px;">›</div>
+            
+            <!-- Mudar Tema -->
+            <div style="background:linear-gradient(135deg,rgba(0,212,255,0.22),rgba(0,153,255,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(0,212,255,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+                <div style="font-size:28px;">🎨</div>
+                <div style="text-align:center;">
+                    <div style="font-size:13px;font-weight:800;color:white;margin-bottom:6px;">Tema</div>
+                    <div style="display:flex;gap:6px;justify-content:center;">
+                        <!-- Azul Metálico -->
+                        <div onclick="alterarTema('azul')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#4dd0ff,#0099ff,#0052cc);cursor:pointer;box-shadow:0 4px 12px rgba(0,153,255,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkAzul">✓</span>
+                        </div>
+                        <!-- Roxo Metálico -->
+                        <div onclick="alterarTema('roxo')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#c77dff,#9d4edd,#7209b7);cursor:pointer;box-shadow:0 4px 12px rgba(157,78,221,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkRoxo" style="display:none;">✓</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Modal Mapa Entrega -->
@@ -1147,7 +1449,17 @@ async function renderHistoricoSaldo() {
             : saldoApos < 0
             ? `Crédito: R$ ${Math.abs(saldoApos).toFixed(2).replace('.',',')}`
             : 'Pagar depois quitado!';
-        const cor = isReembolso ? '#8e44ad' : '#25d366';
+        
+        // Definir cores baseadas no tema e tipo
+        let cor;
+        if (isReembolso) {
+            // Reembolso muda de cor conforme tema
+            cor = temaSelecionado === 'roxo' ? '#5a0f3f' : '#e74c3c'; // Rosa muito escuro no roxo, Vermelho no azul
+        } else {
+            // Pago sempre verde
+            cor = '#25d366';
+        }
+        
         itens.push({
             id: String(p.id),
             data: p.created_at,
@@ -1184,11 +1496,16 @@ async function renderHistoricoSaldo() {
             animation: fadeSlide 0.4s ease ${idx * 0.06}s both;
         `;
 
-        // Fundo vermelho lixeira — aparece conforme arrasta
+        // Fundo lixeira — aparece conforme arrasta (cor muda conforme tema)
+        const temaSalvo = localStorage.getItem('temaSelecionado') || 'azul';
+        const corLixeira = temaSalvo === 'roxo' 
+            ? 'linear-gradient(135deg,#ff1493,#ff69b4)' // Rosa para tema roxo
+            : 'linear-gradient(135deg,#ff3b30,#c0392b)'; // Vermelho para tema azul
+        
         const lixeira = document.createElement('div');
         lixeira.style.cssText = `
             position:absolute; top:0; left:0; right:0; bottom:0;
-            background:linear-gradient(135deg,#ff3b30,#c0392b);
+            background:${corLixeira};
             display:flex; align-items:center; justify-content:space-between;
             padding:0 20px; border-radius:22px;
             pointer-events:none;
@@ -1337,6 +1654,8 @@ async function abrirMapaEntrega() {
     const modal = document.getElementById('modalMapaEntrega');
     modal.style.display = 'flex';
     modal.style.flexDirection = 'column';
+    // Adicionar ao histórico para habilitar botão voltar
+    window.history.pushState({ state: 'mapa_aberto' }, '', window.location.href);
 
     // Carregar Leaflet se não carregado
     if (!window.L) {
@@ -1477,167 +1796,127 @@ async function verificarConectividadeGPS() {
 }
 
 async function atualizarMapaCompleto() {
-    const agora = new Date();
     const hoje = hojeStr();
-    const ontem = ontemStr();
-    const depoisDas1130 = horasBRT(agora).getHours() > 11 || (horasBRT(agora).getHours() === 11 && horasBRT(agora).getMinutes() >= 30);
+    const FABRICA = [-8.1837523, -34.9383004];
 
-    // ── UM ÚNICO SELECT: tudo que o cardápio precisa vem da delivery_routes ──
-    const { data: rotas } = await sb.from("rotas")
-        .select("*")
-        .in("status", ["em_andamento", "concluido", "criada", "aguardando"])
-        .gte("saida_em", hoje + 'T00:00:00-03:00')
-        .order("hora_saida", { ascending: true });
+    // ── BUSCA PARALELA: rotas + pedidos de hoje + GPS avulso ──
+    const [{ data: rotas }, { data: pedidosHoje }, { data: gpsRow }] = await Promise.all([
+        sb.from("rotas")
+            .select("id, status, paradas, phones_entregues, gps_lat, gps_lon, gps_ts, janela_inicio, proximas_rotas, hora_saida")
+            .in("status", ["em_andamento", "concluido", "criada"])
+            .order("hora_saida", { ascending: true }),
+        sb.from("pedidos")
+            .select("customer_phone, customer_name")
+            .gte("created_at", hoje + 'T00:00:00-03:00')
+            .lte("created_at", hoje + 'T23:59:59-03:00'),
+        sb.from("rota_especial_gps")
+            .select("valor").eq("chave", "entregador_gps").maybeSingle()
+    ]);
 
-    // Rota ativa: em_andamento primeiro, senão mais recente concluída hoje
+    // ── ROTA ATIVA ──
     const rota = (rotas || []).find(r => r.status === 'em_andamento')
               || (rotas || []).find(r => r.status === 'concluido')
               || null;
-    const paradas = rota ? (rota.paradas || []) : [];
+    const paradas = rota?.paradas || [];
+    const phonesEntregues = new Set(rota?.phones_entregues || []);
 
-    // GPS vem da rota ativa ou da posição avulsa salva pelo entregador
+    // ── GPS DO ENTREGADOR ──
     let adminPos = null;
-    if (rota && rota.gps_lat && rota.gps_lon) {
+    if (rota?.gps_lat && rota?.gps_lon) {
         adminPos = [rota.gps_lat, rota.gps_lon];
     } else {
-        // Sem rota: tenta posição avulsa do app_config (salva pelo index.html mesmo sem rota)
         try {
-            const { data: gpsAvulso } = await sb.from("rota_especial_gps")
-                .select("valor").eq("chave", "entregador_gps").maybeSingle();
-            if (gpsAvulso?.valor) {
-                const g = JSON.parse(gpsAvulso.valor);
-                const segundosAtras = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
-                if (g.lat && g.lon && segundosAtras < 300) { // válido por até 5 minutos
-                    adminPos = [g.lat, g.lon];
-                }
+            if (gpsRow?.valor) {
+                const g = JSON.parse(gpsRow.valor);
+                const seg = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
+                if (g.lat && g.lon && seg < 300) adminPos = [g.lat, g.lon];
             }
         } catch(e) {}
     }
 
-    // phones_entregues vem da coluna — sem SELECT extra
-    const phonesEntreguesHoje = new Set(rota?.phones_entregues || []);
+    // ── TODOS OS CLIENTES QUE PEDIRAM HOJE ──
+    const phonesHoje = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
+    const nomesPorPhone = {};
+    (pedidosHoje || []).forEach(p => { if (p.customer_phone) nomesPorPhone[p.customer_phone] = p.customer_name || ''; });
 
-    // janela_inicio vem da coluna — sem calcular no front
-    const inicioJanela = rota?.janela_inicio
-        ? rota.janela_inicio.replace('Z','').replace('+00:00','')
-        : (depoisDas1130 ? hoje + 'T11:30:00' : ontem + 'T11:30:00');
+    let clientesHoje = [];
+    if (phonesHoje.length > 0) {
+        const { data: cads } = await sb.from("cadastros")
+            .select("phone, name, delivery_lat, delivery_lon")
+            .in("phone", phonesHoje);
+        clientesHoje = (cads || [])
+            .filter(c => c.delivery_lat && c.delivery_lon)
+            .map(c => {
+                const paradaNaRota = paradas.find(p => p.cliente_phone === c.phone);
+                return {
+                    phone: c.phone,
+                    nome: c.name || nomesPorPhone[c.phone] || c.phone,
+                    coords: [parseFloat(c.delivery_lat), parseFloat(c.delivery_lon)],
+                    isMe: c.phone === user?.phone,
+                    entregue: phonesEntregues.has(c.phone),
+                    naRota: !!paradaNaRota,
+                    statusRota: paradaNaRota?.status || null
+                };
+            });
+    }
 
-    // proximas_rotas vem da coluna — sem SELECT extra
+    // ── ETA PARA O CLIENTE LOGADO ──
+    const VELOCIDADE_KMH = 25, TEMPO_POR_PARADA_MIN = 2;
+    const pendentes = paradas.filter(p => p.status !== 'entregue');
+    const proximaParada = pendentes[0] || null;
+    window._proximaParadaCache = proximaParada;
+
     const rotasOrdenadas = [
         ...(rota ? [rota] : []),
-        ...((rota?.proximas_rotas || []).map(r => ({
-            ...r, paradas: [], status: 'criada'
-        })))
+        ...((rota?.proximas_rotas || []).map(r => ({ ...r, paradas: [], status: 'criada' })))
     ];
-
-    // Pedidos dentro da janela (apenas SELECT de orders + clients)
-    let clientesComPedido = [];
-    const { data: pedidosHoje } = await sb.from("pedidos")
-        .select("customer_phone")
-        .gte("created_at", inicioJanela)
-        .lte("created_at", hoje + 'T23:59:59-03:00');
-    const phonesComPedido = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
-
-    if (phonesComPedido.length > 0) {
-        const { data: clientesData } = await sb.from("cadastros")
-            .select("phone, delivery_lat, delivery_lon")
-            .in("phone", phonesComPedido);
-        clientesComPedido = (clientesData || [])
-            .filter(c => c.delivery_lat && c.delivery_lon)
-            .filter(c => !phonesEntreguesHoje.has(c.phone))
-            .map(c => ({
-                phone: c.phone,
-                coords: [parseFloat(c.delivery_lat), parseFloat(c.delivery_lon)],
-                isMe: c.phone === user?.phone,
-                naRota: paradas.some(p => p.cliente_phone === c.phone && p.status !== 'entregue')
-            }));
-    }
-
-    // Sem rota e sem GPS
-    if (!adminPos && !rota) {
-        document.getElementById('mapaEtaText').textContent = 'Nenhuma entrega em andamento no momento';
-        document.getElementById('etaValor').textContent = '--';
-        document.getElementById('distanciaValor').textContent = '--';
-        document.getElementById('paradasRestantesValor').textContent = '--';
-        document.getElementById('paradasList').innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;text-align:center;padding:10px;">Aguardando início da entrega...</div>';
-        return;
-    }
-
-    // Rota concluída — entregador voltou à fábrica
-    if (rota && rota.status === 'concluido') {
-        const FABRICA = [-8.1837523, -34.9383004];
-        document.getElementById('mapaEtaText').textContent = '🏭 Entregador retornou à fábrica';
-        document.getElementById('etaValor').textContent = '✅';
-        document.getElementById('distanciaValor').textContent = '--';
-        document.getElementById('paradasRestantesValor').textContent = '0';
-        colocarMotoMapa(adminPos || FABRICA, 0);
-        renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido);
-        return;
-    }
-
-    // ── ETA: usa proximas_rotas da coluna ──────────────────────────────────
-    const VELOCIDADE_KMH = 25;
-    const TEMPO_POR_PARADA_MIN = 2;
-    const FABRICA = [-8.1837523, -34.9383004];
-    const pendentes = paradas.filter(p => p.status !== 'entregue');
-
+    let etaMin = null, distanciaTotal = null, totalNaFrente = 0;
     let minhaRota = null, minhaRotaIdx = -1, paradaIdx = -1, minhaParada = null;
     for (let ri = 0; ri < rotasOrdenadas.length; ri++) {
         const ps = rotasOrdenadas[ri].paradas || [];
         const pi = ps.findIndex(p => p.cliente_phone === user?.phone);
         if (pi >= 0) { minhaRota = rotasOrdenadas[ri]; minhaRotaIdx = ri; paradaIdx = pi; minhaParada = ps[pi]; break; }
     }
-    const clienteNaRota = minhaRota !== null;
-
-    let etaMin = null, distanciaTotal = null, totalNaFrente = 0, semRota = false;
-
-    if (minhaParada && minhaParada.coords) {
-        const sequencia = [];
-        const origem = adminPos || FABRICA;
-        sequencia.push(origem);
-
+    if (minhaParada?.coords) {
+        const seq = [adminPos || FABRICA];
         for (let ri = 0; ri < minhaRotaIdx; ri++) {
-            const ps = (rotasOrdenadas[ri].paradas || []).filter(p => p.status !== 'entregue' && p.coords);
-            ps.forEach(p => { sequencia.push(p.coords); totalNaFrente++; });
-            if (ps.length > 0) sequencia.push(FABRICA);
+            (rotasOrdenadas[ri].paradas || []).filter(p => p.status !== 'entregue' && p.coords)
+                .forEach(p => { seq.push(p.coords); totalNaFrente++; });
+            seq.push(FABRICA);
         }
-
-        const parasAntesMim = (minhaRota.paradas || [])
-            .slice(0, paradaIdx)
-            .filter(p => p.status !== 'entregue' && p.coords);
-        parasAntesMim.forEach(p => { sequencia.push(p.coords); totalNaFrente++; });
-        sequencia.push(minhaParada.coords);
-
-        let kmTotal = 0;
-        for (let i = 0; i < sequencia.length - 1; i++) kmTotal += calcDist(sequencia[i], sequencia[i + 1]);
-        distanciaTotal = kmTotal;
-        const minViagem = (kmTotal / VELOCIDADE_KMH) * 60;
-        const minParadas = totalNaFrente * TEMPO_POR_PARADA_MIN;
-        etaMin = Math.max(1, Math.round(minViagem + minParadas));
-    } else if (!clienteNaRota) {
-        semRota = true;
+        (minhaRota.paradas || []).slice(0, paradaIdx).filter(p => p.status !== 'entregue' && p.coords)
+            .forEach(p => { seq.push(p.coords); totalNaFrente++; });
+        seq.push(minhaParada.coords);
+        let km = 0;
+        for (let i = 0; i < seq.length - 1; i++) km += calcDist(seq[i], seq[i+1]);
+        distanciaTotal = km;
+        etaMin = Math.max(1, Math.round((km / VELOCIDADE_KMH) * 60 + totalNaFrente * TEMPO_POR_PARADA_MIN));
     }
 
-    const proximaParada = pendentes[0] || null;
-    window._proximaParadaCache = proximaParada;
-
-    document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
-    document.getElementById('paradasRestantesValor').textContent = pendentes.length;
-    document.getElementById('mapaEtaText').textContent = proximaParada
-        ? `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`
-        : `✅ Todas as entregas concluídas`;
-
-    if (distanciaTotal !== null) {
-        document.getElementById('distanciaValor').textContent = distanciaTotal.toFixed(1) + ' km';
+    // ── PAINEL STATUS ──
+    if (rota?.status === 'concluido') {
+        document.getElementById('mapaEtaText').textContent = '🏭 Entregador retornou à fábrica';
+    } else if (proximaParada) {
+        document.getElementById('mapaEtaText').textContent = `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`;
+    } else if (clientesHoje.length > 0) {
+        document.getElementById('mapaEtaText').textContent = `📦 ${clientesHoje.length} pedido(s) hoje`;
     } else {
-        document.getElementById('distanciaValor').textContent = '--';
+        document.getElementById('mapaEtaText').textContent = 'Nenhum pedido hoje ainda';
     }
+    document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
+    document.getElementById('distanciaValor').textContent = distanciaTotal !== null ? distanciaTotal.toFixed(1) + ' km' : '--';
+    document.getElementById('paradasRestantesValor').textContent = pendentes.length || '--';
 
-    renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido);
+    // ── RENDERIZAR MAPA (sempre, com tudo) ──
+    renderizarRotaMapa(rota, paradas, adminPos, clientesHoje);
 
-    const posicaoMoto = adminPos || (paradas.length > 0 && paradas[0].coords ? paradas[0].coords : [-8.05, -34.90]);
-    const bearingMoto = (adminPos && proximaParada?.coords) ? calcBearing(adminPos, proximaParada.coords) : 0;
-    colocarMotoMapa(posicaoMoto, bearingMoto);
+    // ── MOTO ──
+    if (adminPos) {
+        const bearing = (proximaParada?.coords) ? calcBearing(adminPos, proximaParada.coords) : 0;
+        colocarMotoMapa(adminPos, bearing);
+    } else if (rota?.status === 'concluido') {
+        colocarMotoMapa(FABRICA, 0);
+    }
 
     // ── Card status do cliente ──
     const list = document.getElementById('paradasList');
@@ -1910,163 +2189,126 @@ function decodPolyline6(encoded) {
     return result;
 }
 
-async function renderizarRotaMapa(rota, paradas, adminPos, clientesComPedido = []) {
+async function renderizarRotaMapa(rota, paradas, adminPos, clientesHoje = []) {
     if (!mapaEntregaObj || !window.L) return;
 
-    // Limpar todas as camadas exceto tile e moto
     mapaEntregaObj.eachLayer(l => { if (!(l instanceof L.TileLayer) && l !== motoMarker) mapaEntregaObj.removeLayer(l); });
     rotaLayer = null;
 
     const FABRICA = [-8.1837523, -34.9383004];
-    const todasComCoords = paradas.filter(p => p.coords);
     const pendentes = paradas.filter(p => p.status !== 'entregue' && p.coords);
-    const entregues = paradas.filter(p => p.status === 'entregue' && p.coords);
     const proximaParada = pendentes[0] || null;
-    const minhaParada = paradas.find(p => p.cliente_phone === user?.phone && p.coords) || null;
 
-    // ── LINHA VERMELHA: rota completa por ruas
-    const pontosCompletos = [FABRICA, ...todasComCoords.map(p => p.coords), FABRICA];
-    if (pontosCompletos.length >= 3) {
-        buscarRotaRuas(pontosCompletos).then(coordsRua => {
-            if (coordsRua && coordsRua.length > 1) {
-                L.polyline(coordsRua, {
-                    color: '#e74c3c', weight: 3, opacity: 0.6, dashArray: '9 7'
-                }).addTo(mapaEntregaObj);
-            }
+    // ── LINHA PONTILHADA VERMELHA: trajeto completo da rota por ruas ──
+    const todasComCoords = paradas.filter(p => p.coords);
+    if (todasComCoords.length > 0) {
+        const pontos = [FABRICA, ...todasComCoords.map(p => p.coords), FABRICA];
+        buscarRotaRuas(pontos).then(coords => {
+            if (!mapaEntregaObj) return;
+            L.polyline(coords?.length > 1 ? coords : pontos, {
+                color: '#e74c3c', weight: 3, opacity: 0.5, dashArray: '9 7'
+            }).addTo(mapaEntregaObj);
         });
     }
 
-    // ── LINHA AZUL: entregador → próxima parada por ruas
+    // ── LINHA AZUL SÓLIDA: entregador → próxima parada ──
     if (adminPos && proximaParada) {
-        buscarRotaRuas([adminPos, proximaParada.coords]).then(coordsAzul => {
-            if (coordsAzul && coordsAzul.length > 1) {
-                L.polyline(coordsAzul, {
-                    color: '#3498db', weight: 5, opacity: 0.95
-                }).addTo(mapaEntregaObj);
-                // Seta no meio da rota
-                const mid = coordsAzul[Math.floor(coordsAzul.length / 2)];
-                const next = coordsAzul[Math.floor(coordsAzul.length / 2) + 1] || coordsAzul[coordsAzul.length - 1];
-                const bearing = calcBearing(mid, next);
-                L.marker(mid, { icon: L.divIcon({
-                    html: `<div style="font-size:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transform:rotate(${bearing}deg);transform-origin:center;">➤</div>`,
-                    className: '', iconSize: [22, 22], iconAnchor: [11, 11]
-                })}).addTo(mapaEntregaObj);
-            } else {
-                // Fallback: linha reta se todos os serviços falharem
-                L.polyline([adminPos, proximaParada.coords], {
-                    color: '#3498db', weight: 5, opacity: 0.95, dashArray: '6 4'
-                }).addTo(mapaEntregaObj);
-            }
+        buscarRotaRuas([adminPos, proximaParada.coords]).then(coords => {
+            if (!mapaEntregaObj) return;
+            const pts = coords?.length > 1 ? coords : [adminPos, proximaParada.coords];
+            L.polyline(pts, { color: '#3498db', weight: 5, opacity: 0.95 }).addTo(mapaEntregaObj);
+            const mid = pts[Math.floor(pts.length / 2)];
+            const nxt = pts[Math.floor(pts.length / 2) + 1] || pts[pts.length - 1];
+            L.marker(mid, { icon: L.divIcon({
+                html: `<div style="font-size:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transform:rotate(${calcBearing(mid,nxt)}deg);transform-origin:center;">➤</div>`,
+                className: '', iconSize: [22,22], iconAnchor: [11,11]
+            })}).addTo(mapaEntregaObj);
         });
     }
 
-    // ── MARCADOR DA FÁBRICA (origem e destino final)
+    // ── FÁBRICA ──
     L.marker(FABRICA, { icon: L.divIcon({
-        html: '<div style="font-size:28px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.9));">⛺</div>',
-        className: '', iconSize: [34, 34], iconAnchor: [17, 17]
-    })}).addTo(mapaEntregaObj).bindPopup('<b>⛺ Fábrica</b><br>Ponto de partida e retorno');
+        html: '<div style="font-size:30px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.9));">🏭</div>',
+        className: '', iconSize: [36,36], iconAnchor: [18,18]
+    })}).addTo(mapaEntregaObj).bindPopup('<b>🏭 Fábrica — O Rei da Coxinha</b><br>Ponto de saída e retorno');
 
-    // ── MARCADORES DAS PARADAS — emoji 👤 escurecido, anônimo (entregues não aparecem)
-    paradas.filter(p => p.coords && p.status !== 'entregue').forEach((p, i) => {
-        const isMe = p.cliente_phone === user?.phone;
-        const entregue = p.status === 'entregue';
-        const isProxima = proximaParada && p.id === proximaParada.id;
-
-        // Você: azul escuro pulsando + nome em cima
-        // Próxima parada: roxo vibrante
-        // Outros pendentes: roxo
-        let filtro, tamanho, pulsar, labelCima;
-        if (isMe) {
-            filtro = 'brightness(0.5) sepia(1) hue-rotate(185deg) saturate(6) drop-shadow(0 0 7px rgba(20,80,180,1))';
-            tamanho = '26px'; pulsar = true;
-            labelCima = `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.85);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">Você</div>`;
-        } else if (isProxima) {
-            filtro = 'brightness(0.45) sepia(1) hue-rotate(245deg) saturate(7) drop-shadow(0 0 6px rgba(130,0,200,0.9))';
-            tamanho = '30px'; pulsar = false; labelCima = '';
-        } else {
-            filtro = 'brightness(0.5) sepia(1) hue-rotate(245deg) saturate(6)';
-            tamanho = '26px'; pulsar = false; labelCima = '';
-        }
-
-        const icon = L.divIcon({
-            html: `<div style="position:relative;display:inline-block;">
-                ${labelCima}
-                <div style="font-size:${tamanho};line-height:1;filter:${filtro};${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}">👤</div>
-            </div>
-            <style>@keyframes paradaPulse{0%,100%{filter:${filtro};}50%{filter:${filtro} drop-shadow(0 0 14px rgba(20,80,180,1));}}</style>`,
-            className: '', iconSize: [36, 54], iconAnchor: [18, 36]
-        });
-
-        const popupTitulo = isMe ? '📍 Sua entrega' : isProxima ? '▶ Próxima parada' : '👤 Cliente';
-        L.marker(p.coords, { icon }).addTo(mapaEntregaObj)
-            .bindPopup(`<b>${popupTitulo}</b>`);
-    });
-
-    // ── CLIENTES COM PEDIDO HOJE mas fora da rota ativa — azul, mesmo estilo
-    // Agrupa clientes próximos (< 30m) e distribui lado a lado
-    const clientesFora = clientesComPedido.filter(c => !c.naRota);
-
-    // Calcular offsets para clientes no mesmo local ou muito próximos
-    const RAIO_METROS = 30;
-    const grupos = [];
-    const agrupados = new Set();
-
-    clientesFora.forEach((c, i) => {
-        if (agrupados.has(i)) return;
-        const grupo = [i];
-        agrupados.add(i);
-        clientesFora.forEach((d, j) => {
-            if (i === j || agrupados.has(j)) return;
-            const dlat = (c.coords[0] - d.coords[0]) * 111320;
-            const dlng = (c.coords[1] - d.coords[1]) * 111320 * Math.cos(c.coords[0] * Math.PI / 180);
-            const dist = Math.sqrt(dlat * dlat + dlng * dlng);
-            if (dist < RAIO_METROS) { grupo.push(j); agrupados.add(j); }
-        });
-        grupos.push(grupo);
-    });
-
-    // Renderizar com offset lateral baseado na posição no grupo
-    const OFFSET_PX = 36; // pixels de separação entre ícones
-    clientesFora.forEach((c, idx) => {
-        // Descobrir posição no grupo
-        let posNoGrupo = 0, tamanhoGrupo = 1;
-        for (const grupo of grupos) {
-            const pos = grupo.indexOf(idx);
-            if (pos !== -1) { posNoGrupo = pos; tamanhoGrupo = grupo.length; break; }
-        }
-
+    // ── TODOS OS CLIENTES QUE PEDIRAM HOJE ──
+    // Estado visual por prioridade:
+    //   entregue       → verde ✅
+    //   próxima parada → roxo pulsando ▶
+    //   na rota (pendente) → roxo
+    //   pediu hoje / fora da rota → laranja
+    //   eu (cliente logado) → azul "Você"
+    clientesHoje.forEach(c => {
         const isMe = c.isMe;
-        const filtro = isMe
-            ? 'brightness(0.5) sepia(1) hue-rotate(185deg) saturate(6) drop-shadow(0 0 7px rgba(20,80,180,1))'
-            : 'brightness(0.5) sepia(1) hue-rotate(245deg) saturate(6)';
-        const labelCima = isMe
-            ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.85);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">Você</div>`
+        const entregue = c.entregue;
+        const isProxima = proximaParada && paradas.find(p => p.cliente_phone === c.phone)?.id === proximaParada.id;
+
+        let emoji, filtro, pulsar, label;
+        if (entregue) {
+            emoji = '✅';
+            filtro = '';
+            pulsar = false;
+            label = isMe ? 'Você (entregue)' : '';
+        } else if (isMe) {
+            emoji = '👤';
+            filtro = 'brightness(0.45) sepia(1) hue-rotate(185deg) saturate(7) drop-shadow(0 0 7px rgba(20,80,180,1))';
+            pulsar = true;
+            label = 'Você';
+        } else if (isProxima) {
+            emoji = '👤';
+            filtro = 'brightness(0.45) sepia(1) hue-rotate(245deg) saturate(8) drop-shadow(0 0 8px rgba(130,0,200,0.9))';
+            pulsar = true;
+            label = '▶ Próxima';
+        } else if (c.naRota) {
+            emoji = '👤';
+            filtro = 'brightness(0.5) sepia(1) hue-rotate(245deg) saturate(6)';
+            pulsar = false;
+            label = '';
+        } else {
+            // pediu hoje mas não está na rota (rota especial / sem rota configurada)
+            emoji = '👤';
+            filtro = 'brightness(0.55) sepia(1) hue-rotate(15deg) saturate(6)';
+            pulsar = false;
+            label = '';
+        }
+
+        const labelHtml = label
+            ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.88);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">${label}</div>`
             : '';
 
-        // Offset horizontal centralizado no grupo
-        const offsetTotal = (tamanhoGrupo - 1) * OFFSET_PX;
-        const offsetX = posNoGrupo * OFFSET_PX - offsetTotal / 2;
+        const iconHtml = entregue
+            ? `<div style="font-size:22px;line-height:1;">${emoji}</div>`
+            : `<div style="font-size:26px;line-height:1;filter:${filtro};${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}">${emoji}</div>`;
 
         const icon = L.divIcon({
-            html: `<div style="position:relative;display:inline-block;transform:translateX(${offsetX}px);">
-                ${labelCima}
-                <div style="font-size:26px;line-height:1;filter:${filtro};${isMe ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}">👤</div>
-            </div>`,
-            className: '', iconSize: [36, 54], iconAnchor: [18, 36]
+            html: `<div style="position:relative;display:inline-block;">${labelHtml}${iconHtml}</div>`,
+            className: '', iconSize: [34,50], iconAnchor: [17,34]
         });
-        L.marker(c.coords, { icon }).addTo(mapaEntregaObj)
-            .bindPopup(`<b>${isMe ? '📍 Você (aguardando rota)' : '📦 Aguardando rota'}</b>`);
+
+        const popupTxt = entregue
+            ? `<b>✅ Entregue</b>${isMe ? '<br>Seu pedido foi entregue!' : ''}`
+            : isMe
+                ? `<b>📍 Sua entrega</b>`
+                : isProxima
+                    ? `<b>▶ Próxima parada</b>`
+                    : c.naRota
+                        ? `<b>📦 Na rota</b>`
+                        : `<b>📦 Pedido hoje</b>`;
+
+        L.marker(c.coords, { icon }).addTo(mapaEntregaObj).bindPopup(popupTxt);
     });
 
-    // ── CENTRALIZAR: entregador + próxima parada + parada do cliente + fábrica
-    const pontosFoco = [adminPos, proximaParada?.coords, minhaParada?.coords].filter(Boolean);
-
-    if (pontosFoco.length >= 2) {
-        mapaEntregaObj.fitBounds(L.latLngBounds(pontosFoco), { padding: [60, 60] });
-    } else if (pontosFoco.length === 1) {
-        mapaEntregaObj.setView(pontosFoco[0], 15);
-    } else if (todasComCoords.length > 0) {
-        mapaEntregaObj.fitBounds(L.latLngBounds([FABRICA, ...todasComCoords.map(p => p.coords)]), { padding: [50, 50] });
+    // ── CENTRALIZAR: mostra tudo no mapa ──
+    const todosPontos = [
+        FABRICA,
+        ...(adminPos ? [adminPos] : []),
+        ...clientesHoje.map(c => c.coords)
+    ];
+    if (todosPontos.length >= 2) {
+        mapaEntregaObj.fitBounds(L.latLngBounds(todosPontos), { padding: [55, 55], maxZoom: 16 });
+    } else {
+        mapaEntregaObj.setView(FABRICA, 14);
     }
 }
 
@@ -2137,6 +2379,107 @@ function fecharMapaEntrega() {
     }
     ultimaPosAdmin = null;
     seguindoMoto = true;
+}
+
+function alterarTema(cor) {
+    const root = document.documentElement;
+    const checkAzul = document.getElementById('checkAzul');
+    const checkRoxo = document.getElementById('checkRoxo');
+    
+    // Atualizar variável global de tema
+    temaSelecionado = cor;
+    
+    if (cor === 'azul') {
+        // Azul Metálico
+        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #4dd0ff 0%, #0099ff 25%, #0052cc 50%, #003d99 75%, #0066ff 100%)');
+        root.style.setProperty('--theme-header-bg', '#001a33');
+        root.style.setProperty('--theme-header-border', 'rgba(0, 153, 255, 0.2)');
+        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(0, 153, 255, 0.6)');
+        
+        const painelHeader = document.getElementById('painelHeader');
+        if (painelHeader) {
+            painelHeader.style.background = '#001a33';
+            painelHeader.style.borderBottomColor = 'rgba(0, 153, 255, 0.2)';
+        }
+        
+        checkAzul.style.display = 'block';
+        checkRoxo.style.display = 'none';
+        localStorage.setItem('temaSelecionado', 'azul');
+        
+        // Atualizar cores das notificações de reembolso para VERMELHO
+        const listaHistorico = document.getElementById('listaHistorico');
+        if (listaHistorico) {
+            listaHistorico.querySelectorAll('div').forEach(el => {
+                if (el.innerHTML.includes('REEMBOLSO')) {
+                    el.style.background = '#e74c3c !important';
+                    el.style.boxShadow = '0 2px 8px #e74c3c66 !important';
+                }
+            });
+        }
+    } else if (cor === 'roxo') {
+        // Roxo Metálico
+        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #c77dff 0%, #9d4edd 25%, #7209b7 50%, #5a189a 75%, #b5179e 100%)');
+        root.style.setProperty('--theme-header-bg', '#1a0535');
+        root.style.setProperty('--theme-header-border', 'rgba(157, 78, 221, 0.2)');
+        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(157, 78, 221, 0.6)');
+        
+        const painelHeader = document.getElementById('painelHeader');
+        if (painelHeader) {
+            painelHeader.style.background = '#1a0535';
+            painelHeader.style.borderBottomColor = 'rgba(157, 78, 221, 0.2)';
+        }
+        
+        checkAzul.style.display = 'none';
+        checkRoxo.style.display = 'block';
+        localStorage.setItem('temaSelecionado', 'roxo');
+        
+        // Atualizar cores das notificações de reembolso para ROSA MUITO ESCURO
+        const listaHistorico = document.getElementById('listaHistorico');
+        if (listaHistorico) {
+            listaHistorico.querySelectorAll('div').forEach(el => {
+                if (el.innerHTML.includes('REEMBOLSO')) {
+                    el.style.background = '#5a0f3f !important';
+                    el.style.boxShadow = '0 2px 8px #5a0f3f66 !important';
+                }
+            });
+        }
+    }
+}
+
+function carregarTemaSalvo() {
+    const root = document.documentElement;
+    const temaSalvo = localStorage.getItem('temaSelecionado') || 'azul';
+    temaSelecionado = temaSalvo;
+    
+    if (temaSalvo === 'azul') {
+        // Azul Metálico
+        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #4dd0ff 0%, #0099ff 25%, #0052cc 50%, #003d99 75%, #0066ff 100%)');
+        root.style.setProperty('--theme-header-bg', '#001a33');
+        root.style.setProperty('--theme-header-border', 'rgba(0, 153, 255, 0.2)');
+        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(0, 153, 255, 0.6)');
+        
+        const painelHeader = document.getElementById('painelHeader');
+        if (painelHeader) {
+            painelHeader.style.background = '#001a33';
+            painelHeader.style.borderBottomColor = 'rgba(0, 153, 255, 0.2)';
+        }
+        document.getElementById('checkAzul').style.display = 'block';
+        document.getElementById('checkRoxo').style.display = 'none';
+    } else if (temaSalvo === 'roxo') {
+        // Roxo Metálico
+        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #c77dff 0%, #9d4edd 25%, #7209b7 50%, #5a189a 75%, #b5179e 100%)');
+        root.style.setProperty('--theme-header-bg', '#1a0535');
+        root.style.setProperty('--theme-header-border', 'rgba(157, 78, 221, 0.2)');
+        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(157, 78, 221, 0.6)');
+        
+        const painelHeader = document.getElementById('painelHeader');
+        if (painelHeader) {
+            painelHeader.style.background = '#1a0535';
+            painelHeader.style.borderBottomColor = 'rgba(157, 78, 221, 0.2)';
+        }
+        document.getElementById('checkAzul').style.display = 'none';
+        document.getElementById('checkRoxo').style.display = 'block';
+    }
 }
 
 function loadScript(src) {
