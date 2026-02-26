@@ -30,48 +30,6 @@
             }
         }
     </script>
-
-    <!-- ===== PUSH NOTIFICATIONS ===== -->
-    <script>
-        const VAPID_PUBLIC_KEY = 'BKpzD-7woo7ZrHNYEfFt4skqJulNk4k5ScyQh36tx0bTgIpQrPw1zMCdC6wiMz0snI_oBzFARr6qFPTWTkVf73Q';
-
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-        }
-
-        async function ativarNotificacoesPush(phone) {
-            try {
-                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                const permissao = await Notification.requestPermission();
-                if (permissao !== 'granted') return;
-
-                const reg = await navigator.serviceWorker.ready;
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                    });
-                }
-
-                await fetch('https://vpeyqgijajywgswmezlh.supabase.co/functions/v1/salvar-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ'
-                    },
-                    body: JSON.stringify({ phone, subscription: sub.toJSON() })
-                });
-
-                console.log('Push ativado para', phone);
-            } catch(err) {
-                console.warn('Push nao ativado:', err);
-            }
-        }
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -521,143 +479,11 @@
         .saldo-devedor { color: var(--danger) !important; font-weight: 800; }
 
         /* ===== MODAL INSTALAÇÃO =====  */
-        #modalInstalarApp {
-            position: fixed; inset: 0;
-            background: rgba(10,10,20,0.85);
-            backdrop-filter: blur(8px);
-            display: none; align-items: center;
-            justify-content: center; z-index: 9500;
-            animation: fadeIn 0.3s ease;
-        }
-        #modalInstalarApp.active { display: flex !important; }
-        
-        .modal-instalar-content {
-            background: linear-gradient(135deg, #7209b7 0%, #5a189a 30%, #3c096c 70%, #2d0a4e 100%);
-            border-radius: 32px; padding: 40px 28px;
-            max-width: 360px; width: 90%;
-            text-align: center; color: white;
-            box-shadow: 0 25px 80px rgba(114, 9, 183, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-            animation: slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1);
-            border: 1px solid rgba(199, 129, 255, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .modal-instalar-content::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(199, 129, 255, 0.15) 0%, transparent 70%);
-            animation: glow 8s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        @keyframes glow {
-            0%, 100% {
-                transform: translate(0, 0);
-            }
-            50% {
-                transform: translate(-20px, -20px);
-            }
-        }
-        
-        .modal-instalar-emoji {
-            font-size: 72px; margin-bottom: 20px;
-            animation: pulse 2s ease-in-out infinite;
-            filter: drop-shadow(0 0 20px rgba(199, 129, 255, 0.6));
-            z-index: 1;
-            position: relative;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.15);
-            }
-        }
-        
-        .modal-instalar-title {
-            font-size: 26px; font-weight: 900;
-            margin-bottom: 12px; letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #ffffff 0%, #c77dff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            z-index: 1;
-            position: relative;
-        }
-        
-        .modal-instalar-desc {
-            font-size: 15px; color: rgba(255,255,255,0.88);
-            margin-bottom: 28px; line-height: 1.7;
-            z-index: 1;
-            position: relative;
-            font-weight: 500;
-        }
-        
-        .modal-instalar-buttons {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            z-index: 1;
-            position: relative;
-        }
-        
-        .btn-instalar-sim {
-            padding: 15px 20px; border: none; border-radius: 16px;
-            font-weight: 800; font-size: 14px; cursor: pointer;
-            background: linear-gradient(135deg, #c77dff 0%, #9d4edd 50%, #c77dff 100%);
-            color: white;
-            box-shadow: 0 10px 28px rgba(199, 125, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-            letter-spacing: 0.4px;
-            position: relative;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .btn-instalar-sim:active {
-            transform: translateY(-1px);
-            box-shadow: 0 15px 35px rgba(199, 125, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-        }
-        
-        .btn-instalar-nao {
-            padding: 15px 20px; border: 2px solid rgba(231, 76, 60, 0.6);
-            border-radius: 16px; font-weight: 800; font-size: 14px;
-            cursor: pointer; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 50%, #e74c3c 100%);
-            color: white;
-            transition: all 0.3s;
-            letter-spacing: 0.4px;
-            position: relative;
-            box-shadow: 0 10px 28px rgba(231, 76, 60, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        }
-        
-        .btn-instalar-nao:active {
-            transform: translateY(-1px);
-            box-shadow: 0 15px 35px rgba(231, 76, 60, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        }
     </style>
 </head>
 <body>
 
 <div id="toast"></div>
-
-<!-- Modal Instalação PWA -->
-<div id="modalInstalarApp">
-    <div class="modal-instalar-content">
-        <div class="modal-instalar-emoji">📱</div>
-        <div class="modal-instalar-title">Instalar App?</div>
-        <div class="modal-instalar-desc">
-            Baixe nosso aplicativo para ter acesso rápido e sem anúncios! 🚀
-        </div>
-        <div class="modal-instalar-buttons">
-            <button class="btn-instalar-nao" onclick="fecharPopupInstalacao()">NÃO ❌</button>
-            <button class="btn-instalar-sim" onclick="instalarApp()">SIM ✅</button>
-        </div>
-    </div>
 </div>
 
 <div id="loadingOverlay">
@@ -893,44 +719,50 @@ window.onload = async () => {
     
     // Adicionar histórico inicial
     window.history.pushState({ state: 'home' }, '', window.location.href);
-    // Carregar template de mensagem
-    const { data: cfg } = await sb.from("configuracoes").select("*").eq("key", "msg_template").maybeSingle();
-    if (cfg) msgTemplate = cfg.value;
 
-    // Carregar favoritos da sessão local (fallback offline)
-    favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+    try {
+        // Carregar template de mensagem
+        const { data: cfg } = await sb.from("configuracoes").select("*").eq("key", "msg_template").maybeSingle();
+        if (cfg) msgTemplate = cfg.value;
 
-    // Verificar se já tem login salvo
-    const savedPhone = localStorage.getItem('salgados_phone');
-    if (savedPhone) {
-        let { data: client } = await sb.from("cadastros").select("*").eq("phone", savedPhone).maybeSingle();
-        if (client) {
-            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
-            // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
-            if (client.saved_order && client.saved_order.trim()) {
-                favorites[client.phone] = {
-                    saved_order: client.saved_order,
-                    saved_order_total: Number(client.saved_order_total) || 0
-                };
-            } else {
-                favorites[client.phone] = null;
+        // Carregar favoritos da sessão local (fallback offline)
+        favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+
+        // Verificar se já tem login salvo
+        const savedPhone = localStorage.getItem('salgados_phone');
+        if (savedPhone) {
+            let { data: client } = await sb.from("cadastros").select("*").eq("phone", savedPhone).maybeSingle();
+            if (client) {
+                user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+                // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
+                if (client.saved_order && client.saved_order.trim()) {
+                    favorites[client.phone] = {
+                        saved_order: client.saved_order,
+                        saved_order_total: Number(client.saved_order_total) || 0
+                    };
+                } else {
+                    favorites[client.phone] = null;
+                }
+                localStorage.setItem('salgados_favs', JSON.stringify(favorites));
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                atualizarCabecalho();
+                checkFavoriteBtn();
+                carregarPrivacidade();
+                carregarTemaSalvo();
+                await loadProducts();
+                return;
             }
-            localStorage.setItem('salgados_favs', JSON.stringify(favorites));
-            document.getElementById('loadingOverlay').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            atualizarCabecalho();
-            checkFavoriteBtn();
-            carregarPrivacidade();
-            carregarTemaSalvo();
-            await loadProducts();
-            // Reativa push para quem já estava logado
-            ativarNotificacoesPush(savedPhone);
-            return;
         }
-    }
 
-    document.getElementById('loadingOverlay').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+    } catch (err) {
+        console.error('Erro ao inicializar:', err);
+        // Garantir que o loading nunca fique preso
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+    }
 };
 
 // ===== AUTH =====
@@ -939,89 +771,89 @@ async function auth() {
     btn.disabled = true; btn.textContent = "Entrando...";
     document.getElementById('loginError').style.display = 'none';
 
-    // Verificar se já tem número salvo (usuário já se cadastrou antes)
-    let savedPhone = localStorage.getItem('salgados_phone');
-    let phone;
+    try {
+        // Verificar se já tem número salvo (usuário já se cadastrou antes)
+        let savedPhone = localStorage.getItem('salgados_phone');
+        let phone;
 
-    if (savedPhone) {
-        // ✅ USUÁRIO JÁ CADASTRADO - usa número salvo automaticamente
-        phone = savedPhone;
-    } else {
-        // ❌ PRIMEIRO CADASTRO - pedir número
-        const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
-        if (partialPhone.length < 8) {
-            showLoginError("Digite o número completo");
-            btn.disabled = false; btn.textContent = "Entrar";
-            return;
+        if (savedPhone) {
+            // ✅ USUÁRIO JÁ CADASTRADO - usa número salvo automaticamente
+            phone = savedPhone;
+        } else {
+            // ❌ PRIMEIRO CADASTRO - pedir número
+            const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
+            if (partialPhone.length < 8) {
+                showLoginError("Digite o número completo");
+                btn.disabled = false; btn.textContent = "Entrar";
+                return;
+            }
+
+            phone = "819" + partialPhone;
+
+            // Mapeamento de aliases: números alternativos que apontam para a conta principal
+            const phoneAliases = {
+                "81987650178": "81986633773"
+            };
+            if (phoneAliases[phone]) phone = phoneAliases[phone];
         }
 
-        phone = "819" + partialPhone;
+        // Buscar cliente
+        let { data: client, error: fetchError } = await sb.from("cadastros").select("*").eq("phone", phone).maybeSingle();
 
-        // Mapeamento de aliases: números alternativos que apontam para a conta principal
-        const phoneAliases = {
-            "81987650178": "81986633773"
-        };
-        if (phoneAliases[phone]) phone = phoneAliases[phone];
-    }
+        if (fetchError) throw fetchError;
 
-    // Buscar cliente
-    let { data: client } = await sb.from("cadastros").select("*").eq("phone", phone).maybeSingle();
-
-    if (!client) {
-        // Mostrar campo de nome (apenas no primeiro cadastro)
-        const nb = document.getElementById('nameBox');
-        if (nb.style.display === 'none' || nb.style.display === '') {
-            nb.style.display = 'block';
-            btn.disabled = false; btn.textContent = "Entrar";
-            return;
+        if (!client) {
+            // Mostrar campo de nome (apenas no primeiro cadastro)
+            const nb = document.getElementById('nameBox');
+            if (nb.style.display === 'none' || nb.style.display === '') {
+                nb.style.display = 'block';
+                btn.disabled = false; btn.textContent = "Entrar";
+                return;
+            }
+            const name = document.getElementById('userName').value.trim();
+            if (!name) {
+                showLoginError("Digite seu nome");
+                btn.disabled = false; btn.textContent = "Entrar";
+                return;
+            }
+            const { data: newClient, error: insertError } = await sb.from("cadastros").insert({ name, phone, fiado: false, debt: 0 }).select().single();
+            if (insertError) throw insertError;
+            client = newClient;
+            
+            // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
+            localStorage.setItem('salgados_phone', phone);
         }
-        const name = document.getElementById('userName').value.trim();
-        if (!name) {
-            showLoginError("Digite seu nome");
-            btn.disabled = false; btn.textContent = "Entrar";
-            return;
+
+        user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+
+        // Carregar favorito salvo no Supabase
+        if (client.saved_order && client.saved_order.trim()) {
+            favorites[client.phone] = {
+                saved_order: client.saved_order,
+                saved_order_total: Number(client.saved_order_total) || 0
+            };
+        } else {
+            favorites[client.phone] = null;
         }
-        const { data: newClient } = await sb.from("cadastros").insert({ name, phone, fiado: false, debt: 0 }).select().single();
-        client = newClient;
-        
-        // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
+        localStorage.setItem('salgados_favs', JSON.stringify(favorites));
+
+        // Salvar número para próximos acessos (segurança extra)
         localStorage.setItem('salgados_phone', phone);
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+
+        atualizarCabecalho();
+        checkFavoriteBtn();
+        carregarPrivacidade();
+        carregarTemaSalvo();
+        await loadProducts();
+        btn.disabled = false; btn.textContent = "Entrar";
+    } catch (err) {
+        console.error('Erro no login:', err);
+        showLoginError("Erro de conexão. Tente novamente.");
+        btn.disabled = false; btn.textContent = "Entrar";
     }
-
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
-
-    // Carregar favorito salvo no Supabase
-    if (client.saved_order && client.saved_order.trim()) {
-        favorites[client.phone] = {
-            saved_order: client.saved_order,
-            saved_order_total: Number(client.saved_order_total) || 0
-        };
-    } else {
-        favorites[client.phone] = null;
-    }
-    localStorage.setItem('salgados_favs', JSON.stringify(favorites));
-
-    // Salvar número para próximos acessos (segurança extra)
-    localStorage.setItem('salgados_phone', phone);
-
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-
-    atualizarCabecalho();
-    checkFavoriteBtn();
-    carregarPrivacidade();
-    carregarTemaSalvo();
-    await loadProducts();
-    btn.disabled = false; btn.textContent = "Entrar";
-
-    // Ativa push notifications para o cliente logado
-    ativarNotificacoesPush(phone);
-    
-    // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
-    setTimeout(() => {
-        mostrarPopupInstalacao();
-        verificarDesinstalacao();
-    }, 500);
 }
 
 function showLoginError(msg) {
@@ -1054,68 +886,38 @@ function logout() {
 
 // ===== PWA INSTALL =====
 let deferredPrompt = null;
-let jaVerificouDesinstalacao = false;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
+    // Mostrar botão assim que o navegador permitir instalação
+    const btn = document.getElementById('btnInstalarApp');
+    if (btn) btn.style.display = 'flex';
 });
 
-// Verificar desinstalação assim que o usuário faz login
-function verificarDesinstalacao() {
-    // Se foi instalado antes mas agora é possível instalar novamente = foi desinstalado
-    if (!jaVerificouDesinstalacao && deferredPrompt) {
-        jaVerificouDesinstalacao = true;
-        
-        if (localStorage.getItem('app_installed') === 'true') {
-            // App foi desinstalado!
-            localStorage.setItem('app_installed', 'false');
-            // Mostrar pop-up
-            mostrarPopupInstalacao();
-        }
-    }
-}
-
-function mostrarPopupInstalacao() {
-    // Mostra TODA VEZ que entra (se pode instalar e não está instalado)
-    if (deferredPrompt && localStorage.getItem('app_installed') !== 'true') {
-        const modal = document.getElementById('modalInstalarApp');
-        if (modal) {
-            modal.classList.add('active');
-        }
-    }
-}
-
-function fecharPopupInstalacao() {
-    const modal = document.getElementById('modalInstalarApp');
-    if (modal) modal.classList.remove('active');
-    // Não salva que foi fechado - vai aparecer novamente na próxima entrada
-}
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    // Esconder botão após instalar
+    const btn = document.getElementById('btnInstalarApp');
+    if (btn) btn.style.display = 'none';
+    showToast("App instalado com sucesso! 🎉", 'success');
+});
 
 function instalarApp() {
     if (!deferredPrompt) {
-        showToast("Aplicativo já está instalado! 📱", 'warning');
+        showToast("App já instalado ou use 'Adicionar à tela inicial' no navegador 📱", 'warning');
         return;
     }
-    
-    fecharPopupInstalacao();
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
-            showToast("Aplicativo instalado com sucesso! 🎉", 'success');
-            localStorage.setItem('app_installed', 'true');
-        } else {
-            showToast("Tudo bem! Pode instalar depois", 'warning');
+            showToast("App instalado com sucesso! 🎉", 'success');
         }
         deferredPrompt = null;
+        const btn = document.getElementById('btnInstalarApp');
+        if (btn) btn.style.display = 'none';
     });
 }
-
-// Quando app é instalado com sucesso
-window.addEventListener('appinstalled', () => {
-    localStorage.setItem('app_installed', 'true');
-    deferredPrompt = null;
-});
 
 // ===== PRODUTOS =====
 async function loadProducts() {
@@ -1521,6 +1323,15 @@ async function salvarPrivacidade(valor) {
             <div style="font-size: 19px; margin-bottom: 1px; filter: drop-shadow(0 3px 10px rgba(180,120,255,0.7));">🤖</div>
             <div style="font-size: 14px; font-weight: 800; color:white; letter-spacing:-0.2px;">painel de ajuda com i.a</div>
         </div>
+        <button id="btnInstalarApp" onclick="instalarApp()" style="
+            display: none; position: absolute; top: 16px; right: 14px;
+            background: linear-gradient(135deg,#25d366,#1aad52); border: none; color: white;
+            padding: 0 10px; height: 34px; border-radius: 11px; font-size: 11px; font-weight: 800;
+            cursor: pointer; white-space: nowrap; letter-spacing: 0.3px;
+            box-shadow: 0 4px 14px rgba(37,211,102,0.4);
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+            z-index: 10; transition: background 0.2s;
+        " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">📲 Baixar</button>
     </div>
 
     <!-- Conteúdo rolável – estilo aba de notificações -->
