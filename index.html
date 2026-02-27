@@ -18,6 +18,10 @@
                             if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
                         }, 800);
                     }
+                    // Quando uma nova versão for publicada, recarrega automaticamente
+                    if (e.data?.acao === 'nova_versao') {
+                        window.location.reload();
+                    }
                 });
             }).catch(() => {});
 
@@ -825,8 +829,38 @@ let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
 
+// ===== UTILS DE INIT =====
+function _esconderLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+function _mostrarLogin() {
+    _esconderLoading();
+    const ls = document.getElementById('loginScreen');
+    if (ls) ls.style.display = 'flex';
+}
+function _mostrarApp() {
+    _esconderLoading();
+    const app = document.getElementById('app');
+    if (app) app.style.display = 'block';
+}
+
+// Promessa com timeout: rejeita se demorar mais de `ms` milissegundos
+function comTimeout(promise, ms, mensagem) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(mensagem || 'Tempo esgotado')), ms))
+    ]);
+}
+
 // ===== INIT =====
 window.onload = async () => {
+    // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
+    const timeoutGlobal = setTimeout(() => {
+        console.warn('[Init] Timeout global atingido — exibindo tela de login');
+        _mostrarLogin();
+    }, 12000);
+
     // ── Aviso offline ──
     function mostrarStatusOnline() {
         const online = navigator.onLine;
@@ -891,46 +925,92 @@ window.onload = async () => {
         }
     });
     
-    // Adicionar histórico inicial
-    window.history.pushState({ state: 'home' }, '', window.location.href);
-    // Carregar template de mensagem
-    const { data: cfg } = await sb.from("configuracoes").select("*").eq("key", "msg_template").maybeSingle();
-    if (cfg) msgTemplate = cfg.value;
+    try {
+        // Adicionar histórico inicial
+        window.history.pushState({ state: 'home' }, '', window.location.href);
 
-    // Carregar favoritos da sessão local (fallback offline)
-    favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
-
-    // Verificar se já tem login salvo
-    const savedPhone = localStorage.getItem('salgados_phone');
-    if (savedPhone) {
-        let { data: client } = await sb.from("cadastros").select("*").eq("phone", savedPhone).maybeSingle();
-        if (client) {
-            user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
-            // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
-            if (client.saved_order && client.saved_order.trim()) {
-                favorites[client.phone] = {
-                    saved_order: client.saved_order,
-                    saved_order_total: Number(client.saved_order_total) || 0
-                };
-            } else {
-                favorites[client.phone] = null;
+        // Carregar configurações (template + versão de cache)
+        let forceReloadVersao = localStorage.getItem('force_reload_version') || '0';
+        try {
+            const { data: cfgs } = await comTimeout(
+                sb.from("configuracoes").select("key, value").in("key", ["msg_template", "force_reload_version"]),
+                6000, 'Timeout ao carregar configurações'
+            );
+            if (cfgs) {
+                cfgs.forEach(c => {
+                    if (c.key === 'msg_template') msgTemplate = c.value;
+                    if (c.key === 'force_reload_version') {
+                        const versaoRemota = c.value;
+                        const versaoLocal = localStorage.getItem('force_reload_version') || '0';
+                        // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
+                        const phoneLocal = localStorage.getItem('salgados_phone');
+                        if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
+                            localStorage.clear();
+                            if (phoneLocal) localStorage.setItem('salgados_phone', phoneLocal);
+                            localStorage.setItem('force_reload_version', versaoRemota);
+                            window.location.reload();
+                            return;
+                        }
+                        // Salva versão local para comparação futura
+                        localStorage.setItem('force_reload_version', versaoRemota);
+                        forceReloadVersao = versaoRemota;
+                    }
+                });
             }
-            localStorage.setItem('salgados_favs', JSON.stringify(favorites));
-            document.getElementById('loadingOverlay').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            atualizarCabecalho();
-            checkFavoriteBtn();
-            carregarPrivacidade();
-            carregarTemaSalvo();
-            await loadProducts();
-            // Reativa push para quem já estava logado
-            ativarNotificacoesPush(savedPhone);
-            return;
+        } catch (e) {
+            console.warn('[Init] Configurações não carregadas, usando template padrão:', e.message);
         }
-    }
+        // Inicia escuta em tempo real para limpeza de cache futura
+        iniciarRealtimeCacheWatch(forceReloadVersao);
 
-    document.getElementById('loadingOverlay').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'flex';
+        // Carregar favoritos da sessão local (fallback offline)
+        favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
+
+        // Verificar se já tem login salvo
+        const savedPhone = localStorage.getItem('salgados_phone');
+        if (savedPhone) {
+            try {
+                const { data: client } = await comTimeout(
+                    sb.from("cadastros").select("*").eq("phone", savedPhone).maybeSingle(),
+                    8000, 'Timeout ao buscar cliente'
+                );
+                if (client) {
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+                    // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
+                    if (client.saved_order && client.saved_order.trim()) {
+                        favorites[client.phone] = {
+                            saved_order: client.saved_order,
+                            saved_order_total: Number(client.saved_order_total) || 0
+                        };
+                    } else {
+                        favorites[client.phone] = null;
+                    }
+                    localStorage.setItem('salgados_favs', JSON.stringify(favorites));
+                    clearTimeout(timeoutGlobal);
+                    _mostrarApp();
+                    atualizarCabecalho();
+                    checkFavoriteBtn();
+                    carregarPrivacidade();
+                    carregarTemaSalvo();
+                    await loadProducts();
+                    // Reativa push para quem já estava logado
+                    ativarNotificacoesPush(savedPhone);
+                    return;
+                }
+            } catch (e) {
+                console.warn('[Init] Erro ao buscar cliente salvo:', e.message);
+                // Mantém o número salvo — na próxima abertura com boa internet entra automático
+            }
+        }
+
+        clearTimeout(timeoutGlobal);
+        _mostrarLogin();
+
+    } catch (err) {
+        console.error('[Init] Erro inesperado na inicialização:', err);
+        clearTimeout(timeoutGlobal);
+        _mostrarLogin();
+    }
 };
 
 // ===== AUTH =====
@@ -1506,6 +1586,11 @@ function abrirPainelControle() {
     document.getElementById('painelControle').style.transform = 'translateY(0)';
     atualizarLabelPainel();
     renderHistoricoSaldo();
+    // Mostrar seção admin apenas para o ADM
+    const secaoAdmin = document.getElementById('secaoAdmin');
+    if (secaoAdmin && user && user.phone === ADMIN_NUM) {
+        secaoAdmin.style.display = 'block';
+    }
     // Adicionar ao histórico para habilitar botão voltar
     window.history.pushState({ state: 'painel_aberto' }, '', window.location.href);
 }
@@ -1521,6 +1606,76 @@ async function salvarPrivacidade(valor) {
     await sb.from("cadastros").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
     showToast(valor ? "Pedido automático 🤖" : "Pedido manual 🔒", valor ? 'success' : 'warning');
+}
+
+// ===== LIMPAR CACHE GERAL (só ADM) =====
+async function limparCacheTodos() {
+    const btn = document.getElementById('btnLimparCache');
+    btn.disabled = true;
+    btn.textContent = '⏳ Enviando...';
+
+    try {
+        const novaVersao = Date.now().toString();
+        const { error } = await sb.from("configuracoes")
+            .upsert({ key: 'force_reload_version', value: novaVersao }, { onConflict: 'key' });
+
+        if (error) throw error;
+
+        btn.textContent = '✅ Enviado!';
+        showToast('Cache limpo! Todos vão recarregar 🔄', 'success');
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = '🗑️ Limpar Cache de Todo Mundo';
+        }, 3000);
+    } catch (e) {
+        console.error('Erro ao limpar cache:', e);
+        showToast('Erro ao limpar cache', 'error');
+        btn.disabled = false;
+        btn.textContent = '🗑️ Limpar Cache de Todo Mundo';
+    }
+}
+
+// ===== REALTIME: detecta quando ADM manda limpar cache =====
+function iniciarRealtimeCacheWatch(versaoAtual) {
+    sb.channel('force_reload_watch')
+        // Escuta limpeza geral (todos)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'configuracoes',
+            filter: 'key=eq.force_reload_version'
+        }, (payload) => {
+            const novaVersao = payload.new?.value;
+            if (user && user.phone === ADMIN_NUM) return;
+            if (novaVersao && novaVersao !== versaoAtual) {
+                const phoneBackup = localStorage.getItem('salgados_phone');
+                localStorage.clear();
+                if (phoneBackup) localStorage.setItem('salgados_phone', phoneBackup);
+                window.location.reload();
+            }
+        })
+        // Escuta limpeza individual (por telefone)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'configuracoes'
+        }, (payload) => {
+            const chave = payload.new?.key || '';
+            const phone = localStorage.getItem('salgados_phone');
+            if (!phone || !chave.startsWith('force_reload_phone_')) return;
+            if (chave === 'force_reload_phone_' + phone) {
+                const versaoSalva = localStorage.getItem(chave) || '0';
+                const versaoNova = payload.new?.value;
+                if (versaoNova && versaoNova !== versaoSalva) {
+                    localStorage.removeItem(chave);
+                    const phoneBackup = phone;
+                    localStorage.clear();
+                    if (phoneBackup) localStorage.setItem('salgados_phone', phoneBackup);
+                    window.location.reload();
+                }
+            }
+        })
+        .subscribe();
 }
 </script>
 
@@ -1668,6 +1823,33 @@ async function salvarPrivacidade(valor) {
 
         <!-- Lista de notificações -->
         <div id="listaHistorico" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+        <!-- Seção Admin — só aparece para o ADM -->
+        <div id="secaoAdmin" style="display:none;">
+            <div style="display:flex;align-items:center;gap:6px;padding:16px 4px 10px;border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:#e74c3c;"></div>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Administrador</span>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(231,76,60,0.18),rgba(192,57,43,0.22));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:22px;padding:16px 18px;margin-bottom:14px;border:1px solid rgba(231,76,60,0.3);box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+                <div style="display:flex;align-items:center;gap:13px;margin-bottom:14px;">
+                    <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(231,76,60,0.5);">🗑️</div>
+                    <div>
+                        <div style="font-size:14px;font-weight:800;color:white;margin-bottom:4px;">Limpar Cache Geral</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.55;">Força todos os celulares a recarregarem e pegarem a versão mais nova do app.</div>
+                    </div>
+                </div>
+                <button onclick="limparCacheTodos()" id="btnLimparCache" style="
+                    width:100%;padding:13px;
+                    background:linear-gradient(135deg,#e74c3c,#c0392b);
+                    color:white;border:none;border-radius:14px;
+                    font-weight:800;font-size:14px;cursor:pointer;
+                    box-shadow:0 4px 14px rgba(231,76,60,0.4);
+                    transition:all 0.2s;
+                " ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
+                    🗑️ Limpar Cache de Todo Mundo
+                </button>
+            </div>
+        </div>
 
         <!-- Botão Sair -->
         <div style="padding:16px 0 8px;margin-top:auto;border-top:1px solid rgba(255,255,255,0.08);">
