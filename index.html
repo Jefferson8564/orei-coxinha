@@ -672,6 +672,11 @@
 
 <div id="loginScreen" style="display:none;">
     <div class="login-container">
+        <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom: 12px;">
+            <button onclick="limparCacheRedefinir()" style="background:linear-gradient(135deg,#e74c3c,#c0392b); color:white; border:none; padding:9px 14px; border-radius:12px; font-size:12px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(231,76,60,0.35); letter-spacing:0.2px; display:inline-flex; align-items:center; gap:6px; transition:0.2s;">
+                🔄 Se der erro, clique aqui
+            </button>
+        </div>
         <div style="font-size: 64px; margin-bottom: 8px; animation: pulse 1.5s ease-in-out infinite;">🍗</div>
         <div class="brand-name">Bem-vindo!<br>Digite seu WhatsApp</div>
         <div class="input-prefix-container">
@@ -692,6 +697,8 @@
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" title="Favorito" style="display:none; color:var(--warning);">⭐</button>
+            <a href="https://jefferson8564.github.io/Jogos-/" target="_blank" class="header-btn" title="Jogos" style="display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:22px;">🎮</a>
+
             <div id="robotHeaderBtn" onclick="abrirPainelControle()" style="position:relative;cursor:pointer;width:45px;height:45px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;transition:background 0.3s;user-select:none;">
                 <span id="headerRobot" style="font-size:22px;transition:filter 0.3s,transform 0.3s;">🤖</span>
                 <span id="headerRobotDot" style="position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);transition:background 0.3s;background:#e74c3c;"></span>
@@ -1096,6 +1103,9 @@ async function auth() {
 
     // Ativa push notifications para o cliente logado
     ativarNotificacoesPush(phone);
+
+    // Liberar tickets pendentes se já passou 6h
+    liberarTicketsPendentes(phone);
     
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
     setTimeout(() => {
@@ -1468,6 +1478,56 @@ async function confirmOrder() {
         items: pedidoTexto
     });
 
+    // ===== TICKETS DE JOGO =====
+    // Só ganha tickets se NÃO for FIADO (pagamento confirmado)
+    if (method !== 'FIADO') {
+        try {
+            const { data: cfgTicket } = await sb.from('configuracoes').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
+            const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
+
+            if (valorPorTicket > 0) {
+                // Buscar registro atual do cliente
+                const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', user.phone).maybeSingle();
+                const novoTotalGasto = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
+                const ticketsAtual = gt ? (gt.tickets || 0) : 0;
+                const ticketsPendentes = gt ? (gt.tickets_pendentes || 0) : 0;
+
+                // Calcular novos tickets ganhos com base no total acumulado
+                const ticketsTotal = Math.floor(novoTotalGasto / valorPorTicket);
+                const ticketsJaGanhos = ticketsAtual + ticketsPendentes;
+                const novosTickets = Math.max(0, ticketsTotal - ticketsJaGanhos);
+
+                // Data de liberação: 6 horas a partir de agora
+                const liberarEm = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
+
+                if (novosTickets > 0) {
+                    await sb.from('game_tickets').upsert({
+                        phone: user.phone,
+                        tickets: ticketsAtual,
+                        tickets_pendentes: ticketsPendentes + novosTickets,
+                        total_gasto: novoTotalGasto,
+                        tickets_liberar_em: liberarEm,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'phone' });
+                    console.log(`🎟️ ${novosTickets} ticket(s) pendente(s) para liberar em 6h`);
+                } else {
+                    // Só atualizar o total gasto
+                    await sb.from('game_tickets').upsert({
+                        phone: user.phone,
+                        tickets: ticketsAtual,
+                        tickets_pendentes: ticketsPendentes,
+                        total_gasto: novoTotalGasto,
+                        tickets_liberar_em: gt?.tickets_liberar_em || null,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'phone' });
+                }
+            }
+        } catch(e) {
+            console.warn('Erro ao processar tickets:', e);
+        }
+    }
+    // ===== FIM TICKETS =====
+
     
     // ===== ROTA ALEATÓRIA: ADICIONAR À FILA SE APLICÁVEL =====
     try {
@@ -1586,11 +1646,6 @@ function abrirPainelControle() {
     document.getElementById('painelControle').style.transform = 'translateY(0)';
     atualizarLabelPainel();
     renderHistoricoSaldo();
-    // Mostrar seção admin apenas para o ADM
-    const secaoAdmin = document.getElementById('secaoAdmin');
-    if (secaoAdmin && user && user.phone === ADMIN_NUM) {
-        secaoAdmin.style.display = 'block';
-    }
     // Adicionar ao histórico para habilitar botão voltar
     window.history.pushState({ state: 'painel_aberto' }, '', window.location.href);
 }
@@ -1824,32 +1879,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         <!-- Lista de notificações -->
         <div id="listaHistorico" style="display:flex;flex-direction:column;gap:8px;"></div>
 
-        <!-- Seção Admin — só aparece para o ADM -->
-        <div id="secaoAdmin" style="display:none;">
-            <div style="display:flex;align-items:center;gap:6px;padding:16px 4px 10px;border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#e74c3c;"></div>
-                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Administrador</span>
-            </div>
-            <div style="background:linear-gradient(135deg,rgba(231,76,60,0.18),rgba(192,57,43,0.22));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:22px;padding:16px 18px;margin-bottom:14px;border:1px solid rgba(231,76,60,0.3);box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-                <div style="display:flex;align-items:center;gap:13px;margin-bottom:14px;">
-                    <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 14px rgba(231,76,60,0.5);">🗑️</div>
-                    <div>
-                        <div style="font-size:14px;font-weight:800;color:white;margin-bottom:4px;">Limpar Cache Geral</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.55;">Força todos os celulares a recarregarem e pegarem a versão mais nova do app.</div>
-                    </div>
-                </div>
-                <button onclick="limparCacheTodos()" id="btnLimparCache" style="
-                    width:100%;padding:13px;
-                    background:linear-gradient(135deg,#e74c3c,#c0392b);
-                    color:white;border:none;border-radius:14px;
-                    font-weight:800;font-size:14px;cursor:pointer;
-                    box-shadow:0 4px 14px rgba(231,76,60,0.4);
-                    transition:all 0.2s;
-                " ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
-                    🗑️ Limpar Cache de Todo Mundo
-                </button>
-            </div>
-        </div>
+
 
         <!-- Botão Sair -->
         <div style="padding:16px 0 8px;margin-top:auto;border-top:1px solid rgba(255,255,255,0.08);">
@@ -2333,28 +2363,7 @@ async function atualizarMapaCompleto() {
             });
     }
     
-    // ── GARANTIR QUE "VOCÊ" SEMPRE APARECE NO MAPA ──
-    if (user?.phone) {
-        const jaPronta = clientesHoje.find(c => c.isMe);
-        if (!jaPronta) {
-            // Se tem coordenadas, usa elas. Se não, usa um ponto próximo à fábrica
-            const coords = (user?.delivery_lat && user?.delivery_lon) 
-                ? [parseFloat(user.delivery_lat), parseFloat(user.delivery_lon)]
-                : [-8.1561, -34.8793]; // Coordenadas da fábrica como fallback
-            
-            clientesHoje.push({
-                phone: user.phone,
-                nome: user.name || user.phone,
-                coords: coords,
-                isMe: true,
-                entregue: false,
-                naRota: false,
-                statusRota: null,
-                cliente_phone: user.phone,
-                endereco: user.endereco || 'Sua localização'
-            });
-        }
-    }
+
 
     // ── ETA PARA O CLIENTE LOGADO ──
     const VELOCIDADE_KMH = 25, TEMPO_POR_PARADA_MIN = 2;
@@ -2731,6 +2740,26 @@ async function renderizarRotaMapa(rota, paradas, adminPos, clientesHoje = []) {
     // ── TODOS OS CLIENTES QUE PEDIRAM HOJE ──
     // Filtrar apenas os que NÃO foram entregues
     clientesHoje = clientesHoje.filter(c => !c.entregue);
+
+    // ── OFFSET: separa marcadores com coords muito próximas ──
+    const OFFSET_M = 0.00012; // ~13 metros
+    const vistos = [];
+    clientesHoje.forEach(c => {
+        let lat = c.coords[0], lon = c.coords[1];
+        let colisoes = 0;
+        for (const v of vistos) {
+            const dLat = Math.abs(v[0] - lat), dLon = Math.abs(v[1] - lon);
+            if (dLat < OFFSET_M * 1.5 && dLon < OFFSET_M * 1.5) colisoes++;
+        }
+        if (colisoes > 0) {
+            const angulo = (colisoes * (Math.PI * 2 / 8));
+            lat += OFFSET_M * Math.sin(angulo);
+            lon += OFFSET_M * Math.cos(angulo);
+            c.coords = [lat, lon];
+        }
+        vistos.push([lat, lon]);
+    });
+
     clientesHoje.forEach(c => {
         const isMe = c.isMe;
         const entregue = c.entregue;
@@ -2978,6 +3007,49 @@ function loadScript(src) {
         s.src = src; s.onload = resolve; s.onerror = reject;
         document.head.appendChild(s);
     });
+}
+
+async function liberarTicketsPendentes(phone) {
+    try {
+        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0) return;
+        if (!gt.tickets_liberar_em) return;
+
+        const agora = new Date();
+        const liberarEm = new Date(gt.tickets_liberar_em);
+
+        if (agora >= liberarEm) {
+            // Liberar os tickets pendentes
+            await sb.from('game_tickets').update({
+                tickets: (gt.tickets || 0) + gt.tickets_pendentes,
+                tickets_pendentes: 0,
+                tickets_liberar_em: null,
+                updated_at: new Date().toISOString()
+            }).eq('phone', phone);
+            console.log(`🎟️ ${gt.tickets_pendentes} ticket(s) liberados!`);
+        }
+    } catch(e) {
+        console.warn('Erro ao liberar tickets:', e);
+    }
+}
+
+async function limparCacheRedefinir() {
+    if (!confirm('Isso vai limpar o cache e recarregar o app. Continuar?')) return;
+    try {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload(true);
+    } catch (e) {
+        window.location.reload(true);
+    }
 }
 
 function atualizarLabelPainel() {
