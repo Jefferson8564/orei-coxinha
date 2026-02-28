@@ -697,7 +697,7 @@
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" title="Favorito" style="display:none; color:var(--warning);">⭐</button>
-            <a href="https://jefferson8564.github.io/Jogos-/" target="_blank" class="header-btn" title="Jogos" style="display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:22px;">🎮</a>
+            <button id="btnJogos" class="header-btn" title="Jogos" onclick="abrirJogos()" style="font-size:22px;">🎮</button>
 
             <div id="robotHeaderBtn" onclick="abrirPainelControle()" style="position:relative;cursor:pointer;width:45px;height:45px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;transition:background 0.3s;user-select:none;">
                 <span id="headerRobot" style="font-size:22px;transition:filter 0.3s,transform 0.3s;">🤖</span>
@@ -769,6 +769,78 @@
     </div>
 </div>
 
+<!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
+<div id="modalRoboConfirm" style="
+    position:fixed; inset:0;
+    background:rgba(10,10,20,0.88);
+    backdrop-filter:blur(8px);
+    display:none; align-items:center;
+    justify-content:center; z-index:3000;
+    flex-direction:column; gap:0;
+">
+    <style>
+        @keyframes roboEntrar {
+            0%   { transform: translateY(80px) scale(0.5); opacity:0; }
+            60%  { transform: translateY(-18px) scale(1.08); opacity:1; }
+            80%  { transform: translateY(8px) scale(0.97); }
+            100% { transform: translateY(0) scale(1); opacity:1; }
+        }
+        @keyframes roboBalance {
+            0%,100% { transform: rotate(-8deg) scale(1.05); }
+            50%      { transform: rotate(8deg) scale(1.05); }
+        }
+        @keyframes checkAppear {
+            0%   { transform: scale(0) rotate(-30deg); opacity:0; }
+            70%  { transform: scale(1.3) rotate(5deg); opacity:1; }
+            100% { transform: scale(1) rotate(0deg); opacity:1; }
+        }
+        @keyframes textoSubir {
+            0%   { opacity:0; transform:translateY(20px); }
+            100% { opacity:1; transform:translateY(0); }
+        }
+        @keyframes particula {
+            0%   { transform: translate(0,0) scale(1); opacity:1; }
+            100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity:0; }
+        }
+        .robo-wrap {
+            animation: roboEntrar 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .robo-emoji {
+            font-size: 110px;
+            filter: drop-shadow(0 0 30px rgba(37,211,102,0.8));
+            animation: roboBalance 0.5s ease-in-out infinite;
+            animation-delay: 0.7s;
+            display: block;
+        }
+        .robo-check {
+            position:absolute; bottom:-10px; right:-10px;
+            font-size:44px;
+            animation: checkAppear 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.65s both;
+        }
+        .robo-texto {
+            animation: textoSubir 0.5s ease 0.9s both;
+            text-align:center;
+            margin-top: 32px;
+        }
+        .robo-particula {
+            position:absolute;
+            font-size:22px;
+            animation: particula 0.8s ease-out forwards;
+        }
+    </style>
+    <div class="robo-wrap" id="roboWrap">
+        <span class="robo-emoji">🤖</span>
+        <span class="robo-check">✅</span>
+    </div>
+    <div class="robo-texto">
+        <div style="font-size:26px; font-weight:900; color:white; letter-spacing:-0.5px; margin-bottom:8px;">Pedido confirmado!</div>
+        <div style="font-size:15px; color:rgba(255,255,255,0.75); font-weight:600;">Abrindo WhatsApp... 📲</div>
+    </div>
+</div>
 
 <script>
 const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
@@ -952,8 +1024,8 @@ window.onload = async () => {
                         // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
                         const phoneLocal = localStorage.getItem('salgados_phone');
                         if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
+                            // ADM mandou limpar: apaga TUDO, inclusive login
                             localStorage.clear();
-                            if (phoneLocal) localStorage.setItem('salgados_phone', phoneLocal);
                             localStorage.setItem('force_reload_version', versaoRemota);
                             window.location.reload();
                             return;
@@ -983,6 +1055,8 @@ window.onload = async () => {
                 );
                 if (client) {
                     user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+                    // Salvar dados completos para uso offline
+                    localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
                     if (client.saved_order && client.saved_order.trim()) {
                         favorites[client.phone] = {
@@ -1005,8 +1079,24 @@ window.onload = async () => {
                     return;
                 }
             } catch (e) {
-                console.warn('[Init] Erro ao buscar cliente salvo:', e.message);
-                // Mantém o número salvo — na próxima abertura com boa internet entra automático
+                console.warn('[Init] Sem internet ou timeout — tentando carregar do cache local', e.message);
+                // ===== MODO OFFLINE: carregar dados salvos localmente =====
+                const cachedUser = localStorage.getItem('salgados_user');
+                const cachedProducts = localStorage.getItem('salgados_products');
+                if (cachedUser) {
+                    user = JSON.parse(cachedUser);
+                    products = cachedProducts ? JSON.parse(cachedProducts) : [];
+                    clearTimeout(timeoutGlobal);
+                    _mostrarApp();
+                    atualizarCabecalho();
+                    checkFavoriteBtn();
+                    carregarPrivacidade();
+                    carregarTemaSalvo();
+                    render();
+                    showToast('📵 Modo offline — dados do cache', 'warning', 4000);
+                    return;
+                }
+                // Sem cache de usuário: vai para login
             }
         }
 
@@ -1015,6 +1105,22 @@ window.onload = async () => {
 
     } catch (err) {
         console.error('[Init] Erro inesperado na inicialização:', err);
+        // Tentar cache antes de ir para login
+        const cachedUser = localStorage.getItem('salgados_user');
+        const cachedProducts = localStorage.getItem('salgados_products');
+        if (cachedUser) {
+            user = JSON.parse(cachedUser);
+            products = cachedProducts ? JSON.parse(cachedProducts) : [];
+            clearTimeout(timeoutGlobal);
+            _mostrarApp();
+            atualizarCabecalho();
+            checkFavoriteBtn();
+            carregarPrivacidade();
+            carregarTemaSalvo();
+            render();
+            showToast('📵 Modo offline — dados do cache', 'warning', 4000);
+            return;
+        }
         clearTimeout(timeoutGlobal);
         _mostrarLogin();
     }
@@ -1088,8 +1194,9 @@ async function auth() {
     }
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
 
-    // Salvar número para próximos acessos (segurança extra)
+    // Salvar número e dados completos do usuário (funciona offline)
     localStorage.setItem('salgados_phone', phone);
+    localStorage.setItem('salgados_user', JSON.stringify(user));
 
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -1210,8 +1317,16 @@ window.addEventListener('appinstalled', () => {
 // ===== PRODUTOS =====
 async function loadProducts() {
     const { data, error } = await sb.from("cardapio").select("*").eq("available", true).order("created_at", { ascending: true });
-    if (error) { console.error(error); return; }
+    if (error) {
+        // Sem internet: tenta carregar do cache
+        const cached = localStorage.getItem('salgados_products');
+        if (cached) { products = JSON.parse(cached); render(); }
+        console.error(error);
+        return;
+    }
     products = data.map(p => ({ id: p.id, name: p.name, price: Number(p.price), img: p.image_url || "" }));
+    // Salvar cardápio no cache para uso offline
+    localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
 }
 
@@ -1299,6 +1414,8 @@ function atualizarCabecalho() {
         : user.debt < 0 
         ? `<span style="display:inline-flex;align-items:center;gap:5px;background:white;color:#3498db;font-weight:bold;font-size:16px;padding:3px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(0,0,0,0.2);">✅ : R$ +${Math.abs(user.debt).toFixed(2)}</span>`
         : `<span style="color:rgba(255,255,255,0.85);font-size:13px;">tudo em dia </span>`;
+    // Sempre manter os dados do usuário atualizados no cache local
+    if (user) localStorage.setItem('salgados_user', JSON.stringify(user));
 }
 
 // ===== FAVORITOS =====
@@ -1455,166 +1572,129 @@ function setMethod(m, el) {
 
 async function confirmOrder() {
     const btn = document.getElementById('btnConfirm');
-    btn.disabled = true; btn.textContent = "Enviando...";
+
+    // Sem internet: avisa e bloqueia
+    if (!navigator.onLine) {
+        showToast('⚠️ Sem internet! Conecte-se para fazer o pedido.', 'error', 4000);
+        return;
+    }
+
+    if (Object.keys(cart).length === 0) return;
+    btn.disabled = true; btn.textContent = '⏳ Salvando...';
 
     let total = 0; let pedidoTexto = "";
     for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; } }
-    if (total === 0) { btn.disabled = false; btn.textContent = "Confirmar Pedido"; return; }
+    if (total === 0) { btn.disabled = false; btn.textContent = 'Confirmar Pedido'; return; }
 
-    const finalTotal = Math.max(0, total - creditDiscount);
     const useCredit = document.getElementById('useCredit').checked;
-
-    // Atualizar dívida
+    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0));
     let newDebt = user.debt;
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
     if (method === 'FIADO') newDebt += finalTotal;
 
-    // Salvar pedido no Supabase
-    await sb.from("pedidos").insert({
-        customer_name: user.name,
-        customer_phone: user.phone,
-        total: finalTotal,
-        payment_method: method,
-        items: pedidoTexto
-    });
+    try {
+        // Salvar pedido na nuvem
+        const { error: errPedido } = await sb.from("pedidos").insert({
+            customer_name: user.name, customer_phone: user.phone,
+            total: finalTotal, payment_method: method, items: pedidoTexto
+        });
+        if (errPedido) throw errPedido;
 
-    // ===== TICKETS DE JOGO =====
-    // Só ganha tickets se NÃO for FIADO (pagamento confirmado)
-    if (method !== 'FIADO') {
-        try {
-            const { data: cfgTicket } = await sb.from('configuracoes').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
-            const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
-
-            if (valorPorTicket > 0) {
-                // Buscar registro atual do cliente
-                const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', user.phone).maybeSingle();
-                const novoTotalGasto = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
-                const ticketsAtual = gt ? (gt.tickets || 0) : 0;
-                const ticketsPendentes = gt ? (gt.tickets_pendentes || 0) : 0;
-
-                // Calcular novos tickets ganhos com base no total acumulado
-                const ticketsTotal = Math.floor(novoTotalGasto / valorPorTicket);
-                const ticketsJaGanhos = ticketsAtual + ticketsPendentes;
-                const novosTickets = Math.max(0, ticketsTotal - ticketsJaGanhos);
-
-                // Data de liberação: 6 horas a partir de agora
-                const liberarEm = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
-
-                if (novosTickets > 0) {
+        // Tickets de jogo
+        if (method !== 'FIADO') {
+            try {
+                const { data: cfgTicket } = await sb.from('configuracoes').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
+                const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
+                if (valorPorTicket > 0) {
+                    const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', user.phone).maybeSingle();
+                    const novoTotalGasto = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
+                    const ticketsAtual = gt ? (gt.tickets || 0) : 0;
+                    const ticketsPendentes = gt ? (gt.tickets_pendentes || 0) : 0;
+                    const novosTickets = Math.max(0, Math.floor(novoTotalGasto / valorPorTicket) - (ticketsAtual + ticketsPendentes));
+                    const liberarEm = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
                     await sb.from('game_tickets').upsert({
-                        phone: user.phone,
-                        tickets: ticketsAtual,
-                        tickets_pendentes: ticketsPendentes + novosTickets,
+                        phone: user.phone, tickets: ticketsAtual,
+                        tickets_pendentes: ticketsPendentes + (novosTickets > 0 ? novosTickets : 0),
                         total_gasto: novoTotalGasto,
-                        tickets_liberar_em: liberarEm,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'phone' });
-                    console.log(`🎟️ ${novosTickets} ticket(s) pendente(s) para liberar em 6h`);
-                } else {
-                    // Só atualizar o total gasto
-                    await sb.from('game_tickets').upsert({
-                        phone: user.phone,
-                        tickets: ticketsAtual,
-                        tickets_pendentes: ticketsPendentes,
-                        total_gasto: novoTotalGasto,
-                        tickets_liberar_em: gt?.tickets_liberar_em || null,
+                        tickets_liberar_em: novosTickets > 0 ? liberarEm : (gt?.tickets_liberar_em || null),
                         updated_at: new Date().toISOString()
                     }, { onConflict: 'phone' });
                 }
-            }
-        } catch(e) {
-            console.warn('Erro ao processar tickets:', e);
+            } catch(e) { console.warn('Tickets:', e); }
         }
-    }
-    // ===== FIM TICKETS =====
 
-    
-    // ===== ROTA ALEATÓRIA: ADICIONAR À FILA SE APLICÁVEL =====
-    try {
-        const { data: raData } = await sb.from('rota_especial_gps')
-            .select('valor')
-            .eq('chave', 'rota_aleatoria')
-            .maybeSingle();
-
-        if (raData?.valor) {
-            let raConfig = JSON.parse(raData.valor);
-
-            if (raConfig.ativa) {
-                // Verificar horário (BRT GMT-3)
-                const agora = new Date();
-                const brt = new Date(agora.getTime() + (-3 * 60 - agora.getTimezoneOffset()) * 60000);
-                const hAtual = brt.getHours() * 60 + brt.getMinutes();
-                const [hI, mI] = (raConfig.hora_inicio || '07:00').split(':').map(Number);
-                const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
-                const emHorario = hAtual >= hI * 60 + mI && hAtual <= hF * 60 + mF;
-
-                // Verificar dia da semana
-                const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-                const diaHoje = dias[brt.getDay()];
-                const nesteDia = (raConfig.dias_operacao || []).includes(diaHoje);
-
-                if (emHorario && nesteDia) {
-                    // Buscar coordenadas cadastradas pelo ADM
-                    const { data: cliCoords } = await sb.from('cadastros')
-                        .select('delivery_lat, delivery_lon, delivery_address')
-                        .eq('phone', user.phone)
-                        .maybeSingle();
-
-                    // Só entra na fila se tiver coordenada cadastrada pelo ADM
-                    if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
-                        const fila = raConfig.clientes_fila || [];
-
-                        // Não duplica se já estiver pendente ou em_rota
-                        const jaEstaNaFila = fila.find(x =>
-                            x.phone === user.phone &&
-                            (x.status === 'pendente' || x.status === 'em_rota')
-                        );
-
-                        if (!jaEstaNaFila) {
-                            fila.push({
-                                id: 'cliente_' + Date.now(),
-                                nome: user.name,
-                                phone: user.phone,
-                                endereco: cliCoords.delivery_address || `${cliCoords.delivery_lat}, ${cliCoords.delivery_lon}`,
-                                coords: [parseFloat(cliCoords.delivery_lat), parseFloat(cliCoords.delivery_lon)],
-                                hora_pedido: brt.toISOString().substring(11, 16),
-                                status: 'pendente'
-                            });
-                            raConfig.clientes_fila = fila;
-
-                            await sb.from('rota_especial_gps').upsert(
-                                { chave: 'rota_aleatoria', valor: JSON.stringify(raConfig) },
-                                { onConflict: 'chave' }
-                            );
-
-                            showToast('🎲 Você entrou na fila da Rota Aleatória!', 'success', 3000);
+        // Rota aleatória
+        try {
+            const { data: raData } = await sb.from('rota_especial_gps').select('valor').eq('chave', 'rota_aleatoria').maybeSingle();
+            if (raData?.valor) {
+                let raConfig = JSON.parse(raData.valor);
+                if (raConfig.ativa) {
+                    const brt = new Date(Date.now() + (-3 * 60 - new Date().getTimezoneOffset()) * 60000);
+                    const hAtual = brt.getHours() * 60 + brt.getMinutes();
+                    const [hI, mI] = (raConfig.hora_inicio || '07:00').split(':').map(Number);
+                    const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
+                    const dias = ['dom','seg','ter','qua','qui','sex','sab'];
+                    if (hAtual >= hI*60+mI && hAtual <= hF*60+mF && (raConfig.dias_operacao||[]).includes(dias[brt.getDay()])) {
+                        const { data: cliCoords } = await sb.from('cadastros').select('delivery_lat,delivery_lon,delivery_address').eq('phone', user.phone).maybeSingle();
+                        if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
+                            const fila = raConfig.clientes_fila || [];
+                            if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
+                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:brt.toISOString().substring(11,16), status:'pendente' });
+                                raConfig.clientes_fila = fila;
+                                await sb.from('rota_especial_gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
+                                showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
+                            }
                         }
                     }
-                    // Se não tiver coordenada cadastrada, simplesmente não entra na fila (silencioso)
                 }
             }
+        } catch(e) { console.warn('Rota RA:', e); }
+
+        // Atualizar dívida
+        await sb.from("cadastros").update({ debt: newDebt }).eq("phone", user.phone);
+        user.debt = newDebt; atualizarCabecalho();
+
+        let finalMsg = msgTemplate
+            .replace('{nome}', user.name.toUpperCase())
+            .replace('{pedido}', pedidoTexto)
+            .replace('{total}', finalTotal.toFixed(2).replace('.',','))
+            .replace('{pagamento}', method);
+        if (useCredit && creditDiscount > 0) finalMsg += `\n\n💳 Crédito usado`;
+
+        // ===== ANIMAÇÃO DO ROBOZINHO =====
+        closePayModal();
+        const modal = document.getElementById('modalRoboConfirm');
+        modal.style.display = 'flex';
+
+        // Partículas de celebração
+        const wrap = document.getElementById('roboWrap');
+        const emojis = ['🎉','⭐','✨','🎊','💚'];
+        for (let i = 0; i < 8; i++) {
+            const p = document.createElement('span');
+            p.className = 'robo-particula';
+            p.textContent = emojis[i % emojis.length];
+            const angle = (i / 8) * 360;
+            const dist = 90 + Math.random() * 60;
+            p.style.setProperty('--dx', Math.cos(angle * Math.PI/180) * dist + 'px');
+            p.style.setProperty('--dy', Math.sin(angle * Math.PI/180) * dist + 'px');
+            p.style.animationDelay = (0.5 + i * 0.07) + 's';
+            p.style.animationDuration = '0.7s';
+            wrap.appendChild(p);
+            setTimeout(() => p.remove(), 1500);
         }
-    } catch(e) {
-        console.warn('Erro ao adicionar à fila RA:', e);
+
+        // Limpar carrinho e ir para WhatsApp após animação
+        cart = {}; creditDiscount = 0; render();
+        setTimeout(() => {
+            modal.style.display = 'none';
+            window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(finalMsg)}`;
+        }, 2000);
+
+    } catch(err) {
+        console.error('Erro ao salvar pedido:', err);
+        btn.disabled = false; btn.textContent = 'Confirmar Pedido';
+        showToast('❌ Falha ao registrar! Verifique sua conexão.', 'error', 4000);
     }
-    // ===== FIM ROTA ALEATÓRIA =====
-    
-    // Atualizar dívida do cliente
-    await sb.from("cadastros").update({ debt: newDebt }).eq("phone", user.phone);
-    user.debt = newDebt;
-    atualizarCabecalho();
-
-    let finalMsg = msgTemplate
-        .replace('{nome}', user.name.toUpperCase())
-        .replace('{pedido}', pedidoTexto)
-        .replace('{total}', finalTotal.toFixed(2).replace('.',','))
-        .replace('{pagamento}', method);
-    if (useCredit && creditDiscount > 0) finalMsg += `\n\n💳 Crédito usado`;
-
-    window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(finalMsg)}`;
-
-    cart = {}; creditDiscount = 0; closePayModal(); render();
-    btn.disabled = false; btn.textContent = "Confirmar Pedido";
 }
 // ===== PRIVACIDADE =====
 function atualizarVisualPrivacidade(ativo) {
@@ -1703,9 +1783,8 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             const novaVersao = payload.new?.value;
             if (user && user.phone === ADMIN_NUM) return;
             if (novaVersao && novaVersao !== versaoAtual) {
-                const phoneBackup = localStorage.getItem('salgados_phone');
+                // ADM mandou limpar: apaga TUDO, inclusive login
                 localStorage.clear();
-                if (phoneBackup) localStorage.setItem('salgados_phone', phoneBackup);
                 window.location.reload();
             }
         })
@@ -1723,9 +1802,8 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 const versaoNova = payload.new?.value;
                 if (versaoNova && versaoNova !== versaoSalva) {
                     localStorage.removeItem(chave);
-                    const phoneBackup = phone;
+                    // ADM mandou limpar este cliente: apaga TUDO, inclusive login
                     localStorage.clear();
-                    if (phoneBackup) localStorage.setItem('salgados_phone', phoneBackup);
                     window.location.reload();
                 }
             }
@@ -2999,6 +3077,12 @@ function carregarTemaSalvo() {
         document.getElementById('checkAzul').style.display = 'none';
         document.getElementById('checkRoxo').style.display = 'block';
     }
+}
+
+function abrirJogos() {
+    const phone = user && user.phone ? user.phone : '';
+    const url = 'https://jefferson8564.github.io/Jogos-/' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
+    window.open(url, '_blank');
 }
 
 function loadScript(src) {
