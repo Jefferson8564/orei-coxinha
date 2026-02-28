@@ -2358,6 +2358,16 @@ async function abrirMapaEntrega() {
                 layout: { 'line-join': 'round', 'line-cap': 'round' },
                 paint: { 'line-color': '#3d9cff', 'line-width': 5, 'line-opacity': 0.95 }
             });
+            // Mapa carregou — busca posição do entregador e coloca a moto imediatamente
+            sb.from('entregador_status').select('gps_lat,gps_lon,gps_ts,estado,updated_at').limit(1).maybeSingle()
+              .then(({ data: e }) => {
+                if (e?.gps_lat && e?.gps_lon) {
+                    setGpsBadge(true);
+                    atualizarPosicaoMotoRealtime([e.gps_lat, e.gps_lon], e.gps_ts);
+                } else {
+                    colocarMotoMapa(FABRICA_CAR, 0);
+                }
+              }).catch(() => colocarMotoMapa(FABRICA_CAR, 0));
         });
 
         // Para de seguir quando usuário mexe no mapa
@@ -2382,8 +2392,10 @@ async function abrirMapaEntrega() {
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregador_status' }, (payload) => {
             const e = payload.new;
+            // Sempre atualiza posição da moto se tiver GPS — independente de ter rota ativa
             if (e.gps_lat && e.gps_lon) atualizarPosicaoMotoRealtime([e.gps_lat, e.gps_lon], e.gps_ts);
-            if (e.estado === 'voltou' || e.estado === 'retornando') atualizarMapaCompleto().catch(() => {});
+            // Atualiza mapa completo quando estado muda (voltou, retornando, saindo)
+            if (['voltou','retornando','saindo'].includes(e.estado)) atualizarMapaCompleto().catch(() => {});
         })
         .subscribe();
 
@@ -2399,21 +2411,24 @@ function setGpsBadge(ativo) {
 
 async function verificarConectividadeGPS() {
     try {
+        // Consulta entregador_status como fonte principal de GPS
+        const { data: ga } = await sb.from("entregador_status").select("gps_lat,gps_lon,gps_ts,updated_at").limit(1).maybeSingle();
+        if (ga?.gps_lat && ga?.gps_lon) {
+            // Usa gps_ts como referência principal (é atualizado a cada posição)
+            const ref = ga.gps_ts || ga.updated_at;
+            const idadeSeg = (Date.now() - new Date(ref).getTime()) / 1000;
+            setGpsBadge(idadeSeg < 600); // ativo se GPS tem menos de 10 min
+            return;
+        }
+        // Fallback: tenta rota ativa
         const hoje = hojeStr();
         const { data } = await sb.from("rotas")
-            .select("gps_lat, gps_lon, gps_ts, status")
-            .in("status", ["em_andamento", "concluido"])
+            .select("gps_lat, gps_lon, gps_ts")
+            .in("status", ["em_andamento"])
             .gte("created_at", hoje + 'T00:00:00-03:00')
             .order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (!data || !data.gps_lat || !data.gps_lon) {
-            try {
-                const { data: ga } = await sb.from("entregador_status").select("gps_lat,gps_lon,gps_ts").limit(1).maybeSingle();
-                if (ga?.gps_lat && ga?.gps_lon && (Date.now()-new Date(ga.gps_ts).getTime())/1000 < 300) { setGpsBadge(true); return; }
-            } catch(e) {}
-            setGpsBadge(false); return;
-        }
-        setGpsBadge((Date.now() - new Date(data.gps_ts).getTime()) / 1000 < 120);
-    } catch(e) {}
+        setGpsBadge(!!(data?.gps_lat && (Date.now()-new Date(data.gps_ts).getTime())/1000 < 120));
+    } catch(e) { setGpsBadge(false); }
 }
 
 async function atualizarMapaCompleto() {
@@ -2423,7 +2438,7 @@ async function atualizarMapaCompleto() {
           .in("status", ["em_andamento","concluido","criada"])
           .gte("created_at", hoje+'T00:00:00-03:00')
           .order("hora_saida", { ascending: true }),
-        sb.from("pedidos").select("customer_phone,customer_name")
+        sb.from("pedidos").select("customer_phone,customer_name,delivery_lat,delivery_lon")
           .gte("created_at", hoje+'T00:00:00-03:00').lte("created_at", hoje+'T23:59:59-03:00'),
         sb.from("entregador_status").select("gps_lat,gps_lon,gps_ts,estado,em_rota").limit(1).maybeSingle()
     ]);
@@ -2436,7 +2451,7 @@ async function atualizarMapaCompleto() {
 
     let adminPos = null;
     if (rota?.gps_lat && rota?.gps_lon) { adminPos = [rota.gps_lat, rota.gps_lon]; }
-    else { try { if (gpsRow?.gps_lat && gpsRow?.gps_lon) adminPos = [gpsRow.gps_lat, gpsRow.gps_lon]; } catch(e) {} }
+    else if (gpsRow?.gps_lat && gpsRow?.gps_lon) { adminPos = [gpsRow.gps_lat, gpsRow.gps_lon]; }
 
     const phonesHoje = [...new Set((pedidosHoje||[]).map(p=>p.customer_phone).filter(Boolean))];
     const pendentes = paradas.filter(p=>p.status!=='entregue' && p.coords);
@@ -2445,7 +2460,13 @@ async function atualizarMapaCompleto() {
 
     const clientesHoje = phonesHoje.map(phone => {
         const parada = paradas.find(p=>p.cliente_phone===phone);
-        return { phone, coords: parada?.coords||null, naRota: !!parada, entregue: parada ? phonesEntregues.has(phone) : false,
+        const pedido = (pedidosHoje||[]).find(p=>p.customer_phone===phone);
+        // Usa coords da parada se estiver em rota, senão usa coords do pedido (delivery_lat/lon)
+        let coords = parada?.coords || null;
+        if (!coords && pedido?.delivery_lat && pedido?.delivery_lon) {
+            coords = [parseFloat(pedido.delivery_lat), parseFloat(pedido.delivery_lon)];
+        }
+        return { phone, coords, naRota: !!parada, entregue: parada ? phonesEntregues.has(phone) : false,
                  isProxima: !!(proximaParada && parada?.id===proximaParada?.id), isMe: phone===user?.phone };
     }).filter(c=>c.coords);
 
@@ -2476,7 +2497,7 @@ async function atualizarMapaCompleto() {
     if (adminPos) {
         const bearing = (proximaParada?.coords) ? calcBearingCar(adminPos, proximaParada.coords) : ultimaBearingCar;
         colocarMotoMapa(adminPos, bearing);
-    } else if (rota?.status==='concluido') {
+    } else if (rota?.status==='concluido' || gpsRow?.estado==='voltou') {
         colocarMotoMapa(FABRICA_CAR, 0);
     }
 
@@ -2534,16 +2555,23 @@ async function atualizarMapaCompleto() {
 
 async function atualizarPosicaoMoto() {
     try {
+        // Fonte principal: entregador_status
+        const { data: ga } = await sb.from("entregador_status").select("gps_lat,gps_lon,gps_ts,updated_at").limit(1).maybeSingle();
+        if (ga?.gps_lat && ga?.gps_lon) {
+            const ref = ga.gps_ts || ga.updated_at;
+            const idadeSeg = (Date.now() - new Date(ref).getTime()) / 1000;
+            setGpsBadge(idadeSeg < 600);
+            atualizarPosicaoMotoRealtime([ga.gps_lat, ga.gps_lon], ga.gps_ts); return;
+        }
+        // Fallback: rota ativa
         const hoje = hojeStr();
-        const { data } = await sb.from("rotas").select("gps_lat,gps_lon,gps_ts,status")
+        const { data } = await sb.from("rotas").select("gps_lat,gps_lon,gps_ts")
             .in("status",["em_andamento"]).gte("created_at",hoje+'T00:00:00-03:00')
             .order("created_at",{ascending:false}).limit(1).maybeSingle();
         if (data?.gps_lat && data?.gps_lon) {
             setGpsBadge((Date.now()-new Date(data.gps_ts).getTime())/1000 < 120);
-            atualizarPosicaoMotoRealtime([data.gps_lat,data.gps_lon], data.gps_ts); return;
+            atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts); return;
         }
-        const { data: ga } = await sb.from("entregador_status").select("gps_lat,gps_lon,gps_ts").limit(1).maybeSingle();
-        if (ga?.gps_lat&&ga?.gps_lon&&(Date.now()-new Date(ga.gps_ts).getTime())/1000<120){setGpsBadge(true);atualizarPosicaoMotoRealtime([ga.gps_lat,ga.gps_lon],ga.gps_ts);return;}
         setGpsBadge(false);
     } catch(e) {}
 }
