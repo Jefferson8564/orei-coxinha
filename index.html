@@ -14,9 +14,7 @@
             navigator.serviceWorker.register('sw.js').then(reg => {
                 navigator.serviceWorker.addEventListener('message', e => {
                     if (e.data?.acao === 'abrir_mapa') {
-                        setTimeout(() => {
-                            if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
-                        }, 800);
+                        // mapa removido — redireciona para site de rastreamento externo
                     }
                     // Quando uma nova versão for publicada, recarrega automaticamente
                     if (e.data?.acao === 'nova_versao') {
@@ -25,13 +23,7 @@
                 });
             }).catch(() => {});
 
-            if (location.search.includes('abrir=mapa')) {
-                window.addEventListener('load', () => {
-                    setTimeout(() => {
-                        if (typeof abrirMapaEntrega === 'function') abrirMapaEntrega();
-                    }, 1500);
-                });
-            }
+            // abrir=mapa removido — rastreamento agora em site externo
         }
     </script>
 
@@ -883,26 +875,47 @@ const ADMIN_NUM = "81996603348";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ===== FUSO HORÁRIO BRASÍLIA (GMT-3) =====
+// ===== FUSO HORÁRIO SÃO PAULO (America/Sao_Paulo) =====
+const TZ_SP = 'America/Sao_Paulo';
+
+function _partesSP(d) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ_SP,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  return Object.fromEntries(fmt.formatToParts(d || new Date()).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+}
+
+/** Retorna Date "espelhado" para SP — getHours()/getMinutes() retornam BRT/BRST correto. */
+function horasBRT(d) {
+  const p = _partesSP(d);
+  return new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`);
+}
+
+/** Retorna "YYYY-MM-DD" no horário de São Paulo. */
+function hojeStr() {
+  const p = _partesSP();
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** Retorna "YYYY-MM-DD" de ontem no horário de São Paulo. */
+function ontemStr() {
+  const ontem = new Date(Date.now() - 86400000);
+  const p = _partesSP(ontem);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** Retorna ISO string com offset correto de SP (ex: "2025-03-01T17:14:00-03:00"). */
 function agoraISO() {
   const now = new Date();
-  const offset = -3 * 60;
-  const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
-  return local.toISOString().replace('Z', '-03:00');
-}
-function hojeStr() {
-  return agoraISO().split('T')[0];
-}
-function ontemStr() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const offset = -3 * 60;
-  const local = new Date(d.getTime() + (offset - d.getTimezoneOffset()) * 60000);
-  return local.toISOString().split('T')[0];
-}
-function horasBRT(d) {
-  const offset = -3 * 60;
-  return new Date((d || new Date()).getTime() + (offset - (d || new Date()).getTimezoneOffset()) * 60000);
+  const p = _partesSP(now);
+  const localMs = new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`).getTime();
+  const offsetMin = Math.round((localMs - now.getTime()) / 60000);
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const absH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+  const absM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}${sign}${absH}:${absM}`;
 }
 
 // ===== TOAST =====
@@ -981,14 +994,7 @@ window.onload = async () => {
     window.addEventListener('popstate', (e) => {
         // Tentar fechar modais na seguinte ordem de prioridade:
         
-        // 1. Modal do mapa de entrega
-        const modalMapa = document.getElementById('modalMapaEntrega');
-        if (modalMapa && modalMapa.style.display !== 'none') {
-            fecharMapaEntrega();
-            return;
-        }
-        
-        // 2. Painel de controle
+        // 1. Painel de controle
         const painelControle = document.getElementById('painelControle');
         if (painelControle && painelControle.style.transform !== 'translateY(100%)') {
             fecharPainelControle();
@@ -1635,7 +1641,7 @@ async function confirmOrder() {
             if (raData?.valor) {
                 let raConfig = JSON.parse(raData.valor);
                 if (raConfig.ativa) {
-                    const brt = new Date(Date.now() + (-3 * 60 - new Date().getTimezoneOffset()) * 60000);
+                    const brt = horasBRT(new Date()); // hora de São Paulo via Intl (sem offset manual)
                     const hAtual = brt.getHours() * 60 + brt.getMinutes();
                     const [hI, mI] = (raConfig.hora_inicio || '07:00').split(':').map(Number);
                     const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
@@ -1645,7 +1651,7 @@ async function confirmOrder() {
                         if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
                             const fila = raConfig.clientes_fila || [];
                             if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
-                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:brt.toISOString().substring(11,16), status:'pendente' });
+                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
                                 raConfig.clientes_fila = fila;
                                 await sb.from('rota_especial_gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
                                 showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
@@ -1923,8 +1929,8 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         </div>
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-            <!-- Acompanhar Entrega -->
-            <div onclick="abrirMapaEntrega()" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(52,152,219,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s; text-align:center;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+            <!-- Acompanhar Entrega — redireciona para site externo -->
+            <div onclick="window.open('URL_DO_SITE_AQUI', '_blank')" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(52,152,219,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s; text-align:center;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
                 <div style="font-size:28px;">🛵</div>
                 <div>
                     <div style="font-size:13px;font-weight:800;color:white;margin-bottom:2px;">Acompanhar</div>
@@ -1951,40 +1957,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             </div>
         </div>
 
-        <!-- Modal Mapa Entrega -->
-        <div id="modalMapaEntrega" style="display:none; position:fixed; inset:0; z-index:9990; background:rgba(0,0,0,0.9); flex-direction:column;">
-            <!-- Badge GPS no canto -->
-            <div id="gpsStatusBadge" style="position:absolute;bottom:12px;left:10px;z-index:9999;font-size:9px;font-weight:700;color:rgba(255,255,255,0.75);background:rgba(0,0,0,0.55);padding:3px 7px;border-radius:20px;pointer-events:none;letter-spacing:0.3px;"></div>
-            <div style="background:linear-gradient(135deg,#1a1a2e,#0d0d1a); color:white; padding:16px 16px 12px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-                <div>
-                    <div style="font-size:16px;font-weight:800;">🛵 Rastreamento da Entrega</div>
-                    <div id="mapaEtaText" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;">Calculando rota...</div>
-                </div>
-                <button onclick="fecharMapaEntrega()" style="background:rgba(255,255,255,0.15);border:none;color:white;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
-            </div>
-            <!-- ETA Banner removido — IDs mantidos ocultos para o JS -->
-            <div style="display:none;">
-                <div id="etaValor"></div>
-                <div id="paradasRestantesValor"></div>
-                <div id="distanciaValor"></div>
-            </div>
-            <!-- Mapa -->
-            <div id="mapaEntregaDiv" style="flex:1;min-height:0;position:relative;background:#1a2a1a;">
-            <!-- Info paradas -->
-            <div id="paradasInfo" style="position:absolute;bottom:0;left:0;right:0;z-index:800;background:rgba(13,13,26,0.97);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:14px 16px 20px;border-top:1px solid rgba(255,255,255,0.1);border-radius:20px 20px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,0.6);transform:translateY(100%);transition:transform 0.38s cubic-bezier(0.32,0.72,0,1);display:block;">
-                <!-- Status do cliente -->
-                <div id="clienteStatusCard" style="display:none;background:rgba(52,152,219,0.15);border:1px solid rgba(52,152,219,0.35);border-radius:14px;padding:12px 14px;margin-bottom:10px;">
-                    <div id="clienteStatusText" style="font-size:13px;font-weight:800;color:#74b9ff;"></div>
-                    <div id="clienteStatusSub" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:3px;"></div>
-                </div>
-                <!-- Resumo numérico -->
-                <div id="paradasResumo" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;"></div>
-                <!-- Lista visual das rotas ativas (só pontos anônimos) -->
-                <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Rotas ativas</div>
-                <div id="paradasList" style="display:flex;flex-direction:column;gap:6px;max-height:130px;overflow-y:auto;"></div>
-            </div>
-            </div>
-        </div>
+        <!-- Modal mapa removido — rastreamento agora em site externo -->
 
         <!-- Label histórico -->
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px;">
@@ -2263,125 +2236,10 @@ async function renderHistoricoSaldo() {
 }
 
 // ===== MAPA DE ENTREGA — GPS REAL DO ADMIN =====
-let mapaEntregaObj = null;
-let motoMarker = null;
-let rotaLayer = null;
-let seguindoMoto = true; // segue a moto automaticamente até o usuário mexer
 let etaInterval = null;
 let gpsUpdateInterval = null;
-let ultimaPosAdmin = null;
 let realtimeChannel = null;  // canal Supabase Realtime
 
-async function abrirMapaEntrega() {
-    const modal = document.getElementById('modalMapaEntrega');
-    modal.style.display = 'flex';
-    modal.style.flexDirection = 'column';
-    // Adicionar ao histórico para habilitar botão voltar
-    window.history.pushState({ state: 'mapa_aberto' }, '', window.location.href);
-
-    // Carregar Leaflet se não carregado
-    if (!window.L) {
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-        document.head.appendChild(link);
-        await new Promise(r => setTimeout(r, 500));
-    }
-
-    const div = document.getElementById('mapaEntregaDiv');
-    if (!mapaEntregaObj) {
-        mapaEntregaObj = L.map(div, { zoomControl: false }).setView([-8.05, -34.90], 15);
-
-        // Mapa dark estilizado (CartoDB Dark Matter com cores vivas)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OpenStreetMap ©CartoDB', maxZoom: 20
-        }).addTo(mapaEntregaObj);
-
-        // Overlay colorido de ruas por cima
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
-            attribution: '', maxZoom: 20, opacity: 0.7
-        }).addTo(mapaEntregaObj);
-
-        // Botão de recentrar na moto + botão ⚠️ para toggle do painel
-        const btnCentrar = L.control({ position: 'bottomright' });
-        btnCentrar.onAdd = function() {
-            const div = L.DomUtil.create('div');
-            div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;';
-            div.innerHTML = `
-                <button id="btnRecentrar" style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#3498db,#2980b9);border:3px solid rgba(255,255,255,0.3);color:white;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(52,152,219,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">🛵</button>
-                <button id="btnTogglePainel" style="width:46px;height:46px;border-radius:50%;background:rgba(10,10,20,0.92);border:2px solid rgba(245,166,35,0.8);color:white;font-size:20px;cursor:pointer;box-shadow:0 2px 14px rgba(245,166,35,0.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all 0.2s;">⚠️</button>
-            `;
-            div.querySelector('#btnRecentrar').onclick = function(e) {
-                L.DomEvent.stopPropagation(e);
-                seguindoMoto = true;
-                if (ultimaPosAdmin) mapaEntregaObj.setView(ultimaPosAdmin, 17, { animate: true });
-                div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#27ae60,#1e8449)';
-                setTimeout(() => div.querySelector('#btnRecentrar').style.background = 'linear-gradient(135deg,#3498db,#2980b9)', 1000);
-            };
-            div.querySelector('#btnTogglePainel').onclick = function(e) {
-                L.DomEvent.stopPropagation(e);
-                toggleInfoPanel();
-                const btn = div.querySelector('#btnTogglePainel');
-                const aberto = document.getElementById('paradasInfo')?.style.display !== 'none';
-                btn.style.background = aberto ? 'rgba(245,166,35,0.25)' : 'rgba(10,10,20,0.92)';
-                btn.style.borderColor = aberto ? 'rgba(245,166,35,1)' : 'rgba(245,166,35,0.8)';
-            };
-            return div;
-        };
-        btnCentrar.addTo(mapaEntregaObj);
-
-        // Para de seguir quando o usuário mexe no mapa
-        mapaEntregaObj.on('dragstart', () => { seguindoMoto = false; });
-    }
-
-    // Teste de conectividade — verifica se GPS está sendo enviado
-    await verificarConectividadeGPS();
-
-    // Carregar rota e posição imediatamente
-    await atualizarMapaCompleto();
-
-    // Parar canais anteriores
-    clearInterval(gpsUpdateInterval);
-    clearInterval(window._rotaUpdateInterval);
-    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-
-    // ── Realtime: escuta delivery_routes E app_config (GPS avulso) ──
-    realtimeChannel = sb.channel('cardapio_live')
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'rotas'
-        }, (payload) => {
-            const r = payload.new;
-            // GPS atualizado — move moto imediatamente
-            if (r.gps_lat && r.gps_lon && r.status === 'em_andamento') {
-                atualizarPosicaoMotoRealtime([r.gps_lat, r.gps_lon], r.gps_ts);
-            }
-            // Parada entregue ou rota concluída — atualiza mapa completo
-            if (r.status === 'concluido' || r.phones_entregues?.length > 0) {
-                atualizarMapaCompleto().catch(e => console.warn('Realtime update erro:', e));
-            }
-        })
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'rota_especial_gps',
-            filter: 'chave=eq.entregador_gps'
-        }, (payload) => {
-            // GPS avulso (entregador sem rota ativa) — atualiza posição no mapa
-            try {
-                const g = JSON.parse(payload.new.valor);
-                if (g.lat && g.lon) {
-                    atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
-                }
-            } catch(e) {}
-        })
-        .subscribe();
-
-    // Fallback: polling a cada 8s caso Realtime falhe
-    gpsUpdateInterval = setInterval(atualizarPosicaoMoto, 8000);
-}
 
 function setGpsBadge(ativo) {
     const badge = document.getElementById('gpsStatusBadge');
@@ -2417,258 +2275,10 @@ async function verificarConectividadeGPS() {
     } catch(e) { console.warn('verificarConectividade erro:', e); }
 }
 
-async function atualizarMapaCompleto() {
-    const hoje = hojeStr();
-    const FABRICA = [-8.1837523, -34.9383004];
 
-    // ── BUSCA PARALELA: rotas + pedidos de hoje + GPS avulso ──
-    const [{ data: rotas }, { data: pedidosHoje }, { data: gpsRow }] = await Promise.all([
-        sb.from("rotas")
-            .select("id, status, paradas, phones_entregues, gps_lat, gps_lon, gps_ts, janela_inicio, proximas_rotas, hora_saida")
-            .in("status", ["em_andamento", "concluido", "criada"])
-            .order("hora_saida", { ascending: true }),
-        sb.from("pedidos")
-            .select("customer_phone, customer_name")
-            .gte("created_at", hoje + 'T00:00:00-03:00')
-            .lte("created_at", hoje + 'T23:59:59-03:00'),
-        sb.from("rota_especial_gps")
-            .select("valor").eq("chave", "entregador_gps").maybeSingle()
-    ]);
-
-    // ── ROTA ATIVA ──
-    const rota = (rotas || []).find(r => r.status === 'em_andamento')
-              || (rotas || []).find(r => r.status === 'concluido')
-              || null;
-    const paradas = rota?.paradas || [];
-    const phonesEntregues = new Set(rota?.phones_entregues || []);
-
-    // ── GPS DO ENTREGADOR ──
-    let adminPos = null;
-    if (rota?.gps_lat && rota?.gps_lon) {
-        adminPos = [rota.gps_lat, rota.gps_lon];
-    } else {
-        try {
-            if (gpsRow?.valor) {
-                const g = JSON.parse(gpsRow.valor);
-                const seg = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
-                if (g.lat && g.lon && seg < 300) adminPos = [g.lat, g.lon];
-            }
-        } catch(e) {}
-    }
-
-    // ── TODOS OS CLIENTES QUE PEDIRAM HOJE ──
-    const phonesHoje = [...new Set((pedidosHoje || []).map(p => p.customer_phone).filter(Boolean))];
-    const nomesPorPhone = {};
-    (pedidosHoje || []).forEach(p => { if (p.customer_phone) nomesPorPhone[p.customer_phone] = p.customer_name || ''; });
-
-    let clientesHoje = [];
-    if (phonesHoje.length > 0) {
-        const { data: cads } = await sb.from("cadastros")
-            .select("phone, name, delivery_lat, delivery_lon")
-            .in("phone", phonesHoje);
-        clientesHoje = (cads || [])
-            .filter(c => c.delivery_lat && c.delivery_lon)
-            .map(c => {
-                const paradaNaRota = paradas.find(p => p.cliente_phone === c.phone);
-                return {
-                    phone: c.phone,
-                    nome: c.name || nomesPorPhone[c.phone] || c.phone,
-                    coords: [parseFloat(c.delivery_lat), parseFloat(c.delivery_lon)],
-                    isMe: c.phone === user?.phone,
-                    entregue: phonesEntregues.has(c.phone),
-                    naRota: !!paradaNaRota,
-                    statusRota: paradaNaRota?.status || null
-                };
-            });
-    }
-    
-
-
-    // ── ETA PARA O CLIENTE LOGADO ──
-    const VELOCIDADE_KMH = 25, TEMPO_POR_PARADA_MIN = 2;
-    const pendentes = paradas.filter(p => p.status !== 'entregue');
-    const proximaParada = pendentes[0] || null;
-    window._proximaParadaCache = proximaParada;
-
-    const rotasOrdenadas = [
-        ...(rota ? [rota] : []),
-        ...((rota?.proximas_rotas || []).map(r => ({ ...r, paradas: [], status: 'criada' })))
-    ];
-    let etaMin = null, distanciaTotal = null, totalNaFrente = 0;
-    let minhaRota = null, minhaRotaIdx = -1, paradaIdx = -1, minhaParada = null;
-    for (let ri = 0; ri < rotasOrdenadas.length; ri++) {
-        const ps = rotasOrdenadas[ri].paradas || [];
-        const pi = ps.findIndex(p => p.cliente_phone === user?.phone);
-        if (pi >= 0) { minhaRota = rotasOrdenadas[ri]; minhaRotaIdx = ri; paradaIdx = pi; minhaParada = ps[pi]; break; }
-    }
-    if (minhaParada?.coords) {
-        const seq = [adminPos || FABRICA];
-        for (let ri = 0; ri < minhaRotaIdx; ri++) {
-            (rotasOrdenadas[ri].paradas || []).filter(p => p.status !== 'entregue' && p.coords)
-                .forEach(p => { seq.push(p.coords); totalNaFrente++; });
-            seq.push(FABRICA);
-        }
-        (minhaRota.paradas || []).slice(0, paradaIdx).filter(p => p.status !== 'entregue' && p.coords)
-            .forEach(p => { seq.push(p.coords); totalNaFrente++; });
-        seq.push(minhaParada.coords);
-        let km = 0;
-        for (let i = 0; i < seq.length - 1; i++) km += calcDist(seq[i], seq[i+1]);
-        distanciaTotal = km;
-        etaMin = Math.max(1, Math.round((km / VELOCIDADE_KMH) * 60 + totalNaFrente * TEMPO_POR_PARADA_MIN));
-    }
-
-    // ── PAINEL STATUS ──
-    if (rota?.status === 'concluido') {
-        document.getElementById('mapaEtaText').textContent = '🏭 Entregador retornou à fábrica';
-    } else if (proximaParada) {
-        document.getElementById('mapaEtaText').textContent = `🛵 Indo para: ${proximaParada.nome || 'próxima parada'}`;
-    } else if (clientesHoje.length > 0) {
-        document.getElementById('mapaEtaText').textContent = `📦 ${clientesHoje.length} pedido(s) hoje`;
-    } else {
-        document.getElementById('mapaEtaText').textContent = 'Nenhum pedido hoje ainda';
-    }
-    document.getElementById('etaValor').textContent = etaMin !== null ? etaMin + ' min' : '--';
-    document.getElementById('distanciaValor').textContent = distanciaTotal !== null ? distanciaTotal.toFixed(1) + ' km' : '--';
-    document.getElementById('paradasRestantesValor').textContent = pendentes.length || '--';
-
-    // ── RENDERIZAR MAPA (sempre, com tudo) ──
-    renderizarRotaMapa(rota, paradas, adminPos, clientesHoje);
-
-    // ── MOTO ──
-    if (adminPos) {
-        const bearing = (proximaParada?.coords) ? calcBearing(adminPos, proximaParada.coords) : 0;
-        colocarMotoMapa(adminPos, bearing);
-    } else if (rota?.status === 'concluido') {
-        colocarMotoMapa(FABRICA, 0);
-    }
-
-    // ── Card status do cliente ──
-    const list = document.getElementById('paradasList');
-    const resumoEl = document.getElementById('paradasResumo');
-    const clienteCard = document.getElementById('clienteStatusCard');
-    const clienteText = document.getElementById('clienteStatusText');
-    const clienteSub  = document.getElementById('clienteStatusSub');
-
-    if (minhaParada) {
-        clienteCard.style.display = 'block';
-        clienteCard.style.background = 'rgba(52,152,219,0.15)';
-        clienteCard.style.borderColor = 'rgba(52,152,219,0.35)';
-        clienteText.style.color = '#74b9ff';
-        clienteText.textContent = `✅ Você está na rota de hoje`;
-        clienteSub.textContent = totalNaFrente > 0
-            ? `${totalNaFrente} entrega${totalNaFrente > 1 ? 's' : ''} na sua frente · ~${etaMin} min estimado`
-            : `Você é a próxima parada! · ~${etaMin !== null ? etaMin : '--'} min estimado`;
-    } else if (!clienteNaRota) {
-        clienteCard.style.display = 'block';
-        clienteCard.style.background = 'rgba(231,76,60,0.12)';
-        clienteCard.style.borderColor = 'rgba(231,76,60,0.3)';
-        clienteText.style.color = '#e74c3c';
-        clienteText.textContent = `❌ Você não está em nenhuma rota hoje`;
-        clienteSub.textContent = `Faça seu pedido para entrar na fila`;
-    } else {
-        clienteCard.style.display = 'block';
-        clienteCard.style.background = 'rgba(243,156,18,0.12)';
-        clienteCard.style.borderColor = 'rgba(243,156,18,0.3)';
-        clienteText.style.color = '#f39c12';
-        clienteText.textContent = `⏳ Você está em uma rota que ainda não saiu`;
-        clienteSub.textContent = `Aguarde o início da sua rota`;
-    }
-
-    const totalParadas = paradas.length;
-    const entregues = paradas.filter(p => p.status === 'entregue').length;
-    const restantes = totalParadas - entregues;
-    resumoEl.innerHTML = [
-        { val: restantes,                                label: 'restantes',     cor: '#f39c12' },
-        { val: minhaParada ? totalNaFrente : '--',      label: 'na sua frente', cor: '#3498db' },
-        { val: etaMin !== null ? etaMin + ' min' : '--', label: 'estimativa',  cor: '#27ae60' },
-    ].map(c => `
-        <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:10px 6px;text-align:center;border:1px solid rgba(255,255,255,0.07);">
-            <div style="font-size:20px;font-weight:900;color:${c.cor};line-height:1;">${c.val}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:3px;">${c.label}</div>
-        </div>`).join('');
-
-    if (!rota || paradas.length === 0) {
-        list.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;text-align:center;padding:8px;">Nenhuma rota em andamento</div>';
-        return;
-    }
-
-    const totalRota = paradas.length;
-    const entreguesRota = paradas.filter(p => p.status === 'entregue').length;
-    const pct = totalRota > 0 ? Math.round(entreguesRota / totalRota * 100) : 0;
-
-    const bolinhas = paradas.map((p, i) => {
-        const isMe = p.cliente_phone === user?.phone;
-        const entregue = p.status === 'entregue';
-        if (entregue) return '';
-        const isProx = proximaParada && p.id === proximaParada.id;
-        let bg = isMe ? '#3498db' : isProx ? '#f39c12' : 'rgba(255,255,255,0.2)';
-        let border = isMe ? '2px solid white' : 'none';
-        let size = isMe ? '14px' : '10px';
-        return `<div title="${isMe ? 'Você' : isProx ? 'Próxima' : 'Aguardando'}" style="width:${size};height:${size};border-radius:50%;background:${bg};border:${border};flex-shrink:0;${isMe ? 'box-shadow:0 0 0 3px rgba(52,152,219,0.4);' : ''}"></div>`;
-    }).join('');
-
-    list.innerHTML = `
-        <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:10px 12px;border:1px solid rgba(255,255,255,0.07);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,0.8);">🛵 ${rota.nome || 'Rota ativa'}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.4);">${entreguesRota}/${totalRota} entregues</div>
-            </div>
-            <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;margin-bottom:10px;">
-                <div style="height:100%;width:${pct}%;background:#27ae60;border-radius:4px;transition:width 0.5s;"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                ${bolinhas}
-            </div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:8px;">
-                🔵 você &nbsp;·&nbsp; 🟡 próxima &nbsp;·&nbsp; ⚪ aguardando
-            </div>
-        </div>`;
-}
-
-async function atualizarPosicaoMoto() {
-    try {
-        const hoje = hojeStr();
-        const statusEl = document.getElementById('mapaEtaText');
-
-        // 1) Tenta rota em andamento
-        const { data } = await sb.from("rotas")
-            .select("gps_lat, gps_lon, gps_ts, status")
-            .in("status", ["em_andamento"])
-            .gte("saida_em", hoje + 'T00:00:00-03:00')
-            .order("saida_em", { ascending: false })
-            .limit(1).maybeSingle();
-
-        if (data?.gps_lat && data?.gps_lon) {
-            const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
-            setGpsBadge(segundos < 120);
-            // Sempre mostra a última posição conhecida
-            atualizarPosicaoMotoRealtime([data.gps_lat, data.gps_lon], data.gps_ts);
-            return;
-        }
-
-        // 2) Fallback: GPS avulso salvo no app_config (entregador sem rota)
-        const { data: gpsAvulso } = await sb.from("rota_especial_gps")
-            .select("valor").eq("chave", "entregador_gps").maybeSingle();
-        if (gpsAvulso?.valor) {
-            const g = JSON.parse(gpsAvulso.valor);
-            const segundos = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
-            if (g.lat && g.lon && segundos < 120) {
-                setGpsBadge(true);
-                atualizarPosicaoMotoRealtime([g.lat, g.lon], g.ts);
-                return;
-            }
-        }
-
-        setGpsBadge(false);
-    } catch(e) { console.warn('polling erro:', e); }
-}
 
 // ── Recálculo de rota quando entregador desvia
-let _rotaAzulAtual = null;        // coordenadas da rota azul atual no mapa
-let _rotaAzulLayer = null;        // layer Leaflet da linha azul
-let _setaLayer = null;            // layer da seta
 let _ultimoRecalculo = 0;
-const RAIO_DESVIO_CLIENTE = 40;   // metros fora da rota → recalcula
 
 function distanciaPontoPoliLinha(pos, poliLinha) {
     // Distância mínima do ponto à polilinha [lat,lng][]
@@ -2688,54 +2298,7 @@ function calcDistM(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function atualizarPosicaoMotoRealtime(pos, ts) {
-    if (!mapaEntregaObj || !window.L) return;
-    const bearing = ultimaPosAdmin ? calcBearing(ultimaPosAdmin, pos) : 0;
-    colocarMotoMapa(pos, bearing);
-    if (ts) {
-        const hora = new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        document.getElementById('mapaEtaText').textContent = `🛵 Ao vivo · ${hora}`;
-    }
 
-    // ── Verifica se saiu da rota e recalcula se necessário
-    const agora = Date.now();
-    if (_rotaAzulAtual && _rotaAzulAtual.length > 1 && agora - _ultimoRecalculo > 8000) {
-        const dist = distanciaPontoPoliLinha(pos, _rotaAzulAtual);
-        if (dist > RAIO_DESVIO_CLIENTE) {
-            _ultimoRecalculo = agora;
-            // Busca a próxima parada pendente do cache
-            const proximaParada = window._proximaParadaCache;
-            if (proximaParada?.coords) {
-                // Remove linhas antigas
-                if (_rotaAzulLayer) { mapaEntregaObj.removeLayer(_rotaAzulLayer); _rotaAzulLayer = null; }
-                if (_setaLayer)     { mapaEntregaObj.removeLayer(_setaLayer);     _setaLayer = null; }
-                // Redesenha por ruas
-                buscarRotaRuas([pos, proximaParada.coords]).then(coordsNova => {
-                    if (!coordsNova || !mapaEntregaObj) return;
-                    _rotaAzulAtual = coordsNova;
-                    _rotaAzulLayer = L.polyline(coordsNova, { color: '#3498db', weight: 5, opacity: 0.95 }).addTo(mapaEntregaObj);
-                    const mid  = coordsNova[Math.floor(coordsNova.length / 2)];
-                    const next = coordsNova[Math.min(Math.floor(coordsNova.length / 2) + 1, coordsNova.length - 1)];
-                    const b = calcBearing(mid, next);
-                    _setaLayer = L.marker(mid, { icon: L.divIcon({
-                        html: `<div style="font-size:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transform:rotate(${b}deg);transform-origin:center;">➤</div>`,
-                        className: '', iconSize: [22, 22], iconAnchor: [11, 11]
-                    })}).addTo(mapaEntregaObj);
-                    document.getElementById('mapaEtaText').textContent = `🔄 Rota recalculada · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
-                });
-            }
-        }
-    }
-}
-
-function calcBearing(c1, c2) {
-    const lat1 = c1[0] * Math.PI / 180;
-    const lat2 = c2[0] * Math.PI / 180;
-    const dLon = (c2[1] - c1[1]) * Math.PI / 180;
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
-}
 
 function calcDist(c1, c2) {
     const R = 6371;
@@ -2746,58 +2309,6 @@ function calcDist(c1, c2) {
 }
 
 // ── Busca rota por ruas (OSRM → ORS → Valhalla em cascata)
-async function buscarRotaRuas(pontos) {
-    if (!pontos || pontos.length < 2) return null;
-
-    // 1. OSRM (público)
-    try {
-        const coords = pontos.map(p => `${p[1]},${p[0]}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-        if (r.ok) {
-            const j = await r.json();
-            if (j.code === 'Ok' && j.routes?.length) {
-                return j.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            }
-        }
-    } catch(e) { console.warn('OSRM falhou:', e.message); }
-
-    // 2. OpenRouteService
-    try {
-        const coords = pontos.map(p => [p[1], p[0]]);
-        const r = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': '5b3ce3597851110001cf6248a42f31e07e2e4e00a5e11b5e1e6bf6e4' },
-            body: JSON.stringify({ coordinates: coords }),
-            signal: AbortSignal.timeout(8000)
-        });
-        if (r.ok) {
-            const j = await r.json();
-            const feat = j.features?.[0];
-            if (feat?.geometry?.coordinates?.length > 1) {
-                return feat.geometry.coordinates.map(c => [c[1], c[0]]);
-            }
-        }
-    } catch(e) { console.warn('ORS falhou:', e.message); }
-
-    // 3. Valhalla
-    try {
-        const locations = pontos.map(p => ({ lat: p[0], lon: p[1] }));
-        const r = await fetch('https://valhalla1.openstreetmap.de/route', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ locations, costing: 'auto' }),
-            signal: AbortSignal.timeout(8000)
-        });
-        if (r.ok) {
-            const j = await r.json();
-            const shape = j.trip?.legs?.[0]?.shape;
-            if (shape) return decodPolyline6(shape);
-        }
-    } catch(e) { console.warn('Valhalla falhou:', e.message); }
-
-    return null;
-}
 
 function decodPolyline6(encoded) {
     const result = []; let idx = 0, lat = 0, lng = 0;
@@ -2813,176 +2324,8 @@ function decodPolyline6(encoded) {
     return result;
 }
 
-async function renderizarRotaMapa(rota, paradas, adminPos, clientesHoje = []) {
-    if (!mapaEntregaObj || !window.L) return;
 
-    mapaEntregaObj.eachLayer(l => { if (!(l instanceof L.TileLayer) && l !== motoMarker) mapaEntregaObj.removeLayer(l); });
-    rotaLayer = null;
 
-    const FABRICA = [-8.1837523, -34.9383004];
-    const pendentes = paradas.filter(p => p.status !== 'entregue' && p.coords);
-    const proximaParada = pendentes[0] || null;
-
-    // ── LINHA PONTILHADA VERMELHA: trajeto completo da rota por ruas ──
-    const todasComCoords = paradas.filter(p => p.coords);
-    if (todasComCoords.length > 0) {
-        const pontos = [FABRICA, ...todasComCoords.map(p => p.coords), FABRICA];
-        buscarRotaRuas(pontos).then(coords => {
-            if (!mapaEntregaObj) return;
-            L.polyline(coords?.length > 1 ? coords : pontos, {
-                color: '#e74c3c', weight: 3, opacity: 0.5, dashArray: '9 7'
-            }).addTo(mapaEntregaObj);
-        });
-    }
-
-    // ── LINHA AZUL SÓLIDA: entregador → próxima parada ──
-    if (adminPos && proximaParada) {
-        buscarRotaRuas([adminPos, proximaParada.coords]).then(coords => {
-            if (!mapaEntregaObj) return;
-            const pts = coords?.length > 1 ? coords : [adminPos, proximaParada.coords];
-            L.polyline(pts, { color: '#3498db', weight: 5, opacity: 0.95 }).addTo(mapaEntregaObj);
-            const mid = pts[Math.floor(pts.length / 2)];
-            const nxt = pts[Math.floor(pts.length / 2) + 1] || pts[pts.length - 1];
-            L.marker(mid, { icon: L.divIcon({
-                html: `<div style="font-size:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transform:rotate(${calcBearing(mid,nxt)}deg);transform-origin:center;">➤</div>`,
-                className: '', iconSize: [22,22], iconAnchor: [11,11]
-            })}).addTo(mapaEntregaObj);
-        });
-    }
-
-    // ── FÁBRICA ──
-    L.marker(FABRICA, { icon: L.divIcon({
-        html: '<div style="position:relative;display:inline-block;"><div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.6);">Fábrica</div><div style="font-size:32px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.9));">⛺</div></div>',
-        className: '', iconSize: [40,52], iconAnchor: [20,26]
-    })}).addTo(mapaEntregaObj).bindPopup('<b>⛺ Fábrica — O Rei da Coxinha</b><br>Ponto de saída e retorno');
-
-    // ── TODOS OS CLIENTES QUE PEDIRAM HOJE ──
-    // Filtrar apenas os que NÃO foram entregues
-    clientesHoje = clientesHoje.filter(c => !c.entregue);
-
-    // ── OFFSET: separa marcadores com coords muito próximas ──
-    const OFFSET_M = 0.00012; // ~13 metros
-    const vistos = [];
-    clientesHoje.forEach(c => {
-        let lat = c.coords[0], lon = c.coords[1];
-        let colisoes = 0;
-        for (const v of vistos) {
-            const dLat = Math.abs(v[0] - lat), dLon = Math.abs(v[1] - lon);
-            if (dLat < OFFSET_M * 1.5 && dLon < OFFSET_M * 1.5) colisoes++;
-        }
-        if (colisoes > 0) {
-            const angulo = (colisoes * (Math.PI * 2 / 8));
-            lat += OFFSET_M * Math.sin(angulo);
-            lon += OFFSET_M * Math.cos(angulo);
-            c.coords = [lat, lon];
-        }
-        vistos.push([lat, lon]);
-    });
-
-    clientesHoje.forEach(c => {
-        const isMe = c.isMe;
-        const entregue = c.entregue;
-        const isProxima = proximaParada && paradas.find(p => p.cliente_phone === c.phone)?.id === proximaParada.id;
-
-        let emoji, filtro, pulsar, label;
-        if (isProxima) {
-            // PRÓXIMA PARADA - AMARELO (prioridade máxima)
-            emoji = '👤';
-            filtro = 'brightness(0.5) sepia(1) hue-rotate(45deg) saturate(8) drop-shadow(0 0 8px rgba(255,193,7,0.9))';
-            pulsar = true;
-            label = '▶ Próximo';
-        } else if (isMe) {
-            // VOCÊ - SEMPRE AZUL E VISÍVEL
-            emoji = '👤';
-            filtro = 'brightness(0.45) sepia(1) hue-rotate(185deg) saturate(7) drop-shadow(0 0 7px rgba(20,80,180,1))';
-            pulsar = true;
-            label = 'Você';
-        } else if (c.naRota) {
-            // NA ROTA - AZUL
-            emoji = '👤';
-            filtro = 'brightness(0.45) sepia(1) hue-rotate(185deg) saturate(7) drop-shadow(0 0 7px rgba(61,156,255,0.9))';
-            pulsar = false;
-            label = '';
-        } else {
-            // DEMAIS - ROXO
-            emoji = '👤';
-            filtro = 'brightness(0.45) sepia(1) hue-rotate(245deg) saturate(8) drop-shadow(0 0 8px rgba(130,0,200,0.9))';
-            pulsar = false;
-            label = '';
-        }
-
-        const labelHtml = label
-            ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(20,80,180,0.88);color:white;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">${label}</div>`
-            : '';
-
-        const iconHtml = entregue
-            ? `<div style="font-size:22px;line-height:1;">${emoji}</div>`
-            : `<div style="font-size:26px;line-height:1;filter:${filtro};${pulsar ? 'animation:paradaPulse 1.5s ease-in-out infinite;' : ''}">${emoji}</div>`;
-
-        const icon = L.divIcon({
-            html: `<div style="position:relative;display:inline-block;">${labelHtml}${iconHtml}</div>`,
-            className: '', iconSize: [34,50], iconAnchor: [17,34]
-        });
-
-        const popupTxt = entregue
-            ? `<b>✅ Entregue</b>${isMe ? '<br>Seu pedido foi entregue!' : ''}`
-            : isMe
-                ? `<b>📍 Sua entrega</b><br><small style="color:#999;">${c.endereco}</small><br><div style="display:flex;gap:4px;margin-top:6px;"><button onclick="window.parent.postMessage({action:'prioridade',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#f5a623;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">🎯 Prior.</button><button onclick="window.parent.postMessage({action:'empurrar',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#e74c3c;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">➡️ Próx.</button></div>`
-                : isProxima
-                    ? `<b>▶ Próxima parada</b><br><small style="color:#999;">${c.endereco}</small><br><div style="display:flex;gap:4px;margin-top:6px;"><button onclick="window.parent.postMessage({action:'prioridade',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#f5a623;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">🎯 Prior.</button><button onclick="window.parent.postMessage({action:'empurrar',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#e74c3c;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">➡️ Próx.</button></div>`
-                    : c.naRota
-                        ? `<b>📦 Na rota</b><br><small style="color:#999;">${c.endereco}</small><br><div style="display:flex;gap:4px;margin-top:6px;"><button onclick="window.parent.postMessage({action:'prioridade',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#f5a623;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">🎯 Prior.</button><button onclick="window.parent.postMessage({action:'empurrar',clientId:'${c.cliente_phone}'},'*')" style="flex:1;padding:6px 8px;background:#e74c3c;color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">➡️ Próx.</button></div>`
-                        : `<b>📦 Pedido hoje</b><br><small style="color:#999;">${c.endereco}</small>`;
-
-        L.marker(c.coords, { icon }).addTo(mapaEntregaObj).bindPopup(popupTxt);
-    });
-
-    // ── CENTRALIZAR: mostra tudo no mapa ──
-    const todosPontos = [
-        FABRICA,
-        ...(adminPos ? [adminPos] : []),
-        ...clientesHoje.map(c => c.coords)
-    ];
-    if (todosPontos.length >= 2) {
-        mapaEntregaObj.fitBounds(L.latLngBounds(todosPontos), { padding: [55, 55], maxZoom: 16 });
-    } else {
-        mapaEntregaObj.setView(FABRICA, 14);
-    }
-}
-
-const MOTO_IMG_B64 = 'data:image/png;base64,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';
-
-function criarIconeMoto(bearing = 0) {
-    return L.divIcon({
-        html: `<div style="width:44px;height:44px;transform:rotate(${bearing}deg);transform-origin:center;transition:transform 0.6s ease;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.85));">
-            <img src="${MOTO_IMG_B64}" style="width:100%;height:100%;object-fit:contain;">
-        </div>`,
-        className: '',
-        iconSize:   [44, 44],
-        iconAnchor: [22, 22]
-    });
-}
-
-function colocarMotoMapa(pos, bearing = 0) {
-    if (!mapaEntregaObj || !window.L) return;
-    if (!motoMarker) {
-        motoMarker = L.marker(pos, {
-            icon: criarIconeMoto(bearing),
-            zIndexOffset: 1000
-        }).addTo(mapaEntregaObj).bindPopup('<b>🛵 Entregador</b><br>Posição ao vivo');
-    } else {
-        motoMarker.setLatLng(pos);
-        // Atualiza rotação a cada movimento
-        motoMarker.setIcon(criarIconeMoto(bearing));
-        if (!mapaEntregaObj.hasLayer(motoMarker)) {
-            motoMarker.addTo(mapaEntregaObj);
-        }
-    }
-    if (seguindoMoto) {
-        mapaEntregaObj.setView(pos, mapaEntregaObj.getZoom() || 17, { animate: true });
-    }
-    ultimaPosAdmin = pos;
-}
 
 function toggleInfoPanel() {
     const painel = document.getElementById('paradasInfo');
@@ -3004,20 +2347,6 @@ function toggleInfoPanel() {
     }
 }
 
-function fecharMapaEntrega() {
-    document.getElementById('modalMapaEntrega').style.display = 'none';
-    clearInterval(gpsUpdateInterval);
-    clearInterval(etaInterval);
-    clearInterval(window._rotaUpdateInterval);
-    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    // Resetar marcador da moto para forçar reposicionamento na próxima abertura
-    if (motoMarker && mapaEntregaObj) {
-        mapaEntregaObj.removeLayer(motoMarker);
-        motoMarker = null;
-    }
-    ultimaPosAdmin = null;
-    seguindoMoto = true;
-}
 
 function alterarTema(cor) {
     const root = document.documentElement;
@@ -3126,13 +2455,6 @@ function abrirJogos() {
     window.open(url, '_blank');
 }
 
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src; s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-    });
-}
 
 async function liberarTicketsPendentes(phone) {
     try {
