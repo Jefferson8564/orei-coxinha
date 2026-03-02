@@ -1143,6 +1143,12 @@
             </div>
         </div>
 
+        <!-- PRÊMIOS DO JOGO -->
+        <div id="premioBox" style="display:none; margin-top:14px;">
+            <div style="font-size:12px;font-weight:700;color:#9080b8;margin-bottom:8px;">🏆 Seus prêmios disponíveis</div>
+            <div id="premioLista" style="display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;"></div>
+        </div>
+
         <div id="finalTotalBox" class="final-total" style="display:none;">
             <div id="originalTotal" style="text-decoration:line-through; color:#999; font-size:14px;"></div>
             <div id="discountedTotal" style="color:var(--success); font-size:24px; font-weight:bold;"></div>
@@ -1375,6 +1381,7 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
+let premioSelecionado = null; // { id, premio, desconto_pct }
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
@@ -1957,6 +1964,7 @@ function showPayModal() {
         setMethod('PAGA NA ENTREGA', entregaBtn);
     }
     setupCreditOption();
+    carregarPremiosModal();
 }
 
 function setupCreditOption() {
@@ -1992,14 +2000,91 @@ function applyCreditCalculation(availableCredit) {
 
 function updateFinalTotalDisplay() {
     const box = document.getElementById('finalTotalBox');
-    if (creditDiscount > 0) {
+    const premioDesc = premioSelecionado ? (currentOrderTotal * premioSelecionado.desconto_pct / 100) : 0;
+    const totalDesc  = creditDiscount + premioDesc;
+    if (totalDesc > 0) {
         box.style.display = 'block';
         document.getElementById('originalTotal').innerText = "Total original: R$ " + currentOrderTotal.toFixed(2).replace('.', ',');
-        document.getElementById('discountedTotal').innerText = "A pagar: R$ " + Math.max(0, currentOrderTotal - creditDiscount).toFixed(2).replace('.', ',');
+        const linhas = [];
+        if (creditDiscount > 0) linhas.push(`💳 Crédito: -R$ ${creditDiscount.toFixed(2).replace('.',',')}`);
+        if (premioDesc > 0)     linhas.push(`🏆 Prêmio (${premioSelecionado.desconto_pct}%): -R$ ${premioDesc.toFixed(2).replace('.',',')}`);
+        document.getElementById('originalTotal').innerText = linhas.join('  ');
+        document.getElementById('discountedTotal').innerText = "A pagar: R$ " + Math.max(0, currentOrderTotal - totalDesc).toFixed(2).replace('.', ',');
     } else { box.style.display = 'none'; }
 }
 
-function closePayModal() { document.getElementById('payModal').classList.remove('active'); }
+function closePayModal() {
+    document.getElementById('payModal').classList.remove('active');
+    premioSelecionado = null;
+    const pl = document.getElementById('premioLista');
+    if (pl) pl.innerHTML = '';
+    const pb = document.getElementById('premioBox');
+    if (pb) pb.style.display = 'none';
+    updateFinalTotalDisplay();
+}
+// ===== PRÊMIOS DO JOGO =====
+async function carregarPremiosModal() {
+    const box   = document.getElementById('premioBox');
+    const lista = document.getElementById('premioLista');
+    if (!box || !lista) return;
+
+    try {
+        const { data: premios } = await sb
+            .from('game_premios')
+            .select('id, premio, desconto_pct')
+            .eq('phone', user.phone)
+            .eq('resgatado', false)
+            .order('created_at', { ascending: false });
+
+        if (!premios || premios.length === 0) {
+            box.style.display = 'none';
+            return;
+        }
+
+        box.style.display = 'block';
+        lista.innerHTML = premios.map(p => {
+            const label = p.desconto_pct ? `${p.premio} (${p.desconto_pct}% off)` : p.premio;
+            return `
+            <div id="premio_${p.id}" onclick="selecionarPremio('${p.id}','${p.premio.replace(/'/g,"\'")}',${p.desconto_pct || 0})"
+                style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+                       border:1.5px solid #2e1f4a;background:#150b25;cursor:pointer;transition:0.2s;">
+                <span style="font-size:20px;">🏆</span>
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:700;color:#e8d8f8;">${label}</div>
+                    <div style="font-size:11px;color:#9080b8;margin-top:1px;">Toque para usar</div>
+                </div>
+                <div id="check_premio_${p.id}" style="width:20px;height:20px;border-radius:50%;border:2px solid #2e1f4a;flex-shrink:0;
+                     display:flex;align-items:center;justify-content:center;font-size:12px;"></div>
+            </div>`;
+        }).join('');
+
+    } catch(e) { console.warn('Erro ao carregar prêmios:', e); box.style.display = 'none'; }
+}
+
+function selecionarPremio(id, premio, desconto_pct) {
+    // Desmarca todos
+    document.querySelectorAll('[id^="premio_"]').forEach(el => {
+        el.style.borderColor = '#2e1f4a';
+        el.style.background  = '#150b25';
+    });
+    document.querySelectorAll('[id^="check_premio_"]').forEach(el => {
+        el.textContent = ''; el.style.background = '';
+    });
+
+    if (premioSelecionado && premioSelecionado.id === id) {
+        // Clicou no mesmo — deseleciona
+        premioSelecionado = null;
+    } else {
+        premioSelecionado = { id, premio, desconto_pct };
+        const card  = document.getElementById('premio_' + id);
+        const check = document.getElementById('check_premio_' + id);
+        if (card)  { card.style.borderColor = '#27ae60'; card.style.background = '#0d2018'; }
+        if (check) { check.textContent = '✓'; check.style.background = '#27ae60'; check.style.color = 'white'; }
+    }
+    updateFinalTotalDisplay();
+}
+// ===== FIM PRÊMIOS =====
+
 function setMethod(m, el) {
     method = m;
     document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected'));
@@ -2017,7 +2102,8 @@ async function confirmOrder() {
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = document.getElementById('useCredit').checked;
-    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0));
+    const premioDesc = premioSelecionado ? (total * premioSelecionado.desconto_pct / 100) : 0;
+    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - premioDesc);
     let newDebt = user.debt;
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
     if (method === 'FIADO') newDebt += finalTotal;
@@ -2035,6 +2121,16 @@ async function confirmOrder() {
             total: finalTotal, payment_method: method, items: pedidoTexto
         });
         if (errPedido) throw errPedido;
+
+        // Marca prêmio como resgatado se foi usado
+        if (premioSelecionado) {
+            try {
+                await sb.from('game_premios')
+                    .update({ resgatado: true })
+                    .eq('id', premioSelecionado.id);
+            } catch(e) { console.warn('Erro ao resgatar prêmio:', e); }
+            premioSelecionado = null;
+        }
 
         // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
         try {
@@ -2182,7 +2278,7 @@ async function confirmOrder() {
             setTimeout(() => p.remove(), 1500);
         });
 
-        cart = {}; creditDiscount = 0; render();
+        cart = {}; creditDiscount = 0; premioSelecionado = null; render();
         btn.disabled = false;
 
         setTimeout(() => {
@@ -3037,34 +3133,28 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
-        const chave = 'tickets_visto_' + phone;
+        // O backend (pg_cron) libera os tickets automaticamente todo dia às 15h.
+        // Aqui apenas verificamos se o backend já liberou desde a última visita
+        // e mostramos o popup de celebração pro cliente.
 
-        // Busca saldo atual do banco
-        const { data: gt } = await sb.from('game_tickets').select('tickets').eq('phone', phone).maybeSingle();
-        const ticketsAtuais = gt ? (gt.tickets || 0) : 0;
+        const chaveNotificado = 'ticket_notificado_' + phone;
+        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
 
-        // Lê o último saldo que o cliente viu (localStorage persiste mesmo offline)
-        const salvoRaw = localStorage.getItem(chave);
+        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        if (!gt) return;
 
-        if (salvoRaw === null) {
-            // Primeira vez: salva sem mostrar popup (não sabemos o histórico)
-            localStorage.setItem(chave, ticketsAtuais);
-            return;
+        const ticketsAtuais = gt.tickets || 0;
+
+        // Se o saldo de tickets é maior do que o que já notificamos nessa sessão,
+        // significa que o backend liberou novos tickets — mostra o popup
+        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
+            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
+            console.log(`🎟️ ${novosTickets} ticket(s) liberados pelo servidor!`);
+            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
         }
 
-        const ticketsVistos = parseInt(salvoRaw);
-
-        if (ticketsAtuais > ticketsVistos) {
-            // Teve aumento de ticket desde a última vez que o cliente abriu o app
-            const novos = ticketsAtuais - ticketsVistos;
-            console.log('🎟️ ' + novos + ' ticket(s) novo(s) desde a última visita!');
-            // Salva ANTES de mostrar para não repetir se fechar e abrir rápido
-            localStorage.setItem(chave, ticketsAtuais);
-            setTimeout(() => mostrarTicketPopup(novos), 800);
-        } else {
-            // Sem novidade, só atualiza o valor salvo (ex: cliente usou ticket na roleta)
-            localStorage.setItem(chave, ticketsAtuais);
-        }
+        // Salva o saldo atual para comparar na próxima vez
+        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
 
     } catch(e) {
         console.warn('Erro ao verificar tickets:', e);
