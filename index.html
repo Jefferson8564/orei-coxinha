@@ -1061,6 +1061,7 @@
             <span id="headerBalance"></span>
         </div>
         <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;">⭐</button>
+        <button class="header-btn" onclick="abrirJogos()" title="Jogos" style="position:relative;">🎮</button>
         <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
             🤖
             <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
@@ -3036,32 +3037,31 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
+        // O backend (pg_cron) libera os tickets automaticamente todo dia às 15h.
+        // Aqui apenas verificamos se o backend já liberou desde a última visita
+        // e mostramos o popup de celebração pro cliente.
+
+        const chaveNotificado = 'ticket_notificado_' + phone;
+        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
+
         const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
-        if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0) return;
+        if (!gt) return;
 
-        // Libera automaticamente todo dia às 15h (horário de SP)
-        const agora = new Date();
-        const p = _partesSP(agora);
-        const horaAtual = parseInt(p.hour) * 60 + parseInt(p.minute);
-        const jaPassouDas15 = horaAtual >= 15 * 60;
+        const ticketsAtuais = gt.tickets || 0;
 
-        // Verifica se o tickets_liberar_em já chegou OU se já passou das 15h de hoje
-        const liberarEm = gt.tickets_liberar_em ? new Date(gt.tickets_liberar_em) : null;
-        const deveLiberar = jaPassouDas15 || (liberarEm && agora >= liberarEm);
-
-        if (deveLiberar) {
-            await sb.from('game_tickets').update({
-                tickets: (gt.tickets || 0) + gt.tickets_pendentes,
-                tickets_pendentes: 0,
-                tickets_liberar_em: null,
-                updated_at: new Date().toISOString()
-            }).eq('phone', phone);
-            console.log(`🎟️ ${gt.tickets_pendentes} ticket(s) liberados!`);
-            // Popup de celebração ao liberar tickets pendentes
-            setTimeout(() => mostrarTicketPopup(gt.tickets_pendentes), 600);
+        // Se o saldo de tickets é maior do que o que já notificamos nessa sessão,
+        // significa que o backend liberou novos tickets — mostra o popup
+        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
+            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
+            console.log(`🎟️ ${novosTickets} ticket(s) liberados pelo servidor!`);
+            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
         }
+
+        // Salva o saldo atual para comparar na próxima vez
+        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
+
     } catch(e) {
-        console.warn('Erro ao liberar tickets:', e);
+        console.warn('Erro ao verificar tickets:', e);
     }
 }
 
