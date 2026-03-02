@@ -3037,28 +3037,31 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
-        // O backend (pg_cron) libera os tickets automaticamente todo dia às 15h.
-        // Aqui apenas verificamos se o backend já liberou desde a última visita
-        // e mostramos o popup de celebração pro cliente.
-
         const chaveNotificado = 'ticket_notificado_' + phone;
-        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
 
-        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        // Usa localStorage para persistir entre sessões (mesmo após fechar o app)
+        const ultimoNotificado = parseInt(localStorage.getItem(chaveNotificado) || '-1');
+
+        const { data: gt } = await sb.from('game_tickets').select('tickets').eq('phone', phone).maybeSingle();
         if (!gt) return;
 
         const ticketsAtuais = gt.tickets || 0;
 
-        // Se o saldo de tickets é maior do que o que já notificamos nessa sessão,
-        // significa que o backend liberou novos tickets — mostra o popup
-        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
-            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
-            console.log(`🎟️ ${novosTickets} ticket(s) liberados pelo servidor!`);
-            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
+        if (ultimoNotificado === -1) {
+            // Primeira vez que o cliente entra: apenas salva o saldo atual, sem popup
+            localStorage.setItem(chaveNotificado, ticketsAtuais);
+            return;
         }
 
-        // Salva o saldo atual para comparar na próxima vez
-        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
+        if (ticketsAtuais > ultimoNotificado) {
+            // Tem tickets novos desde a última visita → mostra popup
+            const novosTickets = ticketsAtuais - ultimoNotificado;
+            console.log(`🎟️ ${novosTickets} ticket(s) novos ao entrar na conta!`);
+            setTimeout(() => mostrarTicketPopup(novosTickets), 800);
+        }
+
+        // Sempre salva o saldo atual para comparar na próxima vez
+        localStorage.setItem(chaveNotificado, ticketsAtuais);
 
     } catch(e) {
         console.warn('Erro ao verificar tickets:', e);
