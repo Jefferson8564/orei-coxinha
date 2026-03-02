@@ -1144,9 +1144,9 @@
         </div>
 
         <!-- PRÊMIOS DO JOGO -->
-        <div id="premioBox" style="display:none; margin-top:14px;">
+        <div id="premioBox" style="display:none;margin-top:14px;">
             <div style="font-size:12px;font-weight:700;color:#9080b8;margin-bottom:8px;">🏆 Seus prêmios disponíveis</div>
-            <div id="premioLista" style="display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;"></div>
+            <div id="premioLista" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;"></div>
         </div>
 
         <div id="finalTotalBox" class="final-total" style="display:none;">
@@ -1381,7 +1381,7 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
-let premioSelecionado = null; // { id, premio, desconto_pct }
+let premioSelecionado = null; // { ids[], premio, desconto_pct }
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
@@ -2004,22 +2004,21 @@ function updateFinalTotalDisplay() {
     const totalDesc  = creditDiscount + premioDesc;
     if (totalDesc > 0) {
         box.style.display = 'block';
-        document.getElementById('originalTotal').innerText = "Total original: R$ " + currentOrderTotal.toFixed(2).replace('.', ',');
         const linhas = [];
-        if (creditDiscount > 0) linhas.push(`💳 Crédito: -R$ ${creditDiscount.toFixed(2).replace('.',',')}`);
-        if (premioDesc > 0)     linhas.push(`🏆 Prêmio (${premioSelecionado.desconto_pct}%): -R$ ${premioDesc.toFixed(2).replace('.',',')}`);
-        document.getElementById('originalTotal').innerText = linhas.join('  ');
-        document.getElementById('discountedTotal').innerText = "A pagar: R$ " + Math.max(0, currentOrderTotal - totalDesc).toFixed(2).replace('.', ',');
+        if (creditDiscount > 0) linhas.push('💳 Crédito: -R$ ' + creditDiscount.toFixed(2).replace('.',','));
+        if (premioDesc > 0)     linhas.push('🏆 Prêmio (' + premioSelecionado.desconto_pct + '%): -R$ ' + premioDesc.toFixed(2).replace('.',','));
+        document.getElementById('originalTotal').innerText = linhas.join('   ');
+        document.getElementById('discountedTotal').innerText = 'A pagar: R$ ' + Math.max(0, currentOrderTotal - totalDesc).toFixed(2).replace('.', ',');
     } else { box.style.display = 'none'; }
 }
 
 function closePayModal() {
     document.getElementById('payModal').classList.remove('active');
     premioSelecionado = null;
-    const pl = document.getElementById('premioLista');
-    if (pl) pl.innerHTML = '';
     const pb = document.getElementById('premioBox');
     if (pb) pb.style.display = 'none';
+    const pl = document.getElementById('premioLista');
+    if (pl) pl.innerHTML = '';
     updateFinalTotalDisplay();
 }
 // ===== PRÊMIOS DO JOGO =====
@@ -2027,6 +2026,7 @@ async function carregarPremiosModal() {
     const box   = document.getElementById('premioBox');
     const lista = document.getElementById('premioLista');
     if (!box || !lista) return;
+    premioSelecionado = null;
 
     try {
         const { data: premios } = await sb
@@ -2034,52 +2034,58 @@ async function carregarPremiosModal() {
             .select('id, premio, desconto_pct')
             .eq('phone', user.phone)
             .eq('resgatado', false)
-            .order('created_at', { ascending: false });
+            .order('desconto_pct', { ascending: false });
 
-        if (!premios || premios.length === 0) {
-            box.style.display = 'none';
-            return;
-        }
+        if (!premios || premios.length === 0) { box.style.display = 'none'; return; }
+
+        // Agrupa por (premio + desconto_pct)
+        const grupos = {};
+        premios.forEach(p => {
+            const chave = (p.premio || '') + '|' + (p.desconto_pct || 0);
+            if (!grupos[chave]) grupos[chave] = { ids: [], premio: p.premio, desconto_pct: p.desconto_pct || 0 };
+            grupos[chave].ids.push(p.id);
+        });
 
         box.style.display = 'block';
-        lista.innerHTML = premios.map(p => {
-            const label = p.desconto_pct ? `${p.premio} (${p.desconto_pct}% off)` : p.premio;
+        lista.innerHTML = Object.values(grupos).map(g => {
+            const qtd   = g.ids.length;
+            const label = g.desconto_pct ? g.premio + ' · ' + g.desconto_pct + '% off' : g.premio;
+            const chave = encodeURIComponent(JSON.stringify(g));
             return `
-            <div id="premio_${p.id}" onclick="selecionarPremio('${p.id}','${p.premio.replace(/'/g,"\'")}',${p.desconto_pct || 0})"
+            <div id="premioCard_${g.ids[0]}" onclick="selecionarPremio(${JSON.stringify(g).replace(/"/g,'&quot;')})"
                 style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
-                       border:1.5px solid #2e1f4a;background:#150b25;cursor:pointer;transition:0.2s;">
+                       border:1.5px solid #2e1f4a;background:#150b25;cursor:pointer;transition:all 0.18s;position:relative;">
                 <span style="font-size:20px;">🏆</span>
                 <div style="flex:1;">
                     <div style="font-size:13px;font-weight:700;color:#e8d8f8;">${label}</div>
                     <div style="font-size:11px;color:#9080b8;margin-top:1px;">Toque para usar</div>
                 </div>
-                <div id="check_premio_${p.id}" style="width:20px;height:20px;border-radius:50%;border:2px solid #2e1f4a;flex-shrink:0;
-                     display:flex;align-items:center;justify-content:center;font-size:12px;"></div>
+                ${qtd > 1 ? `<span style="position:absolute;top:6px;right:34px;background:#9b59b6;color:white;font-size:9px;font-weight:800;padding:2px 6px;border-radius:20px;line-height:1.4;">x${qtd}</span>` : ''}
+                <div id="checkCard_${g.ids[0]}" style="width:20px;height:20px;border-radius:50%;border:2px solid #2e1f4a;flex-shrink:0;
+                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;transition:0.18s;"></div>
             </div>`;
         }).join('');
 
     } catch(e) { console.warn('Erro ao carregar prêmios:', e); box.style.display = 'none'; }
 }
 
-function selecionarPremio(id, premio, desconto_pct) {
+function selecionarPremio(g) {
     // Desmarca todos
-    document.querySelectorAll('[id^="premio_"]').forEach(el => {
-        el.style.borderColor = '#2e1f4a';
-        el.style.background  = '#150b25';
+    document.querySelectorAll('[id^="premioCard_"]').forEach(el => {
+        el.style.borderColor = '#2e1f4a'; el.style.background = '#150b25';
     });
-    document.querySelectorAll('[id^="check_premio_"]').forEach(el => {
-        el.textContent = ''; el.style.background = '';
+    document.querySelectorAll('[id^="checkCard_"]').forEach(el => {
+        el.textContent = ''; el.style.background = ''; el.style.borderColor = '#2e1f4a';
     });
 
-    if (premioSelecionado && premioSelecionado.id === id) {
-        // Clicou no mesmo — deseleciona
-        premioSelecionado = null;
-    } else {
-        premioSelecionado = { id, premio, desconto_pct };
-        const card  = document.getElementById('premio_' + id);
-        const check = document.getElementById('check_premio_' + id);
+    const jaSelected = premioSelecionado && premioSelecionado.ids[0] === g.ids[0];
+    premioSelecionado = jaSelected ? null : g;
+
+    if (premioSelecionado) {
+        const card  = document.getElementById('premioCard_'  + g.ids[0]);
+        const check = document.getElementById('checkCard_' + g.ids[0]);
         if (card)  { card.style.borderColor = '#27ae60'; card.style.background = '#0d2018'; }
-        if (check) { check.textContent = '✓'; check.style.background = '#27ae60'; check.style.color = 'white'; }
+        if (check) { check.textContent = '✓'; check.style.background = '#27ae60'; check.style.borderColor = '#27ae60'; check.style.color = 'white'; }
     }
     updateFinalTotalDisplay();
 }
@@ -2122,12 +2128,12 @@ async function confirmOrder() {
         });
         if (errPedido) throw errPedido;
 
-        // Marca prêmio como resgatado se foi usado
-        if (premioSelecionado) {
+        // Marca UNS dos prêmios do grupo como resgatado
+        if (premioSelecionado && premioSelecionado.ids && premioSelecionado.ids.length > 0) {
             try {
                 await sb.from('game_premios')
                     .update({ resgatado: true })
-                    .eq('id', premioSelecionado.id);
+                    .eq('id', premioSelecionado.ids[0]);
             } catch(e) { console.warn('Erro ao resgatar prêmio:', e); }
             premioSelecionado = null;
         }
