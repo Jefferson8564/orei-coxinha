@@ -3037,31 +3037,34 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
-        const chaveNotificado = 'ticket_notificado_' + phone;
+        const chave = 'tickets_visto_' + phone;
 
-        // Usa localStorage para persistir entre sessões (mesmo após fechar o app)
-        const ultimoNotificado = parseInt(localStorage.getItem(chaveNotificado) || '-1');
-
+        // Busca saldo atual do banco
         const { data: gt } = await sb.from('game_tickets').select('tickets').eq('phone', phone).maybeSingle();
-        if (!gt) return;
+        const ticketsAtuais = gt ? (gt.tickets || 0) : 0;
 
-        const ticketsAtuais = gt.tickets || 0;
+        // Lê o último saldo que o cliente viu (localStorage persiste mesmo offline)
+        const salvoRaw = localStorage.getItem(chave);
 
-        if (ultimoNotificado === -1) {
-            // Primeira vez que o cliente entra: apenas salva o saldo atual, sem popup
-            localStorage.setItem(chaveNotificado, ticketsAtuais);
+        if (salvoRaw === null) {
+            // Primeira vez: salva sem mostrar popup (não sabemos o histórico)
+            localStorage.setItem(chave, ticketsAtuais);
             return;
         }
 
-        if (ticketsAtuais > ultimoNotificado) {
-            // Tem tickets novos desde a última visita → mostra popup
-            const novosTickets = ticketsAtuais - ultimoNotificado;
-            console.log(`🎟️ ${novosTickets} ticket(s) novos ao entrar na conta!`);
-            setTimeout(() => mostrarTicketPopup(novosTickets), 800);
-        }
+        const ticketsVistos = parseInt(salvoRaw);
 
-        // Sempre salva o saldo atual para comparar na próxima vez
-        localStorage.setItem(chaveNotificado, ticketsAtuais);
+        if (ticketsAtuais > ticketsVistos) {
+            // Teve aumento de ticket desde a última vez que o cliente abriu o app
+            const novos = ticketsAtuais - ticketsVistos;
+            console.log('🎟️ ' + novos + ' ticket(s) novo(s) desde a última visita!');
+            // Salva ANTES de mostrar para não repetir se fechar e abrir rápido
+            localStorage.setItem(chave, ticketsAtuais);
+            setTimeout(() => mostrarTicketPopup(novos), 800);
+        } else {
+            // Sem novidade, só atualiza o valor salvo (ex: cliente usou ticket na roleta)
+            localStorage.setItem(chave, ticketsAtuais);
+        }
 
     } catch(e) {
         console.warn('Erro ao verificar tickets:', e);
