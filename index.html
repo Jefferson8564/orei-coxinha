@@ -145,7 +145,57 @@
         #toast.warning { background: linear-gradient(135deg, #f1c40f, #e67e22); color: #fff; }
 
 
-                /* ===== POPUP TICKET GANHO ===== */
+        /* ===== POPUP GRANDE TICKETS ===== */
+        @keyframes popupSlideDown {
+            0% {
+                transform: translateY(-150%) scaleX(0.88);
+                opacity: 0;
+            }
+            60% {
+                transform: translateY(10px) scaleX(1.01);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(0px) scaleX(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes popupSlideUp {
+            0% {
+                transform: translateY(0px);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-150%);
+                opacity: 0;
+            }
+        }
+
+        @keyframes popupGlowPulse {
+            0%, 100% {
+                box-shadow: 0 12px 60px rgba(199,91,36,0.7), 0 2px 0 rgba(255,255,255,0.08) inset;
+            }
+            50% {
+                box-shadow: 0 16px 80px rgba(212,120,60,0.9), 0 2px 0 rgba(255,255,255,0.12) inset;
+            }
+        }
+
+        #ticketPopupCard.popup-entering {
+            animation: popupSlideDown 0.62s cubic-bezier(0.22,1,0.36,1) forwards;
+        }
+
+        #ticketPopupCard.popup-visible {
+            transform: translateY(0);
+            opacity: 1;
+            animation: popupGlowPulse 2.5s ease-in-out infinite;
+        }
+
+        #ticketPopupCard.popup-leaving {
+            animation: popupSlideUp 0.4s cubic-bezier(0.4,0,1,1) forwards;
+        }
+
+        /* ===== POPUP TICKET GANHO ===== (mantém para compatibilidade)
         @keyframes ticketSlideDown {
             0%   { transform: translateY(-110%) scaleX(0.88); opacity: 0; }
             60%  { transform: translateY(6px) scaleX(1.01); opacity: 1; }
@@ -198,8 +248,8 @@
             pointer-events: all;
             position: relative;
             width: min(92vw, 390px);
-            background: linear-gradient(160deg, #120028 0%, #1e0040 40%, #0d001f 100%);
-            border: 1px solid rgba(180, 90, 255, 0.45);
+            background: linear-gradient(165deg, #2a1a0e 0%, #1a0f0a 40%, #0f050a 100%);
+            border: 1.5px solid rgba(212, 175, 55, 0.4);
             border-top: none;
             border-radius: 0 0 28px 28px;
             padding: 0;
@@ -221,8 +271,8 @@
 
         /* Faixa superior colorida */
         .tp-topbar {
-            height: 4px;
-            background: linear-gradient(90deg, #7b2ff7, #c061ff, #ff6bff, #c061ff, #7b2ff7);
+            height: 5px;
+            background: linear-gradient(90deg, #ffd700 0%, #ffed4e 25%, #daa520 50%, #ffed4e 75%, #ffd700 100%);
             background-size: 200% 100%;
             animation: ticketShimmer 2s linear infinite;
         }
@@ -342,6 +392,36 @@
             right: 18px;
             font-size: 16px;
             opacity: 0.7;
+        }
+        /* Botões premium cancelar e jogar */
+        .tp-btn-cancel {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.8);
+            transition: all 0.3s;
+        }
+        .tp-btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: white;
+        }
+        .tp-btn-cancel:active {
+            background: rgba(255, 255, 255, 0.08);
+            transform: scale(0.97);
+        }
+        .tp-btn-play {
+            animation: ticketBtnPulse 2s ease-in-out 1.2s infinite;
+        }
+        .tp-btn-play:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(37, 211, 102, 0.5) !important;
+        }
+        .tp-btn-play:active {
+            transform: translateY(0);
+        }
+        /* Count premium */
+        .tp-count {
+            animation: ticketCountBounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         /* Close */
         .tp-close {
@@ -1108,23 +1188,29 @@
 <canvas id="tpFireCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99998;display:none;"></canvas>
 
 <!-- ===== POPUP TICKET GANHO ===== -->
-<div id="ticketPopupWrap">
-    <div id="ticketPopupCard" onclick="irParaRoleta()">
-        <div class="tp-topbar"></div>
-        <button class="tp-close" onclick="fecharTicketPopup(event)">✕</button>
-        <div class="tp-body">
-            <div class="tp-row">
-                <div class="tp-emoji">🎟️</div>
-                <div class="tp-texts">
-                    <div class="tp-title">Você ganhou<br>um ticket!</div>
-                    <div class="tp-sub">Continue comprando e ganhe mais 🎉</div>
+<div id="ticketPopup" style="position: fixed; top: 0; left: 0; right: 0; z-index: 99999; display: flex; justify-content: center; pointer-events: none; padding-top: 20px;">
+    <div id="ticketPopupCard" style="pointer-events: all; position: relative; width: min(92vw, 340px); background: linear-gradient(160deg, #1e0040 0%, #b45aff40 40%); border: 1px solid #b45aff70; border-top: 5px solid #7b2ff7; border-radius: 0 0 20px 20px; padding: 0; overflow: hidden; transform: translateY(-150%); opacity: 0; cursor: pointer;">
+        <div style="height: 5px; background: #7b2ff7;"></div>
+        
+        <!-- TOPO: Emoji + Texto | Número -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 16px; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                <div style="font-size: 48px; flex-shrink: 0;">💎</div>
+                <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <div style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; text-shadow: 0 0 24px rgba(123,47,247,0.6);">Que Sorte!</div>
+                    <div style="font-size: 12px; color: #d9d9d9;">Novo ticket</div>
                 </div>
             </div>
-            <button class="tp-btn" style="pointer-events:none;">
-                <span class="tp-btn-icon">🎮</span>
-                <span>Jogar agora!</span>
-                <span class="tp-btn-arrow">›</span>
-            </button>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0;">
+                <div id="popupCount" style="font-size: 44px; font-weight: 900; background: linear-gradient(135deg, #b45aff, #c061ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1;">5</div>
+                <div style="font-size: 10px; color: #b45aff; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🎟️</div>
+            </div>
+        </div>
+
+        <!-- EMBAIXO: Botões lado a lado -->
+        <div style="padding: 0 16px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button onclick="fecharTicketPopup()" style="padding: 12px 16px; background: rgba(255, 255, 255, 0.08); border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 10px; color: #d9d9d9; font-weight: 700; font-size: 13px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.3px; transition: all 0.3s;">Depois</button>
+            <button onclick="irParaRoleta()" style="padding: 12px 16px; background: linear-gradient(135deg, #25d366, #1aad52); border: none; border-radius: 10px; color: white; font-weight: 700; font-size: 13px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.3px; transition: all 0.3s; box-shadow: 0 6px 20px rgba(37, 211, 102, 0.3);">🎮 Jogar</button>
         </div>
     </div>
 </div>
@@ -3175,33 +3261,41 @@ function carregarTemaSalvo() {
 let _tpTimer = null;
 
 function mostrarTicketPopup(qtd) {
-    const card = document.getElementById('ticketPopupCard');
-    if (!card) return;
+    const popup = document.getElementById('ticketPopupCard');
+    if (!popup) return;
 
-    // Animação entrada
-    card.classList.remove('tp-leaving', 'tp-visible');
-    card.classList.add('tp-entering');
+    const countElement = document.getElementById('popupCount');
+    if (countElement) {
+        countElement.textContent = qtd || '5';
+    }
+
+    // Remover classes anteriores
+    popup.classList.remove('popup-leaving', 'popup-visible', 'popup-entering');
+    
+    // Trigger reflow
+    void popup.offsetWidth;
+    
+    // Adicionar animação
+    popup.classList.add('popup-entering');
     clearTimeout(_tpTimer);
+    
     _tpTimer = setTimeout(() => {
-        card.classList.remove('tp-entering');
-        card.classList.add('tp-visible');
-    }, 620);
-
-    // Fogos de artifício
-    _dispararFogos();
+        popup.classList.remove('popup-entering');
+        popup.classList.add('popup-visible');
+    }, 100);
 
     // Auto-fecha em 8s
-    _tpTimer = setTimeout(() => fecharTicketPopup(), 8500);
+    _tpTimer = setTimeout(() => fecharTicketPopup(), 8000);
 }
 
 function fecharTicketPopup(e) {
     if (e) e.stopPropagation();
     clearTimeout(_tpTimer);
-    const card = document.getElementById('ticketPopupCard');
-    if (!card) return;
-    card.classList.remove('tp-entering', 'tp-visible');
-    card.classList.add('tp-leaving');
-    setTimeout(() => card.classList.remove('tp-leaving'), 420);
+    const popup = document.getElementById('ticketPopupCard');
+    if (!popup) return;
+    popup.classList.remove('popup-entering', 'popup-visible');
+    popup.classList.add('popup-leaving');
+    setTimeout(() => popup.classList.remove('popup-leaving'), 420);
 }
 
 function irParaRoleta() {
