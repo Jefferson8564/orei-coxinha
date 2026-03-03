@@ -3261,13 +3261,24 @@ function carregarTemaSalvo() {
 let _tpTimer = null;
 
 function mostrarTicketPopup(qtd) {
+    console.log(`🎬 mostrarTicketPopup() chamada com qtd=${qtd}`);
+    
     const popup = document.getElementById('ticketPopupCard');
-    if (!popup) return;
+    if (!popup) {
+        console.error('❌ Elemento ticketPopupCard não encontrado!');
+        return;
+    }
 
     const countElement = document.getElementById('popupCount');
-    if (countElement) {
-        countElement.textContent = qtd || '5';
+    if (!countElement) {
+        console.error('❌ Elemento popupCount não encontrado!');
+        return;
     }
+
+    console.log(`✅ Elementos encontrados, atualizando com ${qtd} tickets`);
+    
+    // Atualizar quantidade
+    countElement.textContent = qtd || '5';
 
     // Remover classes anteriores
     popup.classList.remove('popup-leaving', 'popup-visible', 'popup-entering');
@@ -3277,15 +3288,20 @@ function mostrarTicketPopup(qtd) {
     
     // Adicionar animação
     popup.classList.add('popup-entering');
+    console.log('✅ Classe popup-entering adicionada');
     clearTimeout(_tpTimer);
     
     _tpTimer = setTimeout(() => {
         popup.classList.remove('popup-entering');
         popup.classList.add('popup-visible');
+        console.log('✅ Popup visível com animação');
     }, 100);
 
     // Auto-fecha em 8s
-    _tpTimer = setTimeout(() => fecharTicketPopup(), 8000);
+    _tpTimer = setTimeout(() => {
+        console.log('⏱️ Auto-fechando popup após 8s');
+        fecharTicketPopup();
+    }, 8000);
 }
 
 function fecharTicketPopup(e) {
@@ -3358,37 +3374,62 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
+        // Validar se o phone existe
+        if (!phone) {
+            console.warn('❌ Nenhum phone fornecido para verificar tickets');
+            return;
+        }
+
+        // Validar se Supabase está inicializado
+        if (!sb || !sb.from) {
+            console.warn('❌ Supabase não inicializado');
+            return;
+        }
+
         const chaveTicketSalvo = 'ticket_salvo_' + phone;
         
         // Buscar tickets atuais do Supabase
-        const { data: gt } = await sb.from('clientes').select('tickets').eq('phone', phone).maybeSingle();
-        if (!gt) return;
+        const { data: gt, error: queryError } = await sb.from('clientes').select('tickets').eq('phone', phone).maybeSingle();
+        
+        if (queryError) {
+            console.warn('❌ Erro ao buscar tickets:', queryError);
+            return;
+        }
+
+        if (!gt) {
+            console.warn('❌ Cliente não encontrado:', phone);
+            return;
+        }
 
         const ticketsAtuais = gt.tickets || 0;
         const ticketAnterior = parseInt(sessionStorage.getItem(chaveTicketSalvo) || '0');
 
         console.log(`🎟️ Verificação de tickets: tinha ${ticketAnterior} → agora tem ${ticketsAtuais}`);
 
-        // 🎯 QUALQUER ALTERAÇÃO: Se o valor mudou (aumentou ou diminuiu), mostra notificação
-        if (ticketsAtuais !== ticketAnterior) {
-            // Se aumentou (tickets normais ou adição do ADM)
-            if (ticketsAtuais > ticketAnterior) {
-                const novosTickets = ticketsAtuais - ticketAnterior;
-                console.log(`✅ ${novosTickets} novo(s) ticket(s) detectado(s)!`);
+        // 🎯 MOSTRAR NOTIFICAÇÃO APENAS SE HOUVER AUMENTO
+        if (ticketsAtuais > ticketAnterior && ticketAnterior > 0) {
+            // Só mostra se tinha tickets antes (não na primeira vez)
+            const novosTickets = ticketsAtuais - ticketAnterior;
+            console.log(`✅ ${novosTickets} novo(s) ticket(s) ganho(s)!`);
+            console.log(`   Cliente tinha: ${ticketAnterior}`);
+            console.log(`   Cliente tem agora: ${ticketsAtuais}`);
+            
+            // Mostrar notificação
+            setTimeout(() => {
                 mostrarTicketPopup(novosTickets);
-            } 
-            // Se diminuiu (usou tickets)
-            else {
-                const usados = ticketAnterior - ticketsAtuais;
-                console.log(`⚠️ ${usados} ticket(s) usado(s)!`);
-            }
+            }, 100);
+        } else if (ticketAnterior === 0 && ticketsAtuais > 0) {
+            // Primeira vez que está verificando, só salva o valor base
+            console.log(`📊 Primeira verificação - baseline de tickets: ${ticketsAtuais}`);
         }
 
-        // Sempre salva o valor atual para próxima comparação
+        // SEMPRE salva o valor atual para próxima comparação
+        // Isso é essencial! Permite detectar a mudança na próxima vez
         sessionStorage.setItem(chaveTicketSalvo, ticketsAtuais);
 
     } catch(e) {
-        console.warn('Erro ao verificar tickets:', e);
+        console.error('❌ Erro ao verificar tickets:', e.message || e);
+        console.error('Stack:', e.stack);
     }
 }
 
