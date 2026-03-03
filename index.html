@@ -1063,7 +1063,7 @@
         </div>
         <!-- Todos os botões juntos à direita: 🤖 ⭐ 🎮 -->
         <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="header-btn" onclick="showToast('🔒 Em breve!','warning')" title="Jogos" style="position:relative;opacity:0.7;">🎮<span style="position:absolute;top:4px;right:4px;font-size:10px;">🔒</span></button>
+            <button class="header-btn" onclick="irParaRoleta()" title="Jogos" style="position:relative;">🎮</button>
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
             <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
                 🤖
@@ -2047,7 +2047,7 @@ async function confirmOrder() {
             const eParaAmanha = horaAtual >= 14 * 60;
 
             // Busca cadastro do cliente para pegar coordenadas
-            const { data: cliDados } = await sb.from('cadastros')
+            const { data: cliDados } = await sb.from('clientes')
                 .select('delivery_lat, delivery_lon, delivery_address, name')
                 .eq('phone', user.phone).maybeSingle();
 
@@ -2107,7 +2107,7 @@ async function confirmOrder() {
                 const { data: cfgTicket } = await sb.from('configs').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
                 const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
                 if (valorPorTicket > 0) {
-                    const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', user.phone).maybeSingle();
+                    const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', user.phone).maybeSingle();
                     const novoTotalGasto = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
                     const ticketsAtual = gt ? (gt.tickets || 0) : 0;
                     const ticketsPendentes = gt ? (gt.tickets_pendentes || 0) : 0;
@@ -2118,8 +2118,8 @@ async function confirmOrder() {
                     const _horaAtual = parseInt(_pAgora.hour) * 60 + parseInt(_pAgora.minute);
                     const _liberacaoHoje = new Date(`${_pAgora.year}-${_pAgora.month}-${_pAgora.day}T15:00:00-03:00`);
                     const liberarEm = (_horaAtual < 15 * 60 ? _liberacaoHoje : new Date(_liberacaoHoje.getTime() + 86400000)).toISOString();
-                    await sb.from('game_tickets').upsert({
-                        phone: user.phone, tickets: ticketsAtual,
+                    await sb.from('clientes').update({
+                        tickets: ticketsAtual,
                         tickets_pendentes: ticketsPendentes + (novosTickets > 0 ? novosTickets : 0),
                         total_gasto: novoTotalGasto,
                         tickets_liberar_em: novosTickets > 0 ? liberarEm : (gt?.tickets_liberar_em || null),
@@ -2143,7 +2143,7 @@ async function confirmOrder() {
                     const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
                     const dias = ['dom','seg','ter','qua','qui','sex','sab'];
                     if (hAtual >= hI*60+mI && hAtual <= hF*60+mF && (raConfig.dias_operacao||[]).includes(dias[brt.getDay()])) {
-                        const { data: cliCoords } = await sb.from('cadastros').select('delivery_lat,delivery_lon,delivery_address').eq('phone', user.phone).maybeSingle();
+                        const { data: cliCoords } = await sb.from('clientes').select('delivery_lat,delivery_lon,delivery_address').eq('phone', user.phone).maybeSingle();
                         if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
                             const fila = raConfig.clientes_fila || [];
                             if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
@@ -3010,7 +3010,7 @@ async function liberarTicketsPendentes(phone) {
         const chaveNotificado = 'ticket_notificado_' + phone;
         const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
 
-        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', phone).maybeSingle();
         if (!gt) return;
 
         const ticketsAtuais = gt.tickets || 0;
