@@ -2431,7 +2431,7 @@ async function salvarPrivacidade(valor) {
 async function limparCacheTodos() {
     const btn = document.getElementById('btnLimparCache');
     btn.disabled = true;
-    btn.textContent = '⏳ Enviando...';
+    btn.textContent = '⏳ Limpando...';
 
     try {
         const novaVersao = Date.now().toString();
@@ -2440,12 +2440,25 @@ async function limparCacheTodos() {
 
         if (error) throw error;
 
-        btn.textContent = '✅ Enviado!';
-        showToast('Cache limpo! Todos vão recarregar 🔄', 'success');
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.textContent = '🗑️ Limpar Cache de Todo Mundo';
-        }, 3000);
+        showToast('Cache limpo! Recarregando... 🔄', 'success');
+
+        // Limpa tudo localmente também (inclusive para o admin)
+        setTimeout(async () => {
+            try {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map(r => r.unregister()));
+                }
+            } catch(e) {}
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.reload(true);
+        }, 1200);
+
     } catch (e) {
         console.error('Erro ao limpar cache:', e);
         showToast('Erro ao limpar cache', 'error');
