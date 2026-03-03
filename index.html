@@ -1056,16 +1056,20 @@
 <!-- ===== APP ===== -->
 <div id="app" style="display:none;">
     <div class="header">
-        <div style="display:flex;flex-direction:column;gap:2px;">
+        <!-- Saudação à esquerda -->
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
             <span id="hi" style="font-size:16px;font-weight:800;color:white;"></span>
             <span id="headerBalance"></span>
         </div>
-        <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;">⭐</button>
-        <button class="header-btn" onclick="abrirJogos()" title="Jogos" style="position:relative;">🎮</button>
-        <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
-            🤖
-            <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
-        </button>
+        <!-- Todos os botões juntos à direita: 🤖 ⭐ 🎮 -->
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="header-btn" onclick="showToast('🔒 Em breve!','warning')" title="Jogos" style="position:relative;opacity:0.7;">🎮<span style="position:absolute;top:4px;right:4px;font-size:10px;">🔒</span></button>
+            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
+            <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
+                🤖
+                <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
+            </button>
+        </div>
     </div>
     <div id="grid" class="products-grid"></div>
     <div class="footer">
@@ -1798,7 +1802,7 @@ function render() {
                     <div><strong class="card-title">${p.name}</strong><br><span class="card-price">R$ ${p.price.toFixed(2)}</span></div>
                     <div class="card-controls">
                         <button onclick="qty('${p.id}',-1)" class="qty-btn minus">-</button>
-                        <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)">
+                        <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value===''||this.value==='0'){this.value=cart['${p.id}']||0}" inputmode="numeric">
                         <button onclick="qty('${p.id}',1)" class="qty-btn plus">+</button>
                     </div>
                 </div>
@@ -1887,7 +1891,7 @@ function textToCart(savedOrderText) {
 function checkFavoriteBtn() {
     const fav = favorites[user.phone];
     const btn = document.getElementById('favBtnHeader');
-    btn.style.display = (fav && fav.saved_order) ? 'block' : 'none';
+    btn.style.display = (fav && fav.saved_order) ? 'inline-flex' : 'none';
 }
 
 async function saveAsFavorite() {
@@ -2100,7 +2104,7 @@ async function confirmOrder() {
         // Tickets de jogo
         if (method !== 'FIADO') {
             try {
-                const { data: cfgTicket } = await sb.from('configuracoes').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
+                const { data: cfgTicket } = await sb.from('configs').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
                 const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
                 if (valorPorTicket > 0) {
                     const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', user.phone).maybeSingle();
@@ -2421,8 +2425,9 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         </div>
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-            <!-- Acompanhar Entrega — redireciona para site externo -->
-            <div onclick="window.open('https://jefferson8564.github.io/Status-/' + (user?.phone ? '?phone=' + encodeURIComponent(user.phone) : ''), '_blank')" style="background:linear-gradient(135deg,rgba(52,152,219,0.22),rgba(41,128,185,0.18)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(52,152,219,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s; text-align:center;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+            <!-- Acompanhar Entrega — BLOQUEADO por enquanto -->
+            <div onclick="showToast('🔒 Em breve!','warning')" style="position:relative;background:linear-gradient(135deg,rgba(52,152,219,0.12),rgba(41,128,185,0.09)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:22px; padding:16px 18px; border:1px solid rgba(52,152,219,0.2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.2); cursor:pointer; transition:transform 0.15s; text-align:center;opacity:0.6;" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+                <span style="position:absolute;top:8px;right:10px;font-size:14px;">🔒</span>
                 <div style="font-size:28px;">🛵</div>
                 <div>
                     <div style="font-size:13px;font-weight:800;color:white;margin-bottom:2px;">Acompanhar</div>
@@ -2435,7 +2440,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 <div style="font-size:28px;">🎨</div>
                 <div style="text-align:center;">
                     <div style="font-size:13px;font-weight:800;color:white;margin-bottom:6px;">Tema</div>
-                    <div style="display:flex;gap:6px;justify-content:center;">
+                    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
                         <!-- Azul Metálico -->
                         <div onclick="alterarTema('azul')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#4dd0ff,#0099ff,#0052cc);cursor:pointer;box-shadow:0 4px 12px rgba(0,153,255,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                             <span id="checkAzul">✓</span>
@@ -2443,6 +2448,22 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                         <!-- Roxo Metálico -->
                         <div onclick="alterarTema('roxo')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#c77dff,#9d4edd,#7209b7);cursor:pointer;box-shadow:0 4px 12px rgba(157,78,221,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                             <span id="checkRoxo" style="display:none;">✓</span>
+                        </div>
+                        <!-- Verde Esmeralda -->
+                        <div onclick="alterarTema('verde')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#52ffb0,#00c96e,#007a3d);cursor:pointer;box-shadow:0 4px 12px rgba(0,201,110,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkVerde" style="display:none;">✓</span>
+                        </div>
+                        <!-- Grafite -->
+                        <div onclick="alterarTema('grafite')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#6e6e6e,#3a3a3a,#1a1a1a,#3a3a3a,#555);cursor:pointer;box-shadow:0 4px 12px rgba(80,80,80,0.6);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkGrafite" style="display:none;">✓</span>
+                        </div>
+                        <!-- Rosa Neon -->
+                        <div onclick="alterarTema('rosa')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#ffb3de,#ff2d87,#a0005a);cursor:pointer;box-shadow:0 4px 12px rgba(255,45,135,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkRosa" style="display:none;">✓</span>
+                        </div>
+                        <!-- Teal Oceano -->
+                        <div onclick="alterarTema('teal')" style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#80ffee,#00bfa5,#00675b);cursor:pointer;box-shadow:0 4px 12px rgba(0,191,165,0.5);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.3);font-size:14px;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                            <span id="checkTeal" style="display:none;">✓</span>
                         </div>
                     </div>
                 </div>
@@ -2842,103 +2863,48 @@ function toggleInfoPanel() {
 
 function alterarTema(cor) {
     const root = document.documentElement;
-    const checkAzul = document.getElementById('checkAzul');
-    const checkRoxo = document.getElementById('checkRoxo');
-    
-    // Atualizar variável global de tema
+    const checks = ['checkAzul','checkRoxo','checkVerde','checkGrafite','checkRosa','checkTeal'];
+    checks.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
     temaSelecionado = cor;
-    
-    if (cor === 'azul') {
-        // Azul Metálico
-        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #4dd0ff 0%, #0099ff 25%, #0052cc 50%, #003d99 75%, #0066ff 100%)');
-        root.style.setProperty('--theme-header-bg', '#001a33');
-        root.style.setProperty('--theme-header-border', 'rgba(0, 153, 255, 0.2)');
-        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(0, 153, 255, 0.6)');
-        
-        const painelHeader = document.getElementById('painelHeader');
-        if (painelHeader) {
-            painelHeader.style.background = '#001a33';
-            painelHeader.style.borderBottomColor = 'rgba(0, 153, 255, 0.2)';
-        }
-        
-        checkAzul.style.display = 'block';
-        checkRoxo.style.display = 'none';
-        localStorage.setItem('temaSelecionado', 'azul');
-        
-        // Atualizar cores das notificações de reembolso para VERMELHO
-        const listaHistorico = document.getElementById('listaHistorico');
-        if (listaHistorico) {
-            listaHistorico.querySelectorAll('div').forEach(el => {
-                if (el.innerHTML.includes('REEMBOLSO')) {
-                    el.style.background = '#e74c3c !important';
-                    el.style.boxShadow = '0 2px 8px #e74c3c66 !important';
-                }
-            });
-        }
-    } else if (cor === 'roxo') {
-        // Roxo Metálico
-        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #c77dff 0%, #9d4edd 25%, #7209b7 50%, #5a189a 75%, #b5179e 100%)');
-        root.style.setProperty('--theme-header-bg', '#1a0535');
-        root.style.setProperty('--theme-header-border', 'rgba(157, 78, 221, 0.2)');
-        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(157, 78, 221, 0.6)');
-        
-        const painelHeader = document.getElementById('painelHeader');
-        if (painelHeader) {
-            painelHeader.style.background = '#1a0535';
-            painelHeader.style.borderBottomColor = 'rgba(157, 78, 221, 0.2)';
-        }
-        
-        checkAzul.style.display = 'none';
-        checkRoxo.style.display = 'block';
-        localStorage.setItem('temaSelecionado', 'roxo');
-        
-        // Atualizar cores das notificações de reembolso para ROSA MUITO ESCURO
-        const listaHistorico = document.getElementById('listaHistorico');
-        if (listaHistorico) {
-            listaHistorico.querySelectorAll('div').forEach(el => {
-                if (el.innerHTML.includes('REEMBOLSO')) {
-                    el.style.background = '#5a0f3f !important';
-                    el.style.boxShadow = '0 2px 8px #5a0f3f66 !important';
-                }
-            });
-        }
+
+    const temas = {
+        azul:    { grad:'linear-gradient(135deg,#4dd0ff 0%,#0099ff 25%,#0052cc 50%,#003d99 75%,#0066ff 100%)', bg:'#001a33', border:'rgba(0,153,255,0.2)', shadow:'0 12px 40px rgba(0,153,255,0.6)' },
+        roxo:    { grad:'linear-gradient(135deg,#c77dff 0%,#9d4edd 25%,#7209b7 50%,#5a189a 75%,#b5179e 100%)', bg:'#1a0535', border:'rgba(157,78,221,0.2)', shadow:'0 12px 40px rgba(157,78,221,0.6)' },
+        verde:   { grad:'linear-gradient(135deg,#52ffb0 0%,#00c96e 30%,#007a3d 60%,#00c96e 80%,#52ffb0 100%)', bg:'#002918', border:'rgba(0,201,110,0.2)', shadow:'0 12px 40px rgba(0,201,110,0.6)' },
+        grafite: { grad:'linear-gradient(135deg,#6e6e6e 0%,#3a3a3a 30%,#1a1a1a 60%,#3a3a3a 80%,#555 100%)', bg:'#111111', border:'rgba(120,120,120,0.2)', shadow:'0 12px 40px rgba(80,80,80,0.6)' },
+        rosa:    { grad:'linear-gradient(135deg,#ffb3de 0%,#ff2d87 30%,#a0005a 60%,#ff2d87 80%,#ffb3de 100%)', bg:'#2a0018', border:'rgba(255,45,135,0.2)', shadow:'0 12px 40px rgba(255,45,135,0.6)' },
+        teal:    { grad:'linear-gradient(135deg,#80ffee 0%,#00bfa5 30%,#00675b 60%,#00bfa5 80%,#80ffee 100%)', bg:'#00201c', border:'rgba(0,191,165,0.2)', shadow:'0 12px 40px rgba(0,191,165,0.6)' },
+    };
+
+    const t = temas[cor];
+    if (!t) return;
+    root.style.setProperty('--theme-gradient', t.grad);
+    root.style.setProperty('--theme-header-bg', t.bg);
+    root.style.setProperty('--theme-header-border', t.border);
+    root.style.setProperty('--theme-shadow', t.shadow);
+    const painelHeader = document.getElementById('painelHeader');
+    if (painelHeader) { painelHeader.style.background = t.bg; painelHeader.style.borderBottomColor = t.border; }
+    const checkEl = document.getElementById('check' + cor.charAt(0).toUpperCase() + cor.slice(1));
+    if (checkEl) checkEl.style.display = 'block';
+    localStorage.setItem('temaSelecionado', cor);
+
+    // Reembolso: vermelho no azul/verde/teal/grafite, rosa no roxo/rosa
+    const corReembolso = (cor === 'roxo' || cor === 'rosa') ? '#5a0f3f' : '#e74c3c';
+    const sombraReembolso = (cor === 'roxo' || cor === 'rosa') ? '#5a0f3f66' : '#e74c3c66';
+    const listaHistorico = document.getElementById('listaHistorico');
+    if (listaHistorico) {
+        listaHistorico.querySelectorAll('div').forEach(el => {
+            if (el.innerHTML.includes('REEMBOLSO')) {
+                el.style.background = corReembolso + ' !important';
+                el.style.boxShadow = '0 2px 8px ' + sombraReembolso + ' !important';
+            }
+        });
     }
 }
 
 function carregarTemaSalvo() {
-    const root = document.documentElement;
     const temaSalvo = localStorage.getItem('temaSelecionado') || 'azul';
-    temaSelecionado = temaSalvo;
-    
-    if (temaSalvo === 'azul') {
-        // Azul Metálico
-        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #4dd0ff 0%, #0099ff 25%, #0052cc 50%, #003d99 75%, #0066ff 100%)');
-        root.style.setProperty('--theme-header-bg', '#001a33');
-        root.style.setProperty('--theme-header-border', 'rgba(0, 153, 255, 0.2)');
-        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(0, 153, 255, 0.6)');
-        
-        const painelHeader = document.getElementById('painelHeader');
-        if (painelHeader) {
-            painelHeader.style.background = '#001a33';
-            painelHeader.style.borderBottomColor = 'rgba(0, 153, 255, 0.2)';
-        }
-        document.getElementById('checkAzul').style.display = 'block';
-        document.getElementById('checkRoxo').style.display = 'none';
-    } else if (temaSalvo === 'roxo') {
-        // Roxo Metálico
-        root.style.setProperty('--theme-gradient', 'linear-gradient(135deg, #c77dff 0%, #9d4edd 25%, #7209b7 50%, #5a189a 75%, #b5179e 100%)');
-        root.style.setProperty('--theme-header-bg', '#1a0535');
-        root.style.setProperty('--theme-header-border', 'rgba(157, 78, 221, 0.2)');
-        root.style.setProperty('--theme-shadow', '0 12px 40px rgba(157, 78, 221, 0.6)');
-        
-        const painelHeader = document.getElementById('painelHeader');
-        if (painelHeader) {
-            painelHeader.style.background = '#1a0535';
-            painelHeader.style.borderBottomColor = 'rgba(157, 78, 221, 0.2)';
-        }
-        document.getElementById('checkAzul').style.display = 'none';
-        document.getElementById('checkRoxo').style.display = 'block';
-    }
+    alterarTema(temaSalvo);
 }
 
 
