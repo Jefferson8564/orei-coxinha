@@ -53,7 +53,7 @@
                     });
                 }
 
-                await fetch('https://vpeyqgijajywgswmezlh.supabase.co/functions/v1/salvar-subscription', {
+                await fetch('https://vpeygijajywgswmelzlh.supabase.co/functions/v1/salvar-subscription', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1049,122 +1049,9 @@
                 <div class="ls-benefit">⭐ Pedido favorito</div>
                 <div class="ls-benefit">🛵 Rastrear entrega</div>
             </div>
-
-            <div style="margin-top:22px;text-align:center;">
-                <button onclick="abrirSuporte()" style="background:none;border:none;cursor:pointer;padding:6px 12px;">
-                    <span style="font-size:12px;color:rgba(255,255,255,0.3);font-weight:500;">
-                        Não está conseguindo acessar? <u style="color:rgba(155,89,182,0.7);">Clique aqui</u>
-                    </span>
-                </button>
-            </div>
         </div>
     </div>
 </div>
-
-<!-- ===== OVERLAY RESET ROBÔ ===== -->
-<div id="robotOverlay" style="display:none;position:fixed;inset:0;z-index:99999;
-     background:rgba(8,3,18,0.97);flex-direction:column;align-items:center;justify-content:center;gap:0;">
-    <style>
-        @keyframes roboFloat   { 0%,100%{transform:translateY(0);}      50%{transform:translateY(-12px);} }
-        @keyframes roboShake   { 0%,100%{transform:translateX(0);}  20%{transform:translateX(-6px);}  40%{transform:translateX(6px);}  60%{transform:translateX(-4px);}  80%{transform:translateX(4px);} }
-        @keyframes roboSpin360 { 0%{transform:rotate(0deg) scale(1);} 50%{transform:rotate(180deg) scale(1.2);} 100%{transform:rotate(360deg) scale(1);} }
-        @keyframes eyeBlink    { 0%,90%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.1);} }
-        @keyframes ptcUp       { 0%{transform:translateY(0) scale(1);opacity:1;} 100%{transform:translateY(-60px) scale(0);opacity:0;} }
-        @keyframes dotBounce   { 0%,80%,100%{transform:scale(0);opacity:0.3;} 40%{transform:scale(1);opacity:1;} }
-        #rbtChar { font-size:76px;line-height:1;user-select:none;display:block; }
-        #rbtChar.float { animation:roboFloat 1.8s ease-in-out infinite; }
-        #rbtChar.shake { animation:roboShake 0.5s ease; }
-        #rbtChar.spin  { animation:roboSpin360 0.7s ease; }
-        .rbt-ptc { position:absolute;font-size:16px;pointer-events:none;animation:ptcUp 0.9s ease forwards; }
-        .rbt-dot { display:inline-block;width:8px;height:8px;border-radius:50%;background:#9b59b6;margin:0 3px;animation:dotBounce 1.2s ease-in-out infinite; }
-        .rbt-dot:nth-child(2){ animation-delay:.2s;background:#c75b24; }
-        .rbt-dot:nth-child(3){ animation-delay:.4s; }
-    </style>
-
-    <div style="position:relative;width:140px;height:140px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
-        <span id="rbtChar" class="float">🤖</span>
-        <div id="rbtPtc" style="position:absolute;inset:0;pointer-events:none;"></div>
-    </div>
-
-    <div style="position:relative;background:#1a0f2e;border:1.5px solid #9b59b6;border-radius:16px;
-         padding:10px 22px;margin-bottom:4px;max-width:260px;text-align:center;box-shadow:0 0 20px rgba(155,89,182,0.2);">
-        <div id="rbtMsg" style="font-size:14px;font-weight:700;color:#e8d8f8;min-height:20px;transition:opacity 0.25s;"></div>
-        <div style="position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:0;height:0;
-             border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #9b59b6;"></div>
-        <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:0;height:0;
-             border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #1a0f2e;"></div>
-    </div>
-
-    <div style="height:20px;display:flex;align-items:center;justify-content:center;margin-top:6px;">
-        <span class="rbt-dot"></span><span class="rbt-dot"></span><span class="rbt-dot"></span>
-    </div>
-
-    <div style="margin-top:18px;width:220px;height:4px;background:rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;">
-        <div id="rbtBar" style="height:100%;width:0%;background:linear-gradient(90deg,#9b59b6,#c75b24);
-             border-radius:10px;transition:width 0.5s cubic-bezier(0.4,0,0.2,1);"></div>
-    </div>
-</div>
-
-<script>
-function _rbtPtc(e){ const w=document.getElementById('rbtPtc');if(!w)return;const el=document.createElement('div');el.className='rbt-ptc';el.textContent=e;el.style.left=(20+Math.random()*60)+'%';el.style.top=(20+Math.random()*40)+'%';w.appendChild(el);setTimeout(()=>el.remove(),950); }
-function _rbtAnim(t){ const r=document.getElementById('rbtChar');r.className='';void r.offsetWidth;r.className=t;if(t!=='float')setTimeout(()=>{r.className='float';},800); }
-
-function abrirSuporte() {
-    const ov=document.getElementById('robotOverlay');
-    const msg=document.getElementById('rbtMsg');
-    const bar=document.getElementById('rbtBar');
-    ov.style.display='flex'; bar.style.width='0%';
-
-    const steps=[
-        {txt:'Oi! Vou te ajudar 😊',       pct:0,   e:'✨', a:'float'},
-        {txt:'Verificando o app...',         pct:25,  e:'🔍', a:'shake'},
-        {txt:'Limpando os dados...',         pct:50,  e:'🗑️', a:'shake'},
-        {txt:'Removendo o cache...',         pct:75,  e:'💨', a:'spin' },
-        {txt:'Tudo limpo! Voltando... ✅',  pct:100, e:'🎉', a:'spin' },
-    ];
-
-    let i=0;
-    function next(){
-        if(i>=steps.length)return;
-        const s=steps[i++];
-        _rbtAnim(s.a);
-        let c=0; const pt=setInterval(()=>{ _rbtPtc(s.e); if(++c>=3)clearInterval(pt); },180);
-        msg.style.opacity='0';
-        setTimeout(()=>{ msg.textContent=s.txt; msg.style.opacity='1'; bar.style.width=s.pct+'%'; },200);
-        if(i<steps.length){ setTimeout(next,850); }
-        else {
-            setTimeout(async ()=>{
-                // 1. localStorage e sessionStorage
-                localStorage.clear();
-                sessionStorage.clear();
-
-                // 2. Todos os caches do browser (Service Worker cache)
-                if('caches' in window) {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map(k => caches.delete(k)));
-                }
-
-                // 3. Desregistra TODOS os Service Workers — limpeza de verdade
-                if('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(registrations.map(r => r.unregister()));
-                }
-
-                // 4. Fecha overlay e volta ao login limpo
-                ov.style.display='none'; bar.style.width='0%';
-                document.getElementById('app').style.display='none';
-                document.getElementById('loginScreen').style.display='flex';
-                document.getElementById('userPhone').value='';
-                document.getElementById('userName').value='';
-                document.getElementById('nameBox').style.display='none';
-                const err=document.getElementById('loginError');
-                if(err){err.textContent='';err.style.display='none';}
-            },700);
-        }
-    }
-    next();
-}
-</script>
 
 <!-- ===== APP ===== -->
 <div id="app" style="display:none;">
@@ -1173,14 +1060,12 @@ function abrirSuporte() {
             <span id="hi" style="font-size:16px;font-weight:800;color:white;"></span>
             <span id="headerBalance"></span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-            <button class="header-btn" onclick="abrirJogos()" title="Jogos" style="position:relative;">🎮</button>
-            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="visibility:hidden;">⭐</button>
-            <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
-                🤖
-                <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
-            </button>
-        </div>
+        <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;">⭐</button>
+        <button class="header-btn" onclick="abrirJogos()" title="Jogos" style="position:relative;">🎮</button>
+        <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
+            🤖
+            <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
+        </button>
     </div>
     <div id="grid" class="products-grid"></div>
     <div class="footer">
@@ -1256,12 +1141,6 @@ function abrirSuporte() {
                 Crédito disponível: <strong id="creditAvailable">R$ 0,00</strong><br>
                 <span id="creditUsedText" style="display:none;">Será abatido: <strong id="creditUsed">R$ 0,00</strong></span>
             </div>
-        </div>
-
-        <!-- PRÊMIOS DO JOGO -->
-        <div id="premioBox" style="display:none;margin-top:14px;">
-            <div style="font-size:12px;font-weight:700;color:#9080b8;margin-bottom:8px;">🏆 Seus prêmios disponíveis</div>
-            <div id="premioLista" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;"></div>
         </div>
 
         <div id="finalTotalBox" class="final-total" style="display:none;">
@@ -1496,7 +1375,6 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
-let premioSelecionado = null;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
@@ -1570,7 +1448,7 @@ window.onload = async () => {
         let forceReloadVersao = localStorage.getItem('force_reload_version') || '0';
         try {
             const { data: cfgs } = await comTimeout(
-                sb.from("configuracoes").select("key, value").in("key", ["msg_template", "force_reload_version"]),
+                sb.from("configs").select("chave, valor").in("chave", ["msg_template", "force_reload_version"]),
                 6000, 'Timeout ao carregar configurações'
             );
             if (cfgs) {
@@ -1608,7 +1486,7 @@ window.onload = async () => {
         if (savedPhone) {
             try {
                 const { data: client } = await comTimeout(
-                    sb.from("cadastros").select("*").eq("phone", savedPhone).maybeSingle(),
+                    sb.from("clientes").select("*").eq("phone", savedPhone).maybeSingle(),
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
@@ -1716,7 +1594,7 @@ async function auth() {
     }
 
     // Buscar cliente
-    let { data: client } = await sb.from("cadastros").select("*").eq("phone", phone).maybeSingle();
+    let { data: client } = await sb.from("clientes").select("*").eq("phone", phone).maybeSingle();
 
     if (!client) {
         // Mostrar campo de nome (apenas no primeiro cadastro)
@@ -1732,7 +1610,7 @@ async function auth() {
             btn.disabled = false; btn.textContent = "Entrar";
             return;
         }
-        const { data: newClient } = await sb.from("cadastros").insert({ name, phone, fiado: false, debt: 0 }).select().single();
+        const { data: newClient } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
         client = newClient;
         
         // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
@@ -2009,7 +1887,7 @@ function textToCart(savedOrderText) {
 function checkFavoriteBtn() {
     const fav = favorites[user.phone];
     const btn = document.getElementById('favBtnHeader');
-    btn.style.visibility = (fav && fav.saved_order) ? 'visible' : 'hidden';
+    btn.style.display = (fav && fav.saved_order) ? 'block' : 'none';
 }
 
 async function saveAsFavorite() {
@@ -2018,7 +1896,7 @@ async function saveAsFavorite() {
     const { texto, total } = cartToText();
 
     // Salvar no Supabase
-    const { error } = await sb.from("cadastros").update({
+    const { error } = await sb.from("clientes").update({
         saved_order: texto,
         saved_order_total: total
     }).eq("phone", user.phone);
@@ -2079,7 +1957,6 @@ function showPayModal() {
         setMethod('PAGA NA ENTREGA', entregaBtn);
     }
     setupCreditOption();
-    carregarPremiosModal();
 }
 
 function setupCreditOption() {
@@ -2115,27 +1992,14 @@ function applyCreditCalculation(availableCredit) {
 
 function updateFinalTotalDisplay() {
     const box = document.getElementById('finalTotalBox');
-    const premioDesc = premioSelecionado ? (currentOrderTotal * premioSelecionado.desconto_pct / 100) : 0;
-    const totalDesc  = creditDiscount + premioDesc;
-    if (totalDesc > 0) {
+    if (creditDiscount > 0) {
         box.style.display = 'block';
-        const linhas = [];
-        if (creditDiscount > 0) linhas.push('💳 Crédito: -R$ ' + creditDiscount.toFixed(2).replace('.',','));
-        if (premioDesc > 0)     linhas.push('🏆 Prêmio (' + premioSelecionado.desconto_pct + '%): -R$ ' + premioDesc.toFixed(2).replace('.',','));
-        document.getElementById('originalTotal').innerText = linhas.join('   ');
-        document.getElementById('discountedTotal').innerText = 'A pagar: R$ ' + Math.max(0, currentOrderTotal - totalDesc).toFixed(2).replace('.', ',');
+        document.getElementById('originalTotal').innerText = "Total original: R$ " + currentOrderTotal.toFixed(2).replace('.', ',');
+        document.getElementById('discountedTotal').innerText = "A pagar: R$ " + Math.max(0, currentOrderTotal - creditDiscount).toFixed(2).replace('.', ',');
     } else { box.style.display = 'none'; }
 }
 
-function closePayModal() {
-    document.getElementById('payModal').classList.remove('active');
-    premioSelecionado = null;
-    const pb = document.getElementById('premioBox');
-    if (pb) pb.style.display = 'none';
-    const pl = document.getElementById('premioLista');
-    if (pl) pl.innerHTML = '';
-    updateFinalTotalDisplay();
-}
+function closePayModal() { document.getElementById('payModal').classList.remove('active'); }
 function setMethod(m, el) {
     method = m;
     document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected'));
@@ -2153,8 +2017,7 @@ async function confirmOrder() {
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = document.getElementById('useCredit').checked;
-    const premioDesc = premioSelecionado ? (total * premioSelecionado.desconto_pct / 100) : 0;
-    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - premioDesc);
+    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0));
     let newDebt = user.debt;
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
     if (method === 'FIADO') newDebt += finalTotal;
@@ -2172,14 +2035,6 @@ async function confirmOrder() {
             total: finalTotal, payment_method: method, items: pedidoTexto
         });
         if (errPedido) throw errPedido;
-
-        // Marca prêmio como resgatado
-        if (premioSelecionado && premioSelecionado.ids && premioSelecionado.ids.length > 0) {
-            try {
-                await sb.from('game_premios').update({ resgatado: true }).eq('id', premioSelecionado.ids[0]);
-            } catch(e) { console.warn('Erro ao resgatar prêmio:', e); }
-            premioSelecionado = null;
-        }
 
         // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
         try {
@@ -2327,7 +2182,7 @@ async function confirmOrder() {
             setTimeout(() => p.remove(), 1500);
         });
 
-        cart = {}; creditDiscount = 0; premioSelecionado = null; render();
+        cart = {}; creditDiscount = 0; render();
         btn.disabled = false;
 
         setTimeout(() => {
@@ -2422,7 +2277,7 @@ function fecharPainelControle() {
 
 async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
-    await sb.from("cadastros").update({ show_name: valor }).eq("phone", user.phone);
+    await sb.from("clientes").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
     showToast(valor ? "Pedido automático 🤖" : "Pedido manual 🔒", valor ? 'success' : 'warning');
 }
@@ -2431,7 +2286,7 @@ async function salvarPrivacidade(valor) {
 async function limparCacheTodos() {
     const btn = document.getElementById('btnLimparCache');
     btn.disabled = true;
-    btn.textContent = '⏳ Limpando...';
+    btn.textContent = '⏳ Enviando...';
 
     try {
         const novaVersao = Date.now().toString();
@@ -2440,25 +2295,12 @@ async function limparCacheTodos() {
 
         if (error) throw error;
 
-        showToast('Cache limpo! Recarregando... 🔄', 'success');
-
-        // Limpa tudo localmente também (inclusive para o admin)
-        setTimeout(async () => {
-            try {
-                if ('caches' in window) {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map(k => caches.delete(k)));
-                }
-                if ('serviceWorker' in navigator) {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(regs.map(r => r.unregister()));
-                }
-            } catch(e) {}
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.reload(true);
-        }, 1200);
-
+        btn.textContent = '✅ Enviado!';
+        showToast('Cache limpo! Todos vão recarregar 🔄', 'success');
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = '🗑️ Limpar Cache de Todo Mundo';
+        }, 3000);
     } catch (e) {
         console.error('Erro ao limpar cache:', e);
         showToast('Erro ao limpar cache', 'error');
@@ -3195,23 +3037,32 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
-        const chave = 'tickets_visto_' + phone;
-        const { data: gt } = await sb.from('game_tickets').select('tickets').eq('phone', phone).maybeSingle();
-        const ticketsAtuais = gt ? (gt.tickets || 0) : 0;
-        const salvoRaw = localStorage.getItem(chave);
-        if (salvoRaw === null) {
-            localStorage.setItem(chave, ticketsAtuais);
-            return;
+        // O backend (pg_cron) libera os tickets automaticamente todo dia às 15h.
+        // Aqui apenas verificamos se o backend já liberou desde a última visita
+        // e mostramos o popup de celebração pro cliente.
+
+        const chaveNotificado = 'ticket_notificado_' + phone;
+        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
+
+        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        if (!gt) return;
+
+        const ticketsAtuais = gt.tickets || 0;
+
+        // Se o saldo de tickets é maior do que o que já notificamos nessa sessão,
+        // significa que o backend liberou novos tickets — mostra o popup
+        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
+            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
+            console.log(`🎟️ ${novosTickets} ticket(s) liberados pelo servidor!`);
+            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
         }
-        const ticketsVistos = parseInt(salvoRaw);
-        if (ticketsAtuais > ticketsVistos) {
-            const novos = ticketsAtuais - ticketsVistos;
-            localStorage.setItem(chave, ticketsAtuais);
-            setTimeout(() => mostrarTicketPopup(novos), 800);
-        } else {
-            localStorage.setItem(chave, ticketsAtuais);
-        }
-    } catch(e) { console.warn('Erro ao verificar tickets:', e); }
+
+        // Salva o saldo atual para comparar na próxima vez
+        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
+
+    } catch(e) {
+        console.warn('Erro ao verificar tickets:', e);
+    }
 }
 
 async function limparCacheRedefinir() {
