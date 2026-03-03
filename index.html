@@ -1049,6 +1049,27 @@
                 <div class="ls-benefit">⭐ Pedido favorito</div>
                 <div class="ls-benefit">🛵 Rastrear entrega</div>
             </div>
+            
+            <!-- Mensagem de dificuldade de acesso -->
+            <div style="
+                text-align: center;
+                margin-top: 20px;
+                padding: 16px;
+                color: rgba(255,255,255,0.7);
+                font-size: 12px;
+                line-height: 1.6;
+            ">
+                Não está conseguindo acessar?
+                <div style="
+                    color: #3498db;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    margin-top: 8px;
+                " onclick="limparCacheRedefinir()" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                    🧹 Clique aqui
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1145,6 +1166,12 @@
                 Crédito disponível: <strong id="creditAvailable">R$ 0,00</strong><br>
                 <span id="creditUsedText" style="display:none;">Será abatido: <strong id="creditUsed">R$ 0,00</strong></span>
             </div>
+        </div>
+
+        <!-- Cupons de desconto -->
+        <div id="cupomBox" style="display:none; margin-top:14px; background:#fffbea; border:1.5px solid #f1c40f; border-radius:14px; padding:14px;">
+            <div style="font-weight:800; color:#b8860b; margin-bottom:10px;">🎟️ Seus cupons de desconto</div>
+            <div id="cupomLista" style="display:flex; flex-direction:column; gap:8px;"></div>
         </div>
 
         <div id="finalTotalBox" class="final-total" style="display:none;">
@@ -1250,6 +1277,149 @@
         }
         .robo-state-nao .robo-wrap {
             animation: pulseError 1s ease-in-out infinite;
+        }
+        
+        /* ===== ANIMAÇÃO LIMPEZA DE CACHE MELHORADA ===== */
+        @keyframes roboVibrando {
+            0%, 100% { transform: translateX(0) scaleY(1); }
+            10% { transform: translateX(-3px) scaleY(0.98); }
+            20% { transform: translateX(3px) scaleY(1.02); }
+            30% { transform: translateX(-2px) scaleY(0.99); }
+            40% { transform: translateX(2px) scaleY(1.01); }
+            50% { transform: translateX(0) scaleY(1); }
+            60% { transform: translateX(-3px) scaleY(0.98); }
+            70% { transform: translateX(3px) scaleY(1.02); }
+            80% { transform: translateX(-2px) scaleY(0.99); }
+            90% { transform: translateX(2px) scaleY(1.01); }
+        }
+        
+        @keyframes ferramEntrada {
+            0% { opacity: 0; transform: scale(0) rotate(-180deg); }
+            20% { opacity: 1; transform: scale(1.2) rotate(0deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+        
+        @keyframes ferramSaida {
+            0% { opacity: 1; transform: scale(1) rotate(0deg); }
+            80% { opacity: 1; transform: scale(1.2) rotate(180deg); }
+            100% { opacity: 0; transform: scale(0) rotate(360deg); }
+        }
+        
+        @keyframes brilhoFundo {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .limpeza-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInOverlay 0.4s ease-out;
+        }
+        
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .limpeza-container {
+            position: relative;
+            width: 220px;
+            height: 320px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+        }
+        
+        .robo-limpeza {
+            font-size: 100px;
+            animation: roboVibrando 0.8s ease-in-out infinite;
+            filter: drop-shadow(0 6px 16px rgba(52, 152, 219, 0.7));
+            position: relative;
+            z-index: 3;
+        }
+        
+        .ferramentas-box {
+            position: relative;
+            width: 100px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+        
+        .ferramenta-item {
+            position: absolute;
+            font-size: 50px;
+            text-align: center;
+            line-height: 1;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* BALDE - aparece de 0s a 0.8s */
+        .ferramenta-balde {
+            animation: 
+                ferramEntrada 0.4s ease-out 0s 1 forwards,
+                ferramSaida 0.4s ease-in 0.4s 1 forwards;
+        }
+        
+        /* VASSOURA - aparece de 0.8s a 1.6s */
+        .ferramenta-vassoura {
+            animation: 
+                ferramEntrada 0.4s ease-out 0.8s 1 forwards,
+                ferramSaida 0.4s ease-in 1.2s 1 forwards;
+        }
+        
+        /* CHAVE - aparece de 1.6s a 2.4s */
+        .ferramenta-chave {
+            animation: 
+                ferramEntrada 0.4s ease-out 1.6s 1 forwards,
+                ferramSaida 0.4s ease-in 2.0s 1 forwards;
+        }
+        
+        .brilho-fundo {
+            position: absolute;
+            bottom: -30px;
+            width: 180px;
+            height: 100px;
+            background: radial-gradient(ellipse at center, rgba(52,152,219,0.5) 0%, rgba(52,152,219,0) 70%);
+            border-radius: 50%;
+            animation: brilhoFundo 1.2s ease-in-out infinite;
+            z-index: 1;
+        }
+        
+        .limpeza-texto {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            z-index: 2;
+        }
+        
+        .limpeza-titulo {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+        
+        .limpeza-sub {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
         }
     </style>
 
@@ -1379,6 +1549,9 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
+let cupomDesconto = 0;   // % de desconto do cupom selecionado
+let cupomId = null;      // id do pedido PREMIO a resgatar
+let cupomDescontoPct = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
@@ -1654,6 +1827,32 @@ async function auth() {
     // Liberar tickets pendentes se já passou 6h
     liberarTicketsPendentes(phone);
     
+    // ✅ MONITOR CONTÍNUO - Verifica tickets a cada 30 segundos
+    // Isso garante que se o cliente volta online, vê o popup rapidinho
+    window.ticketCheckInterval = setInterval(() => {
+        if (user && user.phone) {
+            liberarTicketsPendentes(user.phone);
+        }
+    }, 30000); // a cada 30 segundos
+    
+    // ✅ VERIFICAR QUANDO ABA VOLTA VISÍVEL (tabs/apps)
+    // Garante que verifica imediatamente quando volta do background
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && user && user.phone) {
+            console.log('📱 App voltou visível - verificando tickets...');
+            liberarTicketsPendentes(user.phone);
+        }
+    });
+    
+    // ✅ VERIFICAR QUANDO CONEXÃO VOLTA
+    // Se estava offline e volta online, verifica tickets
+    window.addEventListener('online', () => {
+        console.log('🌐 Conexão restaurada - verificando tickets...');
+        if (user && user.phone) {
+            liberarTicketsPendentes(user.phone);
+        }
+    });
+    
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
     setTimeout(() => {
         mostrarPopupInstalacao();
@@ -1670,6 +1869,12 @@ function showLoginError(msg) {
 // ===== LOGOUT =====
 function logout() {
     if (confirm('Deseja sair da conta?')) {
+        // ✅ LIMPAR O MONITOR DE TICKETS
+        if (window.ticketCheckInterval) {
+            clearInterval(window.ticketCheckInterval);
+            window.ticketCheckInterval = null;
+        }
+        
         // Limpar dados salvos
         localStorage.removeItem('salgados_phone');
         cart = {};
@@ -1961,6 +2166,7 @@ function showPayModal() {
         setMethod('PAGA NA ENTREGA', entregaBtn);
     }
     setupCreditOption();
+    carregarCupons();
 }
 
 function setupCreditOption() {
@@ -1996,14 +2202,63 @@ function applyCreditCalculation(availableCredit) {
 
 function updateFinalTotalDisplay() {
     const box = document.getElementById('finalTotalBox');
-    if (creditDiscount > 0) {
+    const descontoCupomValor = cupomDescontoPct > 0 ? (currentOrderTotal * cupomDescontoPct / 100) : 0;
+    const totalFinal = Math.max(0, currentOrderTotal - creditDiscount - descontoCupomValor);
+    if (creditDiscount > 0 || descontoCupomValor > 0) {
         box.style.display = 'block';
-        document.getElementById('originalTotal').innerText = "Total original: R$ " + currentOrderTotal.toFixed(2).replace('.', ',');
-        document.getElementById('discountedTotal').innerText = "A pagar: R$ " + Math.max(0, currentOrderTotal - creditDiscount).toFixed(2).replace('.', ',');
+        document.getElementById('originalTotal').innerText = 'Total original: R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
+        let desc = '';
+        if (creditDiscount > 0) desc += ` crédito -R$${creditDiscount.toFixed(2).replace('.',',')}`;
+        if (descontoCupomValor > 0) desc += ` cupom -${cupomDescontoPct}%`;
+        document.getElementById('discountedTotal').innerText = 'A pagar: R$ ' + totalFinal.toFixed(2).replace('.', ',') + (desc ? ` (${desc.trim()})` : '');
     } else { box.style.display = 'none'; }
 }
 
-function closePayModal() { document.getElementById('payModal').classList.remove('active'); }
+
+async function carregarCupons() {
+    if (!user?.phone) return;
+    const box = document.getElementById('cupomBox');
+    const lista = document.getElementById('cupomLista');
+    if (!box || !lista) return;
+
+    const { data } = await sb.from('pedidos')
+        .select('id, items, total')
+        .eq('customer_phone', user.phone)
+        .eq('payment_method', 'PREMIO')
+        .eq('status', 'pendente');
+
+    // Agrupar cupons de desconto por porcentagem
+    const grupos = {};
+    (data || []).forEach(p => {
+        const pct = Number(p.total) || 0;
+        if (pct > 0) {
+            if (!grupos[pct]) grupos[pct] = { pct, ids: [], label: p.items };
+            grupos[pct].ids.push(p.id);
+        }
+    });
+
+    const cupons = Object.values(grupos);
+    if (!cupons.length) { box.style.display = 'none'; return; }
+
+    box.style.display = 'block';
+    lista.innerHTML = cupons.map(c => {
+        const qtd = c.ids.length;
+        const label = qtd > 1 ? `${qtd}x cupom de ${c.pct}% OFF` : `Cupom de ${c.pct}% OFF`;
+        return `<label style="display:flex;align-items:center;gap:10px;background:white;border:1.5px solid #f1c40f;border-radius:10px;padding:10px 12px;cursor:pointer;">
+            <input type="radio" name="cupomSelect" value="${c.pct}" data-id="${c.ids[0]}" onchange="aplicarCupom(${c.pct}, '${c.ids[0]}')"
+                style="accent-color:#f1c40f;width:18px;height:18px;">
+            <span style="font-weight:700;color:#1a1a2e;font-size:14px;">🎟️ ${label}</span>
+        </label>`;
+    }).join('');
+}
+
+function aplicarCupom(pct, id) {
+    cupomDescontoPct = pct;
+    cupomId = id;
+    updateFinalTotalDisplay();
+}
+
+function closePayModal() { document.getElementById('payModal').classList.remove('active'); cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; }
 function setMethod(m, el) {
     method = m;
     document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected'));
@@ -2021,7 +2276,8 @@ async function confirmOrder() {
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = document.getElementById('useCredit').checked;
-    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0));
+    const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
+    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - descontoCupomValor);
     let newDebt = user.debt;
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
     if (method === 'FIADO') newDebt += finalTotal;
@@ -2038,6 +2294,10 @@ async function confirmOrder() {
             customer_name: user.name, customer_phone: user.phone,
             total: finalTotal, payment_method: method, items: pedidoTexto
         });
+        // Resgatar cupom se foi usado
+        if (!errPedido && cupomId && cupomDescontoPct > 0) {
+            await sb.from('pedidos').update({ status: 'resgatado' }).eq('id', cupomId);
+        }
         if (errPedido) throw errPedido;
 
         // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
@@ -2168,6 +2428,7 @@ async function confirmOrder() {
             .replace('{total}', finalTotal.toFixed(2).replace('.',','))
             .replace('{pagamento}', method);
         if (useCredit && creditDiscount > 0) finalMsg += `\n\n💳 Crédito usado`;
+        if (cupomDescontoPct > 0) finalMsg += `\n🎟️ Cupom ${cupomDescontoPct}% aplicado`;
 
         // ===== ROBOZINHO: SIM ✅ =====
         roboEstado('sim');
@@ -2186,7 +2447,7 @@ async function confirmOrder() {
             setTimeout(() => p.remove(), 1500);
         });
 
-        cart = {}; creditDiscount = 0; render();
+        cart = {}; creditDiscount = 0; cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; render();
         btn.disabled = false;
 
         setTimeout(() => {
@@ -3003,28 +3264,34 @@ function abrirJogos() {
 
 async function liberarTicketsPendentes(phone) {
     try {
-        // O backend (pg_cron) libera os tickets automaticamente todo dia às 15h.
-        // Aqui apenas verificamos se o backend já liberou desde a última visita
-        // e mostramos o popup de celebração pro cliente.
-
-        const chaveNotificado = 'ticket_notificado_' + phone;
-        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
-
-        const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', phone).maybeSingle();
+        const chaveTicketSalvo = 'ticket_salvo_' + phone;
+        
+        // Buscar tickets atuais do Supabase
+        const { data: gt } = await sb.from('clientes').select('tickets').eq('phone', phone).maybeSingle();
         if (!gt) return;
 
         const ticketsAtuais = gt.tickets || 0;
+        const ticketAnterior = parseInt(sessionStorage.getItem(chaveTicketSalvo) || '0');
 
-        // Se o saldo de tickets é maior do que o que já notificamos nessa sessão,
-        // significa que o backend liberou novos tickets — mostra o popup
-        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
-            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
-            console.log(`🎟️ ${novosTickets} ticket(s) liberados pelo servidor!`);
-            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
+        console.log(`🎟️ Verificação de tickets: tinha ${ticketAnterior} → agora tem ${ticketsAtuais}`);
+
+        // 🎯 QUALQUER ALTERAÇÃO: Se o valor mudou (aumentou ou diminuiu), mostra notificação
+        if (ticketsAtuais !== ticketAnterior) {
+            // Se aumentou (tickets normais ou adição do ADM)
+            if (ticketsAtuais > ticketAnterior) {
+                const novosTickets = ticketsAtuais - ticketAnterior;
+                console.log(`✅ ${novosTickets} novo(s) ticket(s) detectado(s)!`);
+                mostrarTicketPopup(novosTickets);
+            } 
+            // Se diminuiu (usou tickets)
+            else {
+                const usados = ticketAnterior - ticketsAtuais;
+                console.log(`⚠️ ${usados} ticket(s) usado(s)!`);
+            }
         }
 
-        // Salva o saldo atual para comparar na próxima vez
-        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
+        // Sempre salva o valor atual para próxima comparação
+        sessionStorage.setItem(chaveTicketSalvo, ticketsAtuais);
 
     } catch(e) {
         console.warn('Erro ao verificar tickets:', e);
@@ -3032,7 +3299,12 @@ async function liberarTicketsPendentes(phone) {
 }
 
 async function limparCacheRedefinir() {
-    if (!confirm('Isso vai limpar o cache e recarregar o app. Continuar?')) return;
+    // Mostrar animação do robozinho limpando PRIMEIRO
+    mostrarAnimacaoRoboLimpando();
+    
+    // Dar tempo para a animação iniciar
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
         if ('caches' in window) {
             const keys = await caches.keys();
@@ -3044,10 +3316,53 @@ async function limparCacheRedefinir() {
         }
         localStorage.clear();
         sessionStorage.clear();
-        window.location.reload(true);
+        
+        // Aguarda a animação terminar antes de recarregar
+        setTimeout(() => window.location.reload(true), 2800);
     } catch (e) {
-        window.location.reload(true);
+        setTimeout(() => window.location.reload(true), 2800);
     }
+}
+
+function mostrarAnimacaoRoboLimpando() {
+    console.log('🤖 Iniciando limpeza de cache...');
+    
+    // Criar overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'limpeza-overlay';
+    overlay.id = 'limpezaOverlay';
+    
+    overlay.innerHTML = `
+        <div class="limpeza-container">
+            <div class="robo-limpeza">🤖</div>
+            
+            <div class="ferramentas-box">
+                <div class="ferramenta-item ferramenta-balde">🪣</div>
+                <div class="ferramenta-item ferramenta-vassoura">🧹</div>
+                <div class="ferramenta-item ferramenta-chave">🔧</div>
+            </div>
+            
+            <div class="brilho-fundo"></div>
+            
+            <div class="limpeza-texto">
+                <div class="limpeza-titulo">Limpando o cache...</div>
+                <div class="limpeza-sub">☁️ Aguarde um segundo!</div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    console.log('✅ Animação iniciada');
+    
+    // Fechar após 2.5s
+    setTimeout(() => {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.5s ease-out';
+        setTimeout(() => {
+            overlay.remove();
+            console.log('✅ Animação finalizada');
+        }, 500);
+    }, 2400);
 }
 
 function atualizarLabelPainel() {
