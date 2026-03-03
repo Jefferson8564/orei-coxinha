@@ -198,8 +198,8 @@
             pointer-events: all;
             position: relative;
             width: min(92vw, 390px);
-            background: linear-gradient(160deg, #120028 0%, #1e0040 40%, #0d001f 100%);
-            border: 1px solid rgba(180, 90, 255, 0.45);
+            background: linear-gradient(160deg, #1e0040 0%, #b45aff40 40%);
+            border: 1px solid #b45aff70;
             border-top: none;
             border-radius: 0 0 28px 28px;
             padding: 0;
@@ -222,9 +222,7 @@
         /* Faixa superior colorida */
         .tp-topbar {
             height: 4px;
-            background: linear-gradient(90deg, #7b2ff7, #c061ff, #ff6bff, #c061ff, #7b2ff7);
-            background-size: 200% 100%;
-            animation: ticketShimmer 2s linear infinite;
+            background: #7b2ff7;
         }
         /* corpo */
         .tp-body {
@@ -278,7 +276,7 @@
         }
         .tp-sub {
             font-size: 12px;
-            color: rgba(255,255,255,0.5);
+            color: #d9d9d9;
             margin-top: 3px;
             line-height: 1.45;
         }
@@ -337,28 +335,30 @@
         }
         .tp-btn:active { transform: scale(0.97); }
         .tp-btn-icon { font-size: 20px; }
-        .tp-btn-arrow {
-            position: absolute;
-            right: 18px;
-            font-size: 16px;
-            opacity: 0.7;
+        /* Botões duplos */
+        .tp-btn-row {
+            display: flex;
+            gap: 10px;
         }
-        /* Close */
-        .tp-close {
-            position: absolute;
-            top: 12px; right: 12px;
-            width: 28px; height: 28px;
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            color: rgba(255,255,255,0.45);
-            font-size: 12px;
+        .tp-btn-later {
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 15px 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px;
+            color: rgba(255,255,255,0.65);
+            font-size: 14px;
+            font-weight: 700;
             cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
             transition: background 0.2s;
-            z-index: 10;
         }
-        .tp-close:active { background: rgba(255,255,255,0.15); }
+        .tp-btn-later:active { background: rgba(255,255,255,0.14); transform: scale(0.97); }
         /* Partículas */
         .tp-particles {
             position: absolute;
@@ -1109,9 +1109,8 @@
 
 <!-- ===== POPUP TICKET GANHO ===== -->
 <div id="ticketPopupWrap">
-    <div id="ticketPopupCard" onclick="irParaRoleta()">
+    <div id="ticketPopupCard">
         <div class="tp-topbar"></div>
-        <button class="tp-close" onclick="fecharTicketPopup(event)">✕</button>
         <div class="tp-body">
             <div class="tp-row">
                 <div class="tp-emoji">🎟️</div>
@@ -1120,11 +1119,16 @@
                     <div class="tp-sub" id="tp-subtitulo">Continue comprando e ganhe mais 🎉</div>
                 </div>
             </div>
-            <button class="tp-btn" style="pointer-events:none;">
-                <span class="tp-btn-icon">🎮</span>
-                <span>Jogar agora!</span>
-                <span class="tp-btn-arrow">›</span>
-            </button>
+            <div class="tp-btn-row">
+                <button class="tp-btn-later" onclick="fecharTicketPopup(event)">
+                    <span>⏰</span>
+                    <span>Jogar depois</span>
+                </button>
+                <button class="tp-btn" onclick="irParaRoleta()" style="flex:1.4;">
+                    <span class="tp-btn-icon">🎮</span>
+                    <span>Jogar agora!</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1667,7 +1671,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0 };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1689,6 +1693,8 @@ window.onload = async () => {
                     await loadProducts();
                     // Reativa push para quem já estava logado
                     ativarNotificacoesPush(savedPhone);
+                    // Verifica se ganhou tickets enquanto estava offline
+                    verificarTicketsGanhos(savedPhone, client.tickets || 0);
                     return;
                 }
             } catch (e) {
@@ -1794,7 +1800,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0 };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -1824,8 +1830,8 @@ async function auth() {
     // Ativa push notifications para o cliente logado
     ativarNotificacoesPush(phone);
 
-    // Liberar tickets pendentes se já passou 6h
-    liberarTicketsPendentes(phone);
+    // Verifica se ganhou tickets enquanto estava offline
+    verificarTicketsGanhos(phone, client.tickets || 0);
     
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
     setTimeout(() => {
@@ -3230,47 +3236,31 @@ function abrirJogos() {
 }
 
 
-async function liberarTicketsPendentes(phone) {
+// ===== VERIFICAÇÃO DE TICKETS GANHOS (sem Supabase) =====
+// Compara o saldo atual de tickets com o valor salvo anteriormente no localStorage.
+// Se o saldo subiu, exibe o popup de celebração com a quantidade de tickets novos.
+// Chamado sempre que o app carrega os dados do usuário (login ou auto-login).
+function verificarTicketsGanhos(phone, ticketsAtuais) {
     try {
-        const chaveNotificado = 'ticket_notificado_' + phone;
-        const ultimoTicketNotificado = parseInt(sessionStorage.getItem(chaveNotificado) || '0');
+        const chave = 'ticket_anterior_' + phone;
+        const ticketsAnteriores = parseInt(localStorage.getItem(chave));
 
-        const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', phone).maybeSingle();
-        if (!gt) return;
-
-        const ticketsAtuais = gt.tickets || 0;
-        const ticketsPendentes = gt.tickets_pendentes || 0;
-        const liberarEm = gt.tickets_liberar_em ? new Date(gt.tickets_liberar_em) : null;
-        const agora = new Date();
-
-        // Se passou de 15h E ainda tem tickets pendentes, LIBERA IMEDIATAMENTE
-        if (liberarEm && agora >= liberarEm && ticketsPendentes > 0) {
-            console.log(`🎟️ Liberando ${ticketsPendentes} ticket(s) que estavam pendentes!`);
-            
-            // Atualiza no banco: move tickets pendentes para disponíveis
-            await sb.from('clientes').update({
-                tickets: ticketsAtuais + ticketsPendentes,
-                tickets_pendentes: 0,
-                tickets_liberar_em: null
-            }, { onConflict: 'phone' });
-
-            // Mostra popup celebração
-            setTimeout(() => mostrarTicketPopup(ticketsPendentes), 600);
-            
-            // Atualiza sessionStorage
-            sessionStorage.setItem(chaveNotificado, ticketsAtuais + ticketsPendentes);
+        // Primeira vez que o usuário usa o app: apenas salva o saldo atual como base
+        if (isNaN(ticketsAnteriores)) {
+            console.log(`🎟️ [Tickets] Primeira vez — salvando saldo base: ${ticketsAtuais}`);
+            localStorage.setItem(chave, ticketsAtuais);
             return;
         }
 
-        // Verifica se já havia sido notificado antes
-        if (ticketsAtuais > ultimoTicketNotificado && ultimoTicketNotificado > 0) {
-            const novosTickets = ticketsAtuais - ultimoTicketNotificado;
-            console.log(`🎟️ ${novosTickets} ticket(s) liberados!`);
-            setTimeout(() => mostrarTicketPopup(novosTickets), 600);
+        // Saldo subiu enquanto estava offline → mostra popup com a diferença
+        if (ticketsAtuais > ticketsAnteriores) {
+            const novosTickets = ticketsAtuais - ticketsAnteriores;
+            console.log(`🎟️ [Tickets] ${novosTickets} ticket(s) ganho(s) offline! (${ticketsAnteriores} → ${ticketsAtuais})`);
+            setTimeout(() => mostrarTicketPopup(novosTickets), 800);
         }
 
-        // Salva o saldo atual para comparar na próxima vez
-        sessionStorage.setItem(chaveNotificado, ticketsAtuais);
+        // Atualiza o saldo salvo (independente de ter subido ou não)
+        localStorage.setItem(chave, ticketsAtuais);
 
     } catch(e) {
         console.warn('❌ Erro ao verificar tickets:', e);
