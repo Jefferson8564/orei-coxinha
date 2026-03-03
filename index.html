@@ -1913,13 +1913,13 @@ async function auth() {
     // Liberar tickets pendentes se já passou 6h
     liberarTicketsPendentes(phone);
     
-    // ✅ MONITOR CONTÍNUO - Verifica tickets a cada 30 segundos
-    // Isso garante que se o cliente volta online, vê o popup rapidinho
+    // ✅ MONITOR CONTÍNUO - Verifica tickets a cada 10 segundos
+    // Isso garante detecção rápida de mudanças
     window.ticketCheckInterval = setInterval(() => {
         if (user && user.phone) {
             liberarTicketsPendentes(user.phone);
         }
-    }, 30000); // a cada 30 segundos
+    }, 10000); // a cada 10 segundos
     
     // ✅ VERIFICAR QUANDO ABA VOLTA VISÍVEL (tabs/apps)
     // Garante que verifica imediatamente quando volta do background
@@ -3404,28 +3404,29 @@ async function liberarTicketsPendentes(phone) {
         const ticketsAtuais = gt.tickets || 0;
         const ticketAnterior = parseInt(sessionStorage.getItem(chaveTicketSalvo) || '0');
 
-        console.log(`🎟️ Verificação de tickets: tinha ${ticketAnterior} → agora tem ${ticketsAtuais}`);
+        console.log(`🎟️ Verificação de tickets para ${phone}`);
+        console.log(`   Supabase: ${ticketsAtuais} | SessionStorage: ${ticketAnterior}`);
 
-        // 🎯 MOSTRAR NOTIFICAÇÃO APENAS SE HOUVER AUMENTO
-        if (ticketsAtuais > ticketAnterior && ticketAnterior > 0) {
-            // Só mostra se tinha tickets antes (não na primeira vez)
+        // 🎯 MOSTRAR NOTIFICAÇÃO SE HOUVER AUMENTO
+        if (ticketsAtuais > ticketAnterior) {
+            // Mostrar notificação se há aumento
             const novosTickets = ticketsAtuais - ticketAnterior;
-            console.log(`✅ ${novosTickets} novo(s) ticket(s) ganho(s)!`);
-            console.log(`   Cliente tinha: ${ticketAnterior}`);
-            console.log(`   Cliente tem agora: ${ticketsAtuais}`);
+            console.log(`✅ ${novosTickets} novo(s) ticket(s) detectado(s)!`);
+            console.log(`   Mudança: ${ticketAnterior} → ${ticketsAtuais}`);
             
-            // Mostrar notificação
+            // Mostrar notificação com delay para garantir DOM
             setTimeout(() => {
                 mostrarTicketPopup(novosTickets);
             }, 100);
-        } else if (ticketAnterior === 0 && ticketsAtuais > 0) {
-            // Primeira vez que está verificando, só salva o valor base
-            console.log(`📊 Primeira verificação - baseline de tickets: ${ticketsAtuais}`);
+        } else if (ticketsAtuais === ticketAnterior && ticketAnterior > 0) {
+            console.log(`ℹ️ Nenhuma mudança de tickets (${ticketsAtuais})`);
+        } else if (ticketAnterior === 0) {
+            console.log(`📊 Primeira verificação - salvando baseline: ${ticketsAtuais}`);
         }
 
-        // SEMPRE salva o valor atual para próxima comparação
-        // Isso é essencial! Permite detectar a mudança na próxima vez
+        // SEMPRE SALVA o valor atual para próxima comparação
         sessionStorage.setItem(chaveTicketSalvo, ticketsAtuais);
+        console.log(`💾 Salvo em sessionStorage: ${chaveTicketSalvo} = ${ticketsAtuais}`);
 
     } catch(e) {
         console.error('❌ Erro ao verificar tickets:', e.message || e);
