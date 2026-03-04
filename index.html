@@ -1489,22 +1489,22 @@ function _janelaPedido() {
   const horaAtual = parseInt(p.hour) * 60 + parseInt(p.minute);
 
   let diaInicio, diaFim;
-  if (horaAtual >= 14 * 60) {
-    // Depois das 14h → entra na rota de amanhã
+  if (horaAtual >= (14 * 60 + 30)) {
+    // A partir das 14:30 → entra na rota de amanhã
     diaInicio = hoje;
     const amanhaDate = new Date(agora.getTime() + 86400000);
     const pa = _partesSP(amanhaDate);
     diaFim = `${pa.year}-${pa.month}-${pa.day}`;
   } else {
-    // Antes das 14h → entra na rota de hoje
+    // Antes das 14:30 → entra na rota de hoje
     const ontemDate = new Date(agora.getTime() - 86400000);
     const po = _partesSP(ontemDate);
     diaInicio = `${po.year}-${po.month}-${po.day}`;
     diaFim = hoje;
   }
   return {
-    inicio: diaInicio + 'T14:00:00-03:00',
-    fim:    diaFim   + 'T13:59:59-03:00'
+    inicio: diaInicio + 'T14:30:00-03:00',
+    fim:    diaFim   + 'T14:29:59-03:00'
   };
 }
 
@@ -1629,7 +1629,7 @@ window.onload = async () => {
         let forceReloadVersao = localStorage.getItem('force_reload_version') || '0';
         try {
             const { data: cfgs } = await comTimeout(
-                sb.from("configs").select("chave, valor").in("chave", ["msg_template", "force_reload_version"]),
+                sb.from("configs").select("key, value").in("key", ["msg_template", "force_reload_version"]),
                 6000, 'Timeout ao carregar configurações'
             );
             if (cfgs) {
@@ -2278,7 +2278,7 @@ async function confirmOrder() {
         try {
             const janela = _janelaPedido();
             const horaAtual = parseInt(_partesSP().hour) * 60 + parseInt(_partesSP().minute);
-            const eParaAmanha = horaAtual >= 14 * 60;
+            const eParaAmanha = horaAtual >= (14 * 60 + 30); // regra: 14:30
 
             // Busca cadastro do cliente para pegar coordenadas
             const { data: cliDados } = await sb.from('clientes')
@@ -2367,11 +2367,11 @@ async function confirmOrder() {
 
         // Rota aleatória
         try {
-            const { data: raData } = await sb.from('rota_especial_gps').select('valor').eq('chave', 'rota_aleatoria').maybeSingle();
+            const { data: raData } = await sb.from('gps').select('valor').eq('chave', 'rota_aleatoria').maybeSingle();
             if (raData?.valor) {
                 let raConfig = JSON.parse(raData.valor);
                 if (raConfig.ativa) {
-                    const brt = horasBRT(new Date()); // hora de São Paulo via Intl (sem offset manual)
+                    const brt = horasBRT(new Date());
                     const hAtual = brt.getHours() * 60 + brt.getMinutes();
                     const [hI, mI] = (raConfig.hora_inicio || '07:00').split(':').map(Number);
                     const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
@@ -2383,7 +2383,7 @@ async function confirmOrder() {
                             if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
                                 fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
                                 raConfig.clientes_fila = fila;
-                                await sb.from('rota_especial_gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
+                                await sb.from('gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
                                 showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
                             }
                         }
@@ -2393,7 +2393,7 @@ async function confirmOrder() {
         } catch(e) { console.warn('Rota RA:', e); }
 
         // Atualizar dívida
-        await sb.from("cadastros").update({ debt: newDebt }).eq("phone", user.phone);
+        await sb.from("clientes").update({ debt: newDebt }).eq("phone", user.phone);
         user.debt = newDebt; atualizarCabecalho();
 
         let finalMsg = msgTemplate
@@ -2529,7 +2529,7 @@ async function limparCacheTodos() {
 
     try {
         const novaVersao = Date.now().toString();
-        const { error } = await sb.from("configuracoes")
+        const { error } = await sb.from("configs")
             .upsert({ key: 'force_reload_version', value: novaVersao }, { onConflict: 'key' });
 
         if (error) throw error;
@@ -2555,7 +2555,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
-            table: 'configuracoes',
+            table: 'configs',
             filter: 'key=eq.force_reload_version'
         }, (payload) => {
             const novaVersao = payload.new?.value;
@@ -2570,7 +2570,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
-            table: 'configuracoes'
+            table: 'configs'
         }, (payload) => {
             const chave = payload.new?.key || '';
             const phone = localStorage.getItem('salgados_phone');
@@ -2774,9 +2774,10 @@ async function renderHistoricoSaldo() {
         <div class="spinner" style="margin:0 auto;border-color:rgba(255,255,255,0.15);border-top-color:rgba(255,255,255,0.7);"></div>
     </div>`;
 
-    const { data: pagamentos } = await sb.from("pagamentos_reembolsos")
-        .select("id, amount, saldo_anterior, saldo_posterior, tipo, created_at")
-        .eq("client_phone", user.phone)
+    // Histórico baseado em pedidos (pagamentos_reembolsos migrado para pedidos)
+    const { data: pagamentos } = await sb.from("pedidos")
+        .select("id, total, payment_method, status, created_at")
+        .eq("customer_phone", user.phone)
         .order("created_at", { ascending: false })
         .limit(8);
 
@@ -2784,14 +2785,10 @@ async function renderHistoricoSaldo() {
     let itens = [];
 
     (pagamentos || []).forEach(p => {
-        const isReembolso = p.tipo === 'reembolso';
-        const valor = parseFloat(p.amount || 0);
-        const saldoApos = parseFloat(p.saldo_posterior || 0);
-        const saldoLabel = saldoApos > 0
-            ? `Saldo: R$ ${saldoApos.toFixed(2).replace('.',',')}`
-            : saldoApos < 0
-            ? `Crédito: R$ ${Math.abs(saldoApos).toFixed(2).replace('.',',')}`
-            : 'Pagar depois quitado!';
+        const isReembolso = (p.status || '').toLowerCase().includes('cancel') || (p.status || '').toLowerCase().includes('reembolso');
+        const valor = parseFloat(p.total || 0);
+        const metodo = p.payment_method || '';
+        const saldoLabel = isReembolso ? 'Pedido cancelado' : `${metodo}`;
         
         // Definir cores baseadas no tema e tipo
         let cor;
@@ -2954,8 +2951,8 @@ async function renderHistoricoSaldo() {
                     setTimeout(() => {
                         // Deletar registro do Supabase
                         if (item.id) {
-                            sb.from("pagamentos_reembolsos").delete().eq("id", item.id).then(({ error }) => {
-                                if (error) console.warn('Erro ao deletar pagamento:', error);
+                            sb.from("pedidos").update({ status: 'cancelado' }).eq("id", item.id).then(({ error }) => {
+                                if (error) console.warn('Erro ao cancelar pedido:', error);
                             });
                         }
                         wrapper.remove();
@@ -3007,7 +3004,7 @@ async function verificarConectividadeGPS() {
             .limit(1).maybeSingle();
         if (!data || !data.gps_lat || !data.gps_lon) {
             try {
-                const { data: gpsAvulso } = await sb.from("rota_especial_gps")
+                const { data: gpsAvulso } = await sb.from("gps")
                     .select("valor").eq("chave", "entregador_gps").maybeSingle();
                 if (gpsAvulso?.valor) {
                     const g = JSON.parse(gpsAvulso.valor);
