@@ -1671,7 +1671,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0 };
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0, diamantes: client.diamantes || 0 };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1800,7 +1800,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0 };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0, diamantes: client.diamantes || 0 };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -2335,34 +2335,50 @@ async function confirmOrder() {
         } catch(e) { console.warn('Erro ao adicionar nas paradas:', e); }
         // ===== FIM REGRA DAS 14H =====
 
-        // Tickets de jogo
-        if (method !== 'FIADO') {
+        // Tickets e Diamantes de jogo — só para PAGA NA ENTREGA
+        if (method === 'PAGA NA ENTREGA') {
             try {
-                const { data: cfgTicket } = await sb.from('configs').select('value').eq('key', 'ticket_valor_reais').maybeSingle();
-                const valorPorTicket = cfgTicket ? Number(cfgTicket.value) : 0;
-                if (valorPorTicket > 0) {
-                    const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', user.phone).maybeSingle();
-                    const novoTotalGasto = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
-                    const ticketsAtual = gt ? (gt.tickets || 0) : 0;
-                    const ticketsPendentes = gt ? (gt.tickets_pendentes || 0) : 0;
-                    const novosTickets = Math.max(0, Math.floor(novoTotalGasto / valorPorTicket) - (ticketsAtual + ticketsPendentes));
-                    // Libera todo dia às 15h (horário de SP)
-                    const _agora = new Date();
-                    const _pAgora = _partesSP(_agora);
-                    const _horaAtual = parseInt(_pAgora.hour) * 60 + parseInt(_pAgora.minute);
-                    const _liberacaoHoje = new Date(`${_pAgora.year}-${_pAgora.month}-${_pAgora.day}T15:00:00-03:00`);
-                    const liberarEm = (_horaAtual < 15 * 60 ? _liberacaoHoje : new Date(_liberacaoHoje.getTime() + 86400000)).toISOString();
-                    await sb.from('clientes').update({
-                        tickets: ticketsAtual,
-                        tickets_pendentes: ticketsPendentes + (novosTickets > 0 ? novosTickets : 0),
-                        total_gasto: novoTotalGasto,
-                        tickets_liberar_em: novosTickets > 0 ? liberarEm : (gt?.tickets_liberar_em || null),
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'phone' });
-                    // Mostra popup celebração se ganhou ticket(s)
-                    if (novosTickets > 0) setTimeout(() => mostrarTicketPopup(novosTickets), 2400);
-                }
-            } catch(e) { console.warn('Tickets:', e); }
+                const [cfgTk, cfgDi] = await Promise.all([
+                    sb.from('configs').select('value').eq('key', 'ticket_valor_reais').maybeSingle(),
+                    sb.from('configs').select('value').eq('key', 'diamante_valor_reais').maybeSingle(),
+                ]);
+                const valorPorTicket   = cfgTk?.data ? Number(cfgTk.data.value) : 0;
+                const valorPorDiamante = cfgDi?.data ? Number(cfgDi.data.value) : 0;
+
+                const { data: gt } = await sb.from('clientes')
+                    .select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em,diamantes,diamantes_pendentes,diamantes_liberar_em')
+                    .eq('phone', user.phone).maybeSingle();
+
+                const novoTotalGasto    = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
+                const ticketsAtual      = gt ? (gt.tickets || 0) : 0;
+                const ticketsPendentes  = gt ? (gt.tickets_pendentes || 0) : 0;
+                const diamantesAtual    = gt ? (gt.diamantes || 0) : 0;
+                const diamantesPendentes = gt ? (gt.diamantes_pendentes || 0) : 0;
+
+                const novosTickets   = valorPorTicket   > 0 ? Math.max(0, Math.floor(novoTotalGasto / valorPorTicket)   - (ticketsAtual   + ticketsPendentes))   : 0;
+                const novosDiamantes = valorPorDiamante > 0 ? Math.max(0, Math.floor(novoTotalGasto / valorPorDiamante) - (diamantesAtual + diamantesPendentes)) : 0;
+
+                // Libera às 15h SP (ou amanhã 15h se já passou das 15h)
+                const _agora = new Date();
+                const _pAgora = _partesSP(_agora);
+                const _horaAtual = parseInt(_pAgora.hour) * 60 + parseInt(_pAgora.minute);
+                const _liberacaoHoje = new Date(`${_pAgora.year}-${_pAgora.month}-${_pAgora.day}T15:00:00-03:00`);
+                const liberarEm = (_horaAtual < 15 * 60 ? _liberacaoHoje : new Date(_liberacaoHoje.getTime() + 86400000)).toISOString();
+
+                await sb.from('clientes').update({
+                    total_gasto:            novoTotalGasto,
+                    tickets:                ticketsAtual,
+                    tickets_pendentes:      ticketsPendentes   + novosTickets,
+                    tickets_liberar_em:     novosTickets   > 0 ? liberarEm : (gt?.tickets_liberar_em || null),
+                    diamantes:              diamantesAtual,
+                    diamantes_pendentes:    diamantesPendentes + novosDiamantes,
+                    diamantes_liberar_em:   novosDiamantes > 0 ? liberarEm : (gt?.diamantes_liberar_em || null),
+                }).eq('phone', user.phone);
+
+                if (novosTickets   > 0) setTimeout(() => mostrarTicketPopup(novosTickets, 'ticket'),   2400);
+                if (novosDiamantes > 0) setTimeout(() => mostrarTicketPopup(novosDiamantes, 'diamante'), novosTickets > 0 ? 5500 : 2400);
+
+            } catch(e) { console.warn('Tickets/Diamantes:', e); }
         }
 
         // Rota aleatória
@@ -3145,9 +3161,22 @@ function carregarTemaSalvo() {
 // ===== POPUP TICKET GANHO =====
 let _tpTimer = null;
 
-function mostrarTicketPopup(qtd) {
+function mostrarTicketPopup(qtd, tipo = 'ticket') {
     const card = document.getElementById('ticketPopupCard');
     if (!card) return;
+
+    // Atualiza conteúdo conforme tipo
+    const isTk = tipo === 'ticket';
+    const emoji = isTk ? '🎟️' : '💎';
+    const nome  = isTk ? (qtd === 1 ? 'um ticket!' : `${qtd} tickets!`) : (qtd === 1 ? 'um diamante!' : `${qtd} diamantes!`);
+    const sub   = isTk ? 'Use na roleta e no foguete 🎉' : 'Use no Campo Minado 🎉';
+
+    const elEmoji = card.querySelector('.tp-emoji');
+    const elTitulo = document.getElementById('tp-titulo');
+    const elSub    = document.getElementById('tp-subtitulo');
+    if (elEmoji)  elEmoji.textContent  = emoji;
+    if (elTitulo) elTitulo.innerHTML   = `Você ganhou<br>${nome}`;
+    if (elSub)    elSub.textContent    = sub;
 
     // Animação entrada
     card.classList.remove('tp-leaving', 'tp-visible');
@@ -3237,20 +3266,24 @@ function abrirJogos() {
 // Usa os dados que já foram buscados no login/auto-login.
 // Trata dois casos:
 //   1. Tickets pendentes com prazo passado → libera e mostra popup
-//   2. Coluna tickets subiu (ADM adicionou) → mostra popup com a diferença
+//   2. Coluna tickets/diamantes subiu → mostra popup com a diferença
 async function verificarTicketsGanhos(phone, client) {
     try {
         const chave = 'ticket_anterior_' + phone;
-        const ticketsSalvos = parseInt(localStorage.getItem(chave));
+        const chaveDi = 'diamante_anterior_' + phone;
+        const ticketsSalvos   = parseInt(localStorage.getItem(chave));
+        const diamantesSalvos = parseInt(localStorage.getItem(chaveDi));
 
-        let ticketsAtuais = client.tickets || 0;
-        const ticketsPendentes = client.tickets_pendentes || 0;
-        const liberarEm = client.tickets_liberar_em ? new Date(client.tickets_liberar_em) : null;
+        let ticketsAtuais    = client.tickets    || 0;
+        let diamantesAtuais  = client.diamantes  || 0;
+        const ticketsPendentes   = client.tickets_pendentes   || 0;
+        const diamantesPendentes = client.diamantes_pendentes || 0;
+        const liberarEmTk = client.tickets_liberar_em   ? new Date(client.tickets_liberar_em)   : null;
+        const liberarEmDi = client.diamantes_liberar_em ? new Date(client.diamantes_liberar_em) : null;
         const agora = new Date();
 
         // ── Caso 1: tickets pendentes com prazo passado → libera ──
-        if (liberarEm && agora >= liberarEm && ticketsPendentes > 0) {
-            console.log(`🎟️ [Tickets] Liberando ${ticketsPendentes} ticket(s) pendente(s)`);
+        if (liberarEmTk && agora >= liberarEmTk && ticketsPendentes > 0) {
             try {
                 await sb.from('clientes').update({
                     tickets: ticketsAtuais + ticketsPendentes,
@@ -3258,35 +3291,52 @@ async function verificarTicketsGanhos(phone, client) {
                     tickets_liberar_em: null
                 }).eq('phone', phone);
             } catch(e) { console.warn('Erro ao liberar tickets pendentes:', e); }
-
             ticketsAtuais += ticketsPendentes;
-            setTimeout(() => mostrarTicketPopup(ticketsPendentes), 800);
+            setTimeout(() => mostrarTicketPopup(ticketsPendentes, 'ticket'), 800);
             localStorage.setItem(chave, ticketsAtuais);
-            return;
         }
 
-        // ── Caso 2: primeira vez (nunca teve registro) ──
-        // Mesmo na primeira vez: se ADM já colocou tickets, mostra popup
+        // ── Caso 1b: diamantes pendentes com prazo passado → libera ──
+        if (liberarEmDi && agora >= liberarEmDi && diamantesPendentes > 0) {
+            try {
+                await sb.from('clientes').update({
+                    diamantes: diamantesAtuais + diamantesPendentes,
+                    diamantes_pendentes: 0,
+                    diamantes_liberar_em: null
+                }).eq('phone', phone);
+            } catch(e) { console.warn('Erro ao liberar diamantes pendentes:', e); }
+            diamantesAtuais += diamantesPendentes;
+            setTimeout(() => mostrarTicketPopup(diamantesPendentes, 'diamante'), ticketsPendentes > 0 ? 3500 : 800);
+            localStorage.setItem(chaveDi, diamantesAtuais);
+        }
+
+        if ((liberarEmTk && agora >= liberarEmTk && ticketsPendentes > 0) ||
+            (liberarEmDi && agora >= liberarEmDi && diamantesPendentes > 0)) return;
+
+        // ── Caso 2: primeira vez ──
         if (isNaN(ticketsSalvos)) {
-            console.log(`🎟️ [Tickets] Primeira entrada — saldo base: ${ticketsAtuais}`);
-            if (ticketsAtuais > 0) {
-                setTimeout(() => mostrarTicketPopup(ticketsAtuais), 800);
-            }
+            if (ticketsAtuais > 0) setTimeout(() => mostrarTicketPopup(ticketsAtuais, 'ticket'), 800);
             localStorage.setItem(chave, ticketsAtuais);
-            return;
+        } else if (ticketsAtuais > ticketsSalvos) {
+            // ── Caso 3: saldo subiu ──
+            setTimeout(() => mostrarTicketPopup(ticketsAtuais - ticketsSalvos, 'ticket'), 800);
+            localStorage.setItem(chave, ticketsAtuais);
+        } else {
+            localStorage.setItem(chave, ticketsAtuais);
         }
 
-        // ── Caso 3: saldo subiu (ADM adicionou ou qualquer outra origem) ──
-        if (ticketsAtuais > ticketsSalvos) {
-            const novos = ticketsAtuais - ticketsSalvos;
-            console.log(`🎟️ [Tickets] +${novos} ticket(s) detectado(s)! (${ticketsSalvos} → ${ticketsAtuais})`);
-            setTimeout(() => mostrarTicketPopup(novos), 800);
+        if (isNaN(diamantesSalvos)) {
+            if (diamantesAtuais > 0) setTimeout(() => mostrarTicketPopup(diamantesAtuais, 'diamante'), 2500);
+            localStorage.setItem(chaveDi, diamantesAtuais);
+        } else if (diamantesAtuais > diamantesSalvos) {
+            setTimeout(() => mostrarTicketPopup(diamantesAtuais - diamantesSalvos, 'diamante'), 2500);
+            localStorage.setItem(chaveDi, diamantesAtuais);
+        } else {
+            localStorage.setItem(chaveDi, diamantesAtuais);
         }
-
-        localStorage.setItem(chave, ticketsAtuais);
 
     } catch(e) {
-        console.warn('❌ Erro ao verificar tickets:', e);
+        console.warn('❌ Erro ao verificar tickets/diamantes:', e);
     }
 }
 
