@@ -2195,35 +2195,52 @@ async function carregarCupons() {
     const lista = document.getElementById('cupomLista');
     if (!box || !lista) return;
 
-    const { data } = await sb.from('pedidos')
-        .select('id, items, total')
-        .eq('customer_phone', user.phone)
-        .eq('payment_method', 'PREMIO')
-        .eq('status', 'pendente');
+    try {
+        const { data, error } = await sb.from('pedidos')
+            .select('id, items, total')
+            .eq('customer_phone', user.phone)
+            .eq('payment_method', 'PREMIO')
+            .in('status', ['pendente', 'ativo']);
 
-    // Agrupar cupons de desconto por porcentagem
-    const grupos = {};
-    (data || []).forEach(p => {
-        const pct = Number(p.total) || 0;
-        if (pct > 0) {
-            if (!grupos[pct]) grupos[pct] = { pct, ids: [], label: p.items };
-            grupos[pct].ids.push(p.id);
-        }
-    });
+        if (error) { console.warn('Erro ao carregar cupons:', error); box.style.display = 'none'; return; }
 
-    const cupons = Object.values(grupos);
-    if (!cupons.length) { box.style.display = 'none'; return; }
+        // Agrupar cupons de desconto por porcentagem
+        const grupos = {};
+        (data || []).forEach(p => {
+            const pct = Number(p.total) || 0;
+            if (pct > 0) {
+                if (!grupos[pct]) grupos[pct] = { pct, ids: [], label: p.items };
+                grupos[pct].ids.push(p.id);
+            }
+        });
 
-    box.style.display = 'block';
-    lista.innerHTML = cupons.map(c => {
-        const qtd = c.ids.length;
-        const label = qtd > 1 ? `${qtd}x cupom de ${c.pct}% OFF` : `Cupom de ${c.pct}% OFF`;
-        return `<label style="display:flex;align-items:center;gap:10px;background:white;border:1.5px solid #f1c40f;border-radius:10px;padding:10px 12px;cursor:pointer;">
-            <input type="radio" name="cupomSelect" value="${c.pct}" data-id="${c.ids[0]}" onchange="aplicarCupom(${c.pct}, '${c.ids[0]}')"
-                style="accent-color:#f1c40f;width:18px;height:18px;">
-            <span style="font-weight:700;color:#1a1a2e;font-size:14px;">🎟️ ${label}</span>
-        </label>`;
-    }).join('');
+        const cupons = Object.values(grupos).sort((a, b) => b.pct - a.pct);
+        if (!cupons.length) { box.style.display = 'none'; return; }
+
+        // Auto-seleciona o melhor cupom (maior %)
+        const melhor = cupons[0];
+        aplicarCupom(melhor.pct, melhor.ids[0]);
+
+        box.style.display = 'block';
+        lista.innerHTML = cupons.map((c, i) => {
+            const qtd = c.ids.length;
+            const badge = qtd > 1
+                ? `<span style="background:#f1c40f;color:#333;font-size:11px;font-weight:900;padding:2px 8px;border-radius:20px;margin-left:6px;">${qtd}x</span>`
+                : '';
+            const checked = i === 0 ? 'checked' : '';
+            const selectedStyle = i === 0
+                ? 'background:#fffbea;border:2px solid #e6b800;'
+                : 'background:white;border:1.5px solid #f1c40f;';
+            return `<label style="display:flex;align-items:center;gap:10px;${selectedStyle}border-radius:10px;padding:10px 12px;cursor:pointer;">
+                <input type="radio" name="cupomSelect" value="${c.pct}" data-id="${c.ids[0]}" onchange="aplicarCupom(${c.pct}, '${c.ids[0]}')"
+                    style="accent-color:#f1c40f;width:18px;height:18px;" ${checked}>
+                <span style="font-weight:700;color:#1a1a2e;font-size:14px;display:flex;align-items:center;">🎟️ Cupom ${c.pct}% OFF${badge}</span>
+            </label>`;
+        }).join('');
+    } catch(e) {
+        console.warn('Erro inesperado ao carregar cupons:', e);
+        box.style.display = 'none';
+    }
 }
 
 function aplicarCupom(pct, id) {
