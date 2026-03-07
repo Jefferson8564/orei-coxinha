@@ -2196,20 +2196,22 @@ async function carregarCupons() {
     if (!box || !lista) return;
 
     try {
-        const { data, error } = await sb.from('pedidos')
-            .select('id, items, total')
+        const { data, error } = await sb.from('premios')
+            .select('id, descricao, jogo, cancelado, created_at')
             .eq('customer_phone', user.phone)
-            .eq('payment_method', 'PREMIO')
-            .in('status', ['pendente', 'ativo']);
+            .eq('cancelado', false)
+            .order('created_at', { ascending: false });
 
         if (error) { console.warn('Erro ao carregar cupons:', error); box.style.display = 'none'; return; }
 
-        // Agrupar cupons de desconto por porcentagem
+        // Agrupar cupons de desconto por porcentagem (extrair % da descricao)
         const grupos = {};
         (data || []).forEach(p => {
-            const pct = Number(p.total) || 0;
+            // Extrair porcentagem da descrição (ex: "🏷️ 10% OFF — 10% de desconto")
+            const match = p.descricao.match(/(\d+)%/);
+            const pct = match ? Number(match[1]) : 0;
             if (pct > 0) {
-                if (!grupos[pct]) grupos[pct] = { pct, ids: [], label: p.items };
+                if (!grupos[pct]) grupos[pct] = { pct, ids: [], label: p.descricao };
                 grupos[pct].ids.push(p.id);
             }
         });
@@ -2285,9 +2287,9 @@ async function confirmOrder() {
             customer_name: user.name, customer_phone: user.phone,
             total: finalTotal, payment_method: method, items: pedidoTexto
         });
-        // Resgatar cupom se foi usado
+        // Marcar cupom como resgatado (cancelado) se foi usado
         if (!errPedido && cupomId && cupomDescontoPct > 0) {
-            await sb.from('pedidos').update({ status: 'resgatado' }).eq('id', cupomId);
+            await sb.from('premios').update({ cancelado: true }).eq('id', cupomId);
         }
         if (errPedido) throw errPedido;
 
