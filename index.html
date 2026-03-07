@@ -2813,8 +2813,10 @@ async function renderHistoricoSaldo() {
 
     // Histórico baseado em pedidos (pagamentos_reembolsos migrado para pedidos)
     const { data: pagamentos } = await sb.from("pedidos")
-        .select("id, total, payment_method, status, created_at")
+        .select("id, total, payment_method, status, created_at, items")
         .eq("customer_phone", user.phone)
+        .neq("payment_method", "PREMIO")
+        .not("items", "ilike", "%🎮%")
         .order("created_at", { ascending: false })
         .limit(8);
 
