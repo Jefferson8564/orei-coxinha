@@ -2303,23 +2303,25 @@ async function confirmOrder() {
                 .eq('phone', user.phone).maybeSingle();
 
             if (cliDados?.delivery_lat && cliDados?.delivery_lon) {
-                // Busca todas as rotas que têm esse cliente no template
+                // Busca todas as rotas não concluídas
+                // ADM salva template dentro de 'paradas' como [{_meta:true,...}, {cliente_phone,...}, ...]
                 const { data: rotasComCliente } = await sb.from('rotas')
-                    .select('id, paradas_template, paradas, status, hora_saida')
-                    .neq('status', 'concluido');
+                    .select('id, paradas, status')
+                    .in('status', ['criada', 'aguardando']);
 
                 for (const rota of (rotasComCliente || [])) {
-                    const template = rota.paradas_template || [];
+                    const paradasAtuais = rota.paradas || [];
+                    // Template = entradas sem _meta (clientes fixos da rota)
+                    const metaEntry = paradasAtuais.find(p => p._meta);
+                    const template = paradasAtuais.filter(p => !p._meta);
+
+                    // Verifica se este cliente está no template da rota
                     const estaNoTemplate = template.find(p => p.cliente_phone === user.phone);
                     if (!estaNoTemplate) continue;
 
-                    // Só adiciona se a rota for do dia correto (hoje ou amanhã conforme a regra)
-                    // Rotas com status "criada" ou "aguardando" são candidatas
-                    if (rota.status !== 'criada' && rota.status !== 'aguardando') continue;
-
-                    const paradasAtuais = rota.paradas || [];
-                    const jaEstaNasParadas = paradasAtuais.find(p => p.cliente_phone === user.phone);
-                    if (jaEstaNasParadas) continue; // já está, não duplica
+                    // Verifica se já está nas paradas ativas (tem status definido)
+                    const jaEstaAtivo = paradasAtuais.find(p => !p._meta && p.cliente_phone === user.phone && p.status !== undefined);
+                    if (jaEstaAtivo) continue; // já está ativo, não duplica
 
                     // Monta a nova parada baseada no template
                     const tmplParada = template.find(p => p.cliente_phone === user.phone);
@@ -2331,22 +2333,24 @@ async function confirmOrder() {
                         status: 'pendente'
                     };
 
-                    // Se for para amanhã, não adiciona nas paradas de hoje
-                    // (o entregador vai regenerar amanhã via gerarParadasAtivas)
                     if (!eParaAmanha) {
-                        // Pedido antes das 14h → adiciona nas paradas ativas de hoje
+                        // Pedido antes das 14:30 → insere na posição correta mantendo a ordem do template
                         const novasParadas = [...paradasAtuais];
-                        // Insere na posição correta conforme o template
                         const idxTemplate = template.findIndex(p => p.cliente_phone === user.phone);
-                        const posInserir = novasParadas.filter((_, i) => {
-                            const phone = novasParadas[i].cliente_phone;
-                            return template.findIndex(t => t.cliente_phone === phone) < idxTemplate;
-                        }).length;
-                        novasParadas.splice(posInserir, 0, novaParada);
+                        // Conta quantas paradas ativas já existem antes desta no template
+                        const posInserir = novasParadas.findIndex((p, i) => {
+                            if (p._meta) return false;
+                            const idxNoTemplate = template.findIndex(t => t.cliente_phone === p.cliente_phone);
+                            return idxNoTemplate > idxTemplate;
+                        });
+                        if (posInserir === -1) {
+                            novasParadas.push(novaParada);
+                        } else {
+                            novasParadas.splice(posInserir, 0, novaParada);
+                        }
                         await sb.from('rotas').update({ paradas: novasParadas }).eq('id', rota.id);
                     }
-                    // Se for depois das 14h, não mexe nas paradas de hoje.
-                    // O entregador vai regenerar amanhã e pegar o pedido pela janela das 14h.
+                    // Se for depois das 14:30, não mexe nas paradas de hoje.
                 }
             }
         } catch(e) { console.warn('Erro ao adicionar nas paradas:', e); }
