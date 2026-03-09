@@ -1458,6 +1458,10 @@ function _partesSP(d) {
   return Object.fromEntries(fmt.formatToParts(d || new Date()).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
 }
 
+function _getViradaHoraMin(diaSemana) {
+  return diaSemana === 0 ? [8, 0] : [14, 30];
+}
+
 /** Retorna Date "espelhado" para SP — getHours()/getMinutes() retornam BRT/BRST correto. */
 function horasBRT(d) {
   const p = _partesSP(d);
@@ -1478,33 +1482,36 @@ function ontemStr() {
 }
 
 /**
- * Janela de pedido com a regra das 14h:
- * - Antes das 14h → janela: ontem 14h até hoje 13:59 (rota de hoje)
- * - Depois das 14h → janela: hoje 14h até amanhã 13:59 (rota de amanhã)
+ * Janela de pedido com a regra de virada dinâmica:
+ * - Domingo: 08:00 (segunda a sábado: 14:30)
+ * - Antes da hora de virada → janela: ontem até hoje (rota de hoje)
+ * - Depois da hora de virada → janela: hoje até amanhã (rota de amanhã)
  */
 function _janelaPedido() {
   const agora = new Date();
   const p = _partesSP(agora);
   const hoje = `${p.year}-${p.month}-${p.day}`;
   const horaAtual = parseInt(p.hour) * 60 + parseInt(p.minute);
+  const [vh, vm] = _getViradaHoraMin(agora.getDay());
+  const viradaMinutos = vh * 60 + vm;
 
   let diaInicio, diaFim;
-  if (horaAtual >= (14 * 60 + 30)) {
-    // A partir das 14:30 → entra na rota de amanhã
+  if (horaAtual >= viradaMinutos) {
+    // A partir da hora de virada → entra na rota de amanhã
     diaInicio = hoje;
     const amanhaDate = new Date(agora.getTime() + 86400000);
     const pa = _partesSP(amanhaDate);
     diaFim = `${pa.year}-${pa.month}-${pa.day}`;
   } else {
-    // Antes das 14:30 → entra na rota de hoje
+    // Antes da hora de virada → entra na rota de hoje
     const ontemDate = new Date(agora.getTime() - 86400000);
     const po = _partesSP(ontemDate);
     diaInicio = `${po.year}-${po.month}-${po.day}`;
     diaFim = hoje;
   }
   return {
-    inicio: diaInicio + 'T14:30:00-03:00',
-    fim:    diaFim   + 'T14:29:59-03:00'
+    inicio: diaInicio + `T${String(vh).padStart(2, '0')}:${String(vm).padStart(2, '0')}:00-03:00`,
+    fim:    diaFim   + `T${String(vh).padStart(2, '0')}:${String(vm - 1).padStart(2, '0')}:59-03:00`
   };
 }
 
