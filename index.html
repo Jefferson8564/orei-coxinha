@@ -2326,10 +2326,11 @@ async function confirmOrder() {
                     if (jaEstaAtivo) continue; // já está ativo, não duplica
 
                     // Monta a nova parada baseada no template
-                    const tmplParada = template.find(p => p.cliente_phone === user.phone);
+                    // coords NÃO é salvo: entregador busca delivery_lat/lon da tabela clientes
+                    // garantindo sempre o endereço mais recente (igual à correção do Admin)
+                    const { coords: _c, ...tmplParada } = template.find(p => p.cliente_phone === user.phone);
                     const novaParada = {
                         ...tmplParada,
-                        coords: [parseFloat(cliDados.delivery_lat), parseFloat(cliDados.delivery_lon)],
                         endereco: tmplParada.endereco || cliDados.delivery_address || '',
                         nome: tmplParada.nome || cliDados.name || user.name,
                         status: 'pendente'
@@ -3050,14 +3051,14 @@ async function verificarConectividadeGPS() {
                 if (gpsAvulso?.valor) {
                     const g = JSON.parse(gpsAvulso.valor);
                     const seg = Math.round((Date.now() - new Date(g.ts).getTime()) / 1000);
-                    if (g.lat && g.lon && seg < 300) { setGpsBadge(true); return; }
+                    if (g.lat && g.lon && seg < 60) { setGpsBadge(true); return; } // unificado: mesmo threshold da tabela rotas
                 }
             } catch(e) {}
             setGpsBadge(false);
             return;
         }
         const segundos = Math.round((Date.now() - new Date(data.gps_ts).getTime()) / 1000);
-        setGpsBadge(segundos < 120);
+        setGpsBadge(segundos < 60); // unificado: mesmo threshold do fallback
     } catch(e) { console.warn('verificarConectividade erro:', e); }
 }
 
