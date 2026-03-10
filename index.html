@@ -2198,6 +2198,10 @@ async function confirmOrder() {
     // Se usar crédito, também adiciona ao débito
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
 
+    // Salvar cupomId antes de fechar o modal (closePayModal zera as variáveis)
+    const cupomIdParaExcluir = cupomId;
+    const cupomPctParaExcluir = cupomDescontoPct;
+
     // Mostrar robozinho em modo SALVANDO
     closePayModal();
     const modal = document.getElementById('modalRoboConfirm');
@@ -2211,8 +2215,9 @@ async function confirmOrder() {
             total: finalTotal, payment_method: method, items: pedidoTexto
         });
         // Excluir cupom do Supabase quando usado
-        if (!errPedido && cupomId && cupomDescontoPct > 0) {
-            await sb.from('premios').delete().eq('id', cupomId);
+        if (!errPedido && cupomIdParaExcluir && cupomPctParaExcluir > 0) {
+            const { error: errCupom } = await sb.from('premios').delete().eq('id', cupomIdParaExcluir);
+            if (errCupom) console.warn('Erro ao excluir cupom:', errCupom);
         }
         if (errPedido) throw errPedido;
 
