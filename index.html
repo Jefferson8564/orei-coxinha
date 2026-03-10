@@ -2279,8 +2279,9 @@ async function confirmOrder() {
     const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
     const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - descontoCupomValor);
     let newDebt = user.debt;
+    // Fiado NÃO atualiza dívida aqui — o entregador registra na hora da entrega
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
-    if (method === 'FIADO') newDebt += finalTotal;
+    // if (method === 'FIADO') newDebt += finalTotal; ← movido para o entregador
 
     // Mostrar robozinho em modo SALVANDO
     closePayModal();
@@ -2313,54 +2314,60 @@ async function confirmOrder() {
 
             if (cliDados?.delivery_lat && cliDados?.delivery_lon) {
                 // Busca todas as rotas não concluídas
-                // ADM salva template dentro de 'paradas' como [{_meta:true,...}, {cliente_phone,...}, ...]
                 const { data: rotasComCliente } = await sb.from('rotas')
                     .select('id, paradas, status')
                     .in('status', ['criada', 'aguardando']);
 
                 for (const rota of (rotasComCliente || [])) {
                     const paradasAtuais = rota.paradas || [];
-                    // Template = entradas sem _meta (clientes fixos da rota)
-                    const metaEntry = paradasAtuais.find(p => p._meta);
                     const template = paradasAtuais.filter(p => !p._meta);
 
                     // Verifica se este cliente está no template da rota
                     const estaNoTemplate = template.find(p => p.cliente_phone === user.phone);
                     if (!estaNoTemplate) continue;
 
-                    // Verifica se já está nas paradas ativas (tem status definido)
-                    const jaEstaAtivo = paradasAtuais.find(p => !p._meta && p.cliente_phone === user.phone && p.status !== undefined);
-                    if (jaEstaAtivo) continue; // já está ativo, não duplica
+                    // Pedido após 14:30 → não mexe nas paradas de hoje
+                    if (eParaAmanha) continue;
 
-                    // Monta a nova parada baseada no template
-                    // coords NÃO é salvo: entregador busca delivery_lat/lon da tabela clientes
-                    // garantindo sempre o endereço mais recente (igual à correção do Admin)
-                    const { coords: _c, ...tmplParada } = template.find(p => p.cliente_phone === user.phone);
-                    const novaParada = {
-                        ...tmplParada,
-                        endereco: tmplParada.endereco || cliDados.delivery_address || '',
-                        nome: tmplParada.nome || cliDados.name || user.name,
-                        status: 'pendente'
-                    };
+                    // ── SISTEMA desativado: parada já existe com desativado:true → só ativa ──
+                    const paradaExistente = paradasAtuais.find(p => !p._meta && p.cliente_phone === user.phone);
 
-                    if (!eParaAmanha) {
-                        // Pedido antes das 14:30 → insere na posição correta mantendo a ordem do template
+                    if (paradaExistente) {
+                        // Parada já existe — só ativa se estiver desativada
+                        if (paradaExistente.desativado === false) continue; // já ativa, nada a fazer
+
+                        const novasParadas = paradasAtuais.map(p =>
+                            (!p._meta && p.cliente_phone === user.phone)
+                                ? { ...p, desativado: false, status: 'pendente',
+                                    entregue_em: null, pagamento: null,
+                                    endereco: cliDados.delivery_address || p.endereco,
+                                    nome: cliDados.name || p.nome }
+                                : p
+                        );
+                        await sb.from('rotas').update({ paradas: novasParadas }).eq('id', rota.id);
+
+                    } else {
+                        // Parada não existe → insere nova (rota sem template completo)
+                        const { coords: _c, ...tmplParada } = estaNoTemplate;
+                        const novaParada = {
+                            ...tmplParada,
+                            endereco: tmplParada.endereco || cliDados.delivery_address || '',
+                            nome: tmplParada.nome || cliDados.name || user.name,
+                            status: 'pendente',
+                            desativado: false
+                        };
+
                         const novasParadas = [...paradasAtuais];
                         const idxTemplate = template.findIndex(p => p.cliente_phone === user.phone);
-                        // Conta quantas paradas ativas já existem antes desta no template
-                        const posInserir = novasParadas.findIndex((p, i) => {
+                        const posInserir = novasParadas.findIndex(p => {
                             if (p._meta) return false;
                             const idxNoTemplate = template.findIndex(t => t.cliente_phone === p.cliente_phone);
                             return idxNoTemplate > idxTemplate;
                         });
-                        if (posInserir === -1) {
-                            novasParadas.push(novaParada);
-                        } else {
-                            novasParadas.splice(posInserir, 0, novaParada);
-                        }
+                        if (posInserir === -1) novasParadas.push(novaParada);
+                        else novasParadas.splice(posInserir, 0, novaParada);
                         await sb.from('rotas').update({ paradas: novasParadas }).eq('id', rota.id);
                     }
-                    // Se for depois das 14:30, não mexe nas paradas de hoje.
                 }
             }
         } catch(e) { console.warn('Erro ao adicionar nas paradas:', e); }
