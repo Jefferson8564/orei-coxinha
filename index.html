@@ -2279,9 +2279,10 @@ async function confirmOrder() {
     const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
     const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - descontoCupomValor);
     let newDebt = user.debt;
-    // Fiado NÃO atualiza dívida aqui — o entregador registra na hora da entrega
+    // Se cliente pedir FIADO, deposita na conta imediatamente
+    if (method === 'FIADO') newDebt += finalTotal;
+    // Se usar crédito, também adiciona ao débito
     if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
-    // if (method === 'FIADO') newDebt += finalTotal; ← movido para o entregador
 
     // Mostrar robozinho em modo SALVANDO
     closePayModal();
