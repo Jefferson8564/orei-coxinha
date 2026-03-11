@@ -1314,6 +1314,33 @@ const ADMIN_NUM = "81996603348";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ===== CALCULA VALOR REAL DO PEDIDO PELOS ITENS =====
+async function calcularValorRealPedido(itemsTexto) {
+    if (!itemsTexto) { console.warn('[calcValor] itemsTexto vazio/nulo'); return 0; }
+    try {
+        const { data: cardapio } = await sb.from('cardapio').select('name, price');
+        if (!cardapio) { console.warn('[calcValor] cardapio nulo'); return 0; }
+        let total = 0;
+        const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
+        console.log('[calcValor] linhas:', linhas);
+        console.log('[calcValor] cardapio nomes:', cardapio.map(p => p.name));
+        linhas.forEach(linha => {
+            const match = linha.match(/^(\d+)x\s+(.+)$/);
+            if (!match) { console.warn('[calcValor] linha sem match:', linha); return; }
+            const qtd  = parseInt(match[1]);
+            const nome = match[2].trim();
+            const prod = cardapio.find(p => p.name.trim() === nome);
+            if (prod) { total += qtd * Number(prod.price); console.log('[calcValor]', qtd, 'x', nome, '=', qtd * Number(prod.price)); }
+            else { console.warn('[calcValor] produto NÃO encontrado:', nome); }
+        });
+        console.log('[calcValor] total final:', total);
+        return total;
+    } catch(e) {
+        console.warn('Erro ao calcular valor real:', e);
+        return 0;
+    }
+}
+
 // ===== NOTIFICAÇÕES: função centralizada =====
 async function inserirNotificacao(customer_phone, tipo, valor, descricao) {
     try {
@@ -2497,18 +2524,16 @@ async function responderDuplicado(cancelar) {
 
             // 1. Verifica se o pedido ainda existe e não foi processado pelo ADM
             const { data: pedidoVerif } = await sb.from('pedidos')
-                .select('id, total, status')
+                .select('id, total, status, items')
                 .eq('id', anteriorId)
                 .maybeSingle();
 
             if (!pedidoVerif) {
-                // Pedido não existe mais
                 showToast('Pedido não encontrado.', 'warning', 3000);
                 return;
             }
 
             if (pedidoVerif.status === 'PAGO') {
-                // ADM já confirmou o pagamento — não estorna
                 showToast('Pedido já processado, não foi estornado.', 'warning', 3000);
                 return;
             }
@@ -2517,11 +2542,11 @@ async function responderDuplicado(cancelar) {
             await sb.from('pedidos').delete().eq('id', anteriorId);
             localStorage.removeItem('credit_used_' + anteriorId);
 
-            // 3. Estorna: devolve o valor pago + devolve o crédito usado
+            // 3. Estorna: calcula pelo valor real dos itens
+            const valorReal = await calcularValorRealPedido(pedidoVerif.items);
             const { data: cli } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
             if (cli !== null) {
-                // Subtrai o que foi cobrado (anteriorTotal) e devolve o crédito usado (anteriorCredito)
-                const novoDebt = (Number(cli.debt) || 0) - anteriorTotal - anteriorCredito;
+                const novoDebt = (Number(cli.debt) || 0) - valorReal;
                 await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
                 user.debt = novoDebt;
                 atualizarCabecalho();
@@ -2733,9 +2758,9 @@ async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
     if (!confirm('Cancelar este pedido e estornar R$ ' + Number(total).toFixed(2).replace('.',',') + '?')) return;
 
     try {
-        // Verifica se o pedido ainda existe no banco
+        // Verifica se o pedido ainda existe no banco (CORRIGIDO: adicionar 'items')
         const { data: verif } = await sb.from('pedidos')
-            .select('id, total, status, created_at')
+            .select('id, total, status, created_at, items')
             .eq('id', pedidoId)
             .maybeSingle();
 
@@ -2773,24 +2798,58 @@ async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
         window._canceladosPeloPainel = window._canceladosPeloPainel || new Set();
         window._canceladosPeloPainel.add(pedidoId);
 
-        // 1. Deleta o pedido
-        await sb.from('pedidos').delete().eq('id', pedidoId);
+        // 1. Marca pedido como cancelado (mantém histórico)
+        await sb.from('pedidos').update({ status: 'cancelado', entregue: false }).eq('id', pedidoId);
 
-        // 2. Estorna o valor no debt
-        if (total > 0) {
-            const { data: cli } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
-            if (cli !== null) {
-                const novoDebt = (Number(cli.debt) || 0) - total;
-                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-                user.debt = novoDebt;
-                atualizarCabecalho();
+        // 2. Calcula o valor real para reembolso
+        const valorReal = await calcularValorRealPedido(verif.items);
+        
+        // 3. Busca dados atuais do cliente
+        const { data: cli } = await sb.from('clientes')
+            .select('debt, tickets, tickets_pendentes, total_gasto, tickets_liberar_em')
+            .eq('phone', user.phone)
+            .maybeSingle();
+
+        if (cli !== null) {
+            // Estorna do debt
+            const novoDebt = Math.max(0, (Number(cli.debt) || 0) - valorReal);
+            
+            // Recalcula tickets e total_gasto (alinhado ao Adm.html)
+            let updateObj = { debt: novoDebt };
+            
+            try {
+                const { data: cfg } = await sb.from('configs')
+                    .select('value')
+                    .eq('key', 'ticket_valor_reais')
+                    .maybeSingle();
+                
+                const valorPorTicket = cfg ? Number(cfg.value) : 0;
+                if (valorPorTicket > 0) {
+                    const novoTotalGasto = Math.max(0, (Number(cli.total_gasto) || 0) - valorReal);
+                    const ticketsTotaisNovos = Math.floor(novoTotalGasto / valorPorTicket);
+                    const ticketsJaConfirmados = cli.tickets || 0;
+                    const novosPendentes = Math.max(0, ticketsTotaisNovos - ticketsJaConfirmados);
+                    
+                    updateObj = {
+                        ...updateObj,
+                        total_gasto: novoTotalGasto,
+                        tickets_pendentes: novosPendentes,
+                        updated_at: new Date().toISOString()
+                    };
+                }
+            } catch(e) {
+                console.warn('Erro ao recalcular tickets:', e);
             }
-
-            // Insere notificação de reembolso
-            await inserirNotificacao(user.phone, 'reembolso', total, 'Pedido cancelado pelo cliente');
+            
+            await sb.from('clientes').update(updateObj).eq('phone', user.phone);
+            user.debt = novoDebt;
+            atualizarCabecalho();
         }
 
-        // Remove o card com animação
+        // 4. Insere notificação de reembolso
+        await inserirNotificacao(user.phone, 'reembolso', valorReal, 'Pedido cancelado pelo cliente');
+
+        // 5. Remove o card com animação
         const card = document.getElementById('pedidoAtivoCard_' + pedidoId);
         if (card) {
             card.style.transition = 'opacity 0.3s, max-height 0.3s';
