@@ -1242,49 +1242,6 @@
 
 <!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
 <!-- MODAL: Pedido duplicado -->
-<div id="modalPedidoDuplicado" style="
-    position:fixed; inset:0;
-    background:rgba(0,0,0,0.75);
-    backdrop-filter:blur(10px);
-    -webkit-backdrop-filter:blur(10px);
-    display:none; align-items:center;
-    justify-content:center; z-index:4000;
-    flex-direction:column; padding:24px;
-">
-    <div style="
-        background:linear-gradient(135deg,#1a1a2e,#16213e);
-        border:1.5px solid rgba(255,255,255,0.12);
-        border-radius:24px;
-        padding:28px 24px;
-        max-width:360px; width:100%;
-        text-align:center;
-        box-shadow:0 20px 60px rgba(0,0,0,0.6);
-    ">
-        <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
-        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px;">
-            Pedido anterior encontrado!
-        </div>
-        <div id="txtPedidoDupInfo" style="font-size:13px; color:rgba(255,255,255,0.65); margin-bottom:24px; line-height:1.5;">
-            Você já fez um pedido há poucos minutos.<br>Deseja cancelar o pedido anterior?
-        </div>
-        <button id="btnDupCancelar" onclick="this.disabled=true; document.getElementById('btnDupManter').disabled=true; responderDuplicado(true)" style="
-            width:100%; padding:15px;
-            background:linear-gradient(135deg,#e74c3c,#c0392b);
-            color:white; font-size:15px; font-weight:800;
-            border:none; border-radius:14px;
-            margin-bottom:10px; cursor:pointer;
-            letter-spacing:0.2px;
-        ">🗑️ Cancelar o pedido anterior</button>
-        <button id="btnDupManter" onclick="this.disabled=true; document.getElementById('btnDupCancelar').disabled=true; responderDuplicado(false)" style="
-            width:100%; padding:15px;
-            background:rgba(255,255,255,0.1);
-            color:white; font-size:15px; font-weight:700;
-            border:1.5px solid rgba(255,255,255,0.2);
-            border-radius:14px; cursor:pointer;
-        ">✅ Manter os dois pedidos</button>
-    </div>
-</div>
-
 <div id="modalRoboConfirm" style="
     position:fixed; inset:0;
     backdrop-filter:blur(8px);
@@ -1315,32 +1272,6 @@ const ADMIN_NUM = "81996603348";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== CALCULA VALOR REAL DO PEDIDO PELOS ITENS =====
-async function calcularValorRealPedido(itemsTexto) {
-    if (!itemsTexto) { console.warn('[calcValor] itemsTexto vazio/nulo'); return 0; }
-    try {
-        const { data: cardapio } = await sb.from('cardapio').select('name, price');
-        if (!cardapio) { console.warn('[calcValor] cardapio nulo'); return 0; }
-        let total = 0;
-        const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
-        console.log('[calcValor] linhas:', linhas);
-        console.log('[calcValor] cardapio nomes:', cardapio.map(p => p.name));
-        linhas.forEach(linha => {
-            const match = linha.match(/^(\d+)x\s+(.+)$/);
-            if (!match) { console.warn('[calcValor] linha sem match:', linha); return; }
-            const qtd  = parseInt(match[1]);
-            const nome = match[2].trim();
-            const prod = cardapio.find(p => p.name.trim() === nome);
-            if (prod) { total += qtd * Number(prod.price); console.log('[calcValor]', qtd, 'x', nome, '=', qtd * Number(prod.price)); }
-            else { console.warn('[calcValor] produto NÃO encontrado:', nome); }
-        });
-        console.log('[calcValor] total final:', total);
-        return total;
-    } catch(e) {
-        console.warn('Erro ao calcular valor real:', e);
-        return 0;
-    }
-}
-
 // ===== NOTIFICAÇÕES: função centralizada =====
 async function inserirNotificacao(customer_phone, tipo, valor, descricao) {
     try {
@@ -2456,47 +2387,7 @@ async function confirmOrder() {
         cart = {}; creditDiscount = 0; cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; render();
         btn.disabled = false;
 
-        // ===== VERIFICAR PEDIDO DUPLICADO (últimos 20 min) =====
-        setTimeout(async () => {
-            modal.style.display = 'none';
-
-            try {
-                const vinte = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-                const { data: pedidosRecentes } = await sb.from('pedidos')
-                    .select('id, created_at, items, total, payment_method')
-                    .eq('customer_phone', user.phone)
-                    .neq('id', pedidoInserido.id)
-                    .gte('created_at', vinte)
-                    .neq('status', 'cancelado')  // Qualquer pedido não cancelado nos últimos 10 min
-                    .order('created_at', { ascending: false })
-                    .limit(1);
-
-                // Filtra IDs já cancelados pelo painel para evitar duplo cancelamento
-                const jaCancel = window._canceladosPeloPainel || new Set();
-                const pedidoValido = (pedidosRecentes || []).find(p => !jaCancel.has(p.id));
-
-                if (pedidoValido) {
-                    // Há pedido anterior — mostrar modal de confirmação
-                    window._pedidoDupAnteriorId      = pedidoValido.id;
-                    window._pedidoDupAnteriorTotal   = pedidoValido.total;
-                    window._pedidoDupAnteriorMetodo  = pedidoValido.payment_method;
-                    window._pedidoDupAnteriorCredito = Number(localStorage.getItem('credit_used_' + pedidoValido.id)) || 0;
-                    window._pedidoDupFinalMsg        = finalMsg;
-                    const minAtras = Math.round((Date.now() - new Date(pedidoValido.created_at).getTime()) / 60000);
-                    document.getElementById('txtPedidoDupInfo').innerHTML =
-                        `Você já fez um pedido há <strong style="color:#f39c12">${minAtras} min</strong>.<br>Deseja cancelar o pedido anterior?`;
-                    document.getElementById('modalPedidoDuplicado').style.display = 'flex';
-                    document.getElementById('btnDupCancelar').disabled = false;
-                    document.getElementById('btnDupManter').disabled = false;
-                } else {
-                    // Sem duplicata — ir direto pro WhatsApp
-                    irParaWhatsApp(finalMsg);
-                }
-            } catch(e) {
-                console.warn('Erro ao checar duplicata:', e);
-                irParaWhatsApp(finalMsg);
-            }
-        }, 2200);
+        irParaWhatsApp(finalMsg);
 
     } catch(err) {
         console.error('Erro ao salvar pedido:', err);
@@ -2511,60 +2402,6 @@ function irParaWhatsApp(msg) {
     window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
 }
 
-async function responderDuplicado(cancelar) {
-    document.getElementById('modalPedidoDuplicado').style.display = 'none';
-    const msg = window._pedidoDupFinalMsg;
-
-    if (cancelar && window._pedidoDupAnteriorId) {
-        try {
-            const anteriorId      = window._pedidoDupAnteriorId;
-            const anteriorTotal   = Number(window._pedidoDupAnteriorTotal) || 0;
-            const anteriorMetodo  = window._pedidoDupAnteriorMetodo || 'FIADO';
-            const anteriorCredito = Number(window._pedidoDupAnteriorCredito) || 0;
-
-            // 1. Verifica se o pedido ainda existe e não foi processado pelo ADM
-            const { data: pedidoVerif } = await sb.from('pedidos')
-                .select('id, total, status, items')
-                .eq('id', anteriorId)
-                .maybeSingle();
-
-            if (!pedidoVerif) {
-                showToast('Pedido não encontrado.', 'warning', 3000);
-                return;
-            }
-
-            if (pedidoVerif.status === 'PAGO') {
-                showToast('Pedido já processado, não foi estornado.', 'warning', 3000);
-                return;
-            }
-
-            // 2. Deleta o pedido anterior
-            await sb.from('pedidos').delete().eq('id', anteriorId);
-            localStorage.removeItem('credit_used_' + anteriorId);
-
-            // 3. Estorna: calcula pelo valor real dos itens
-            const valorReal = await calcularValorRealPedido(pedidoVerif.items);
-            const { data: cli } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
-            if (cli !== null) {
-                const novoDebt = (Number(cli.debt) || 0) - valorReal;
-                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-                user.debt = novoDebt;
-                atualizarCabecalho();
-            }
-
-            showToast('Pedido cancelado e reembolso aplicado ✅', 'success', 3000);
-        } catch(e) {
-            console.warn('Erro ao cancelar pedido anterior:', e);
-        }
-    }
-
-    window._pedidoDupAnteriorId      = null;
-    window._pedidoDupAnteriorTotal   = null;
-    window._pedidoDupAnteriorMetodo  = null;
-    window._pedidoDupAnteriorCredito = null;
-    window._pedidoDupFinalMsg        = null;
-    irParaWhatsApp(msg);
-}
 
 function roboEstado(estado) {
     const inner = document.getElementById('roboInner');
@@ -2685,195 +2522,24 @@ async function carregarPedidosAtivos() {
                 ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">' + col1Html + col2Html + '</div>'
                 : col1Html;
 
-            var safeid    = String(p.id);
-            var safeTotal = total;
-            var safeMetodo = metodo.replace(/'/g, '');
-
-            // Janela e prazo de cancelamento
-            var _pPedido = _partesSP(new Date(p.created_at));
-            var _horaPedidoMin = parseInt(_pPedido.hour) * 60 + parseInt(_pPedido.minute);
-            var _naJanela = _horaPedidoMin >= (15 * 60) || _horaPedidoMin < (5 * 60);
-            var _diaBase = new Date(_pPedido.year + '-' + _pPedido.month + '-' + _pPedido.day + 'T05:00:00-03:00');
-            var limiteCancelMs = _diaBase.getTime() + 86400000;
-            var dentroDoprazo = _naJanela && (Date.now() < limiteCancelMs);
-
             var card = document.createElement('div');
-            card.id = 'pedidoAtivoCard_' + safeid;
-            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:160px;';
+            card.id = 'pedidoAtivoCard_' + String(p.id);
+            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:120px;';
             card.innerHTML =
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
                     '<div style="font-size:13px;font-weight:800;color:white;">' + horaStr + '</div>' +
                     '<div style="font-size:10px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 8px;border-radius:20px;">' + badgeLabel + '</div>' +
                 '</div>' +
                 '<div style="min-height:50px;overflow-y:auto;margin-bottom:6px;">' + itensHtml + '</div>' +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;margin-bottom:-4px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;">' +
                     '<div style="font-size:16px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
-                    '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">' +
-                        (dentroDoprazo
-                            ? '<span style="font-size:12px;color:rgba(255,165,0,0.9);font-weight:700;">⏳ Cancelar disponível até:</span>'
-                            : '<span style="font-size:12px;color:rgba(255,255,255,0.25);font-weight:600;">🔒 Cancelamento bloqueado</span>'
-                        ) +
-                        (dentroDoprazo
-                            ? '<button onclick="cancelarPedidoDosPainel(\'' + safeid + '\', ' + safeTotal + ', \'' + safeMetodo + '\', true)" ' +
-                                'style="background:#8b0000;border:none;color:white;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" ' +
-                                'ontouchstart="this.style.background=\'#a00000\'" ontouchend="this.style.background=\'#8b0000\'">' +
-                                'Cancelar Compra' +
-                              '</button>'
-                            : ''
-                        ) +
-                        (dentroDoprazo
-                            ? '<div id="countdown_' + safeid + '" style="font-size:12px;color:rgba(255,165,0,0.9);font-weight:900;">--:--:--</div>'
-                            : ''
-                        ) +
-                    '</div>' +
+                    '<span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;">⏳ Aguardando entrega</span>' +
                 '</div>';
             lista.appendChild(card);
-
-            // Contagem regressiva
-            if (dentroDoprazo) {
-                (function(id, limite) {
-                    var el = document.getElementById('countdown_' + id);
-                    if (!el) return;
-                    var interval = setInterval(function() {
-                        var diff = limite - Date.now();
-                        if (diff <= 0) {
-                            clearInterval(interval);
-                            var c = document.getElementById('pedidoAtivoCard_' + id);
-                            if (c) { 
-                                var btn = c.querySelector('button'); 
-                                if (btn) btn.remove();
-                                var countdownDiv = document.getElementById('countdown_' + id);
-                                if (countdownDiv) countdownDiv.parentElement.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.25);font-weight:600;">🔒 Cancelamento bloqueado</span>';
-                            }
-                            return;
-                        }
-                        var h = Math.floor(diff / 3600000);
-                        var m = Math.floor((diff % 3600000) / 60000);
-                        var s = Math.floor((diff % 60000) / 1000);
-                        if (el) el.textContent = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-                    }, 1000);
-                    window._countdownIntervals = window._countdownIntervals || [];
-                    window._countdownIntervals.push(interval);
-                })(safeid, limiteCancelMs);
-            }
         });
     } catch(e) {
         console.warn('Erro ao carregar pedidos ativos:', e);
         lista.innerHTML = `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3);">Erro ao carregar pedidos</div>`;
-    }
-}
-
-async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
-    // Confirma antes de cancelar
-    if (!confirm('Cancelar este pedido e estornar R$ ' + Number(total).toFixed(2).replace('.',',') + '?')) return;
-
-    try {
-        // Verifica se o pedido ainda existe no banco (CORRIGIDO: adicionar 'items')
-        const { data: verif } = await sb.from('pedidos')
-            .select('id, total, status, created_at, items')
-            .eq('id', pedidoId)
-            .maybeSingle();
-
-        if (!verif) {
-            showToast('Pedido não encontrado.', 'warning', 3000);
-            carregarPedidosAtivos();
-            return;
-        }
-
-        // Se já foi confirmado/pago pelo ADM, não cancela
-        if (verif.status === 'PAGO') {
-            showToast('Este pedido já foi confirmado pelo ADM.', 'warning', 3000);
-            carregarPedidosAtivos();
-            return;
-        }
-
-        // Regra de janela: só pedidos feitos entre 15:00 e 05:00 podem cancelar
-        const _pPed = _partesSP(new Date(verif.created_at));
-        const _horaPedMin = parseInt(_pPed.hour) * 60 + parseInt(_pPed.minute);
-        const _naJanela = _horaPedMin >= (15 * 60) || _horaPedMin < (5 * 60);
-        if (!_naJanela) {
-            showToast('Pedidos feitos entre 05:00 e 15:00 não podem ser cancelados.', 'warning', 4000);
-            return;
-        }
-
-        // Regra de prazo: só pode cancelar até 05:00 do dia seguinte ao pedido
-        const _diaBasePed = new Date(_pPed.year + '-' + _pPed.month + '-' + _pPed.day + 'T05:00:00-03:00');
-        const _limiteMs = _diaBasePed.getTime() + 86400000;
-        if (Date.now() >= _limiteMs) {
-            showToast('Prazo de cancelamento encerrado. Só até 05:00 do dia seguinte.', 'warning', 4000);
-            return;
-        }
-
-        // Marca que este ID foi cancelado pelo painel — evita duplo cancelamento
-        window._canceladosPeloPainel = window._canceladosPeloPainel || new Set();
-        window._canceladosPeloPainel.add(pedidoId);
-
-        // 1. Marca pedido como cancelado (mantém histórico)
-        await sb.from('pedidos').update({ status: 'cancelado', entregue: false }).eq('id', pedidoId);
-
-        // 2. Calcula o valor real para reembolso
-        const valorReal = await calcularValorRealPedido(verif.items);
-        
-        // 3. Busca dados atuais do cliente
-        const { data: cli } = await sb.from('clientes')
-            .select('debt, tickets, tickets_pendentes, total_gasto, tickets_liberar_em')
-            .eq('phone', user.phone)
-            .maybeSingle();
-
-        if (cli !== null) {
-            // REEMBOLSO: SUBTRAI do debt (igual ao Adm.html)
-            // debt NEGATIVO = crédito do cliente
-            // Se debt = -40, cancelar R$ 10 fica debt = -40 - 10 = -50 (mais crédito)
-            const novoDebt = (Number(cli.debt) || 0) - valorReal;
-            
-            // Recalcula tickets e total_gasto (alinhado ao Adm.html)
-            let updateObj = { debt: novoDebt };
-            
-            try {
-                const { data: cfg } = await sb.from('configs')
-                    .select('value')
-                    .eq('key', 'ticket_valor_reais')
-                    .maybeSingle();
-                
-                const valorPorTicket = cfg ? Number(cfg.value) : 0;
-                if (valorPorTicket > 0) {
-                    // Reduz total_gasto (cancelar pedido = voltar o que foi gasto)
-                    const novoTotalGasto = Math.max(0, (Number(cli.total_gasto) || 0) - valorReal);
-                    const ticketsTotaisNovos = Math.floor(novoTotalGasto / valorPorTicket);
-                    const ticketsJaConfirmados = cli.tickets || 0;
-                    const novosPendentes = Math.max(0, ticketsTotaisNovos - ticketsJaConfirmados);
-                    
-                    updateObj = {
-                        ...updateObj,
-                        total_gasto: novoTotalGasto,
-                        tickets_pendentes: novosPendentes,
-                        updated_at: new Date().toISOString()
-                    };
-                }
-            } catch(e) {
-                console.warn('Erro ao recalcular tickets:', e);
-            }
-            
-            await sb.from('clientes').update(updateObj).eq('phone', user.phone);
-            user.debt = novoDebt;
-            atualizarCabecalho();
-        }
-
-        // 4. Insere notificação de reembolso
-        await inserirNotificacao(user.phone, 'reembolso', valorReal, 'Pedido cancelado pelo cliente');
-
-        // 5. Remove o card com animação
-        const card = document.getElementById('pedidoAtivoCard_' + pedidoId);
-        if (card) {
-            card.style.transition = 'opacity 0.3s, max-height 0.3s';
-            card.style.opacity = '0';
-            setTimeout(() => { card.remove(); carregarPedidosAtivos(); }, 300);
-        }
-
-        setTimeout(() => renderHistoricoSaldo(), 600);
-    } catch(e) {
-        console.warn('Erro ao cancelar pelo painel:', e);
-        showToast('Erro ao cancelar pedido', 'error', 3000);
     }
 }
 
@@ -2884,11 +2550,6 @@ function abrirPainelControle() {
 }
 
 function fecharPainelControle() {
-    // Limpa countdowns ativos
-    if (window._countdownIntervals) {
-        window._countdownIntervals.forEach(function(iv){ clearInterval(iv); });
-        window._countdownIntervals = [];
-    }
     const p = document.getElementById('painelControle');
     p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
     p.style.transform = 'translateX(-100%)';
@@ -2901,10 +2562,6 @@ function abrirPainelPedidos() {
 }
 
 function fecharPainelPedidos() {
-    if (window._countdownIntervals) {
-        window._countdownIntervals.forEach(function(iv){ clearInterval(iv); });
-        window._countdownIntervals = [];
-    }
     document.getElementById('painelPedidos').style.transform = 'translateY(-100%)';
 }
 
@@ -3044,9 +2701,6 @@ function iniciarRealtimeCliente(phone) {
             if (novo.tipo === 'pagamento') {
                 showToast(`✅ Pagamento de R$ ${valorFmt} confirmado!`, 'success', 5000);
                 setTimeout(() => renderHistoricoSaldo(), 600);
-            } else if (novo.tipo === 'reembolso') {
-                showToast(`♻️ Pedido cancelado — R$ ${valorFmt} reembolsado!`, 'warning', 5000);
-                setTimeout(() => renderHistoricoSaldo(), 600);
             }
         })
         .subscribe();
@@ -3143,7 +2797,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(243,156,18,0.18),transparent 70%);"></div>
                 <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(243,156,18,0.5));">🛍️</div>
                 <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Meus Pedidos</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Ver e cancelar<br>pedidos ativos</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Ver pedidos<br>ativos</div>
                 <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
                     <div style="width:6px;height:6px;border-radius:50%;background:#f39c12;box-shadow:0 0 6px #f39c12;" id="dotPedidosCard"></div>
                     <span style="font-size:10px;color:rgba(243,156,18,0.9);font-weight:700;">VER PEDIDOS →</span>
@@ -3415,42 +3069,23 @@ async function renderHistoricoSaldo() {
     // Montar lista
     let itens = [];
 
-    (notifs || []).forEach(p => {
-        const isReembolso = p.tipo === 'reembolso';
+    (notifs || []).filter(p => p.tipo === 'pagamento').forEach(p => {
         const valor = Math.abs(parseFloat(p.valor || 0));
-        const saldoLabel = isReembolso ? 'Pedido cancelado' : 'Pagar na Entrega';
-
-        // Definir cores baseadas no tema e tipo
-        const coresTema = {
-            azul:     { reembolsoBg: 'rgba(0,153,255,0.18)',    borda: 'rgba(0,153,255,0.45)',    badge: '#0099ff' },
-            grafite:  { reembolsoBg: 'rgba(120,120,120,0.18)',  borda: 'rgba(120,120,120,0.45)',  badge: '#888888' },
-            vermelho: { reembolsoBg: 'rgba(120,120,120,0.18)',  borda: 'rgba(120,120,120,0.45)',  badge: '#888888' },
-            roxo:     { reembolsoBg: 'rgba(157,78,221,0.18)',   borda: 'rgba(157,78,221,0.45)',   badge: '#9d4edd' },
-            rosa:     { reembolsoBg: 'rgba(139,0,69,0.22)',     borda: 'rgba(139,0,69,0.5)',      badge: '#8b0045' },
-            prata:    { reembolsoBg: 'rgba(139,90,26,0.22)',    borda: 'rgba(139,90,26,0.5)',     badge: '#cd7f32' },
-        };
-        const temaAtual = (localStorage.getItem('temaSelecionado') || 'grafite');
-        const paleta = coresTema[temaAtual] || coresTema['grafite'];
-
-        const cor = isReembolso ? paleta.badge : '#25d366';
-
         itens.push({
             id: String(p.id),
             data: p.created_at,
-            icone: isReembolso ? '♻️' : '✅',
-            titulo: isReembolso ? 'Pedido cancelado' : 'Pagamento recebido',
-            sub: saldoLabel,
+            icone: '✅',
+            titulo: 'Pagamento recebido',
+            sub: 'Pagar na Entrega',
             valor: `R$ ${valor.toFixed(2).replace('.',',')}`,
-            valorCor: cor,
-            badge: isReembolso ? 'REEMBOLSO' : 'PAGO',
-            badgeCor: cor,
-            iconeBg: cor,
-            isReembolso: isReembolso,
-            cardBg: isReembolso ? paleta.reembolsoBg : 'rgba(37,211,102,0.12)',
-            cardBorda: isReembolso ? paleta.borda : 'rgba(37,211,102,0.35)',
+            valorCor: '#25d366',
+            badge: 'PAGO',
+            badgeCor: '#25d366',
+            iconeBg: '#25d366',
+            cardBg: 'rgba(37,211,102,0.12)',
+            cardBorda: 'rgba(37,211,102,0.35)',
         });
     });
-
 
     itens.sort((a, b) => new Date(b.data) - new Date(a.data));
     if (badge) badge.textContent = itens.length ? `${itens.length} itens` : '';
