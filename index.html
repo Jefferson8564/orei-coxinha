@@ -577,8 +577,8 @@
         .products-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            padding: 16px 12px;
+            gap: 4px;
+            padding: 4px 4px;
             margin: 0;
             margin-bottom: 80px;
             width: 100%;
@@ -749,36 +749,11 @@
             background: white; width: 100%; max-width: 500px;
             padding: 24px 20px; border-radius: 28px 28px 0 0;
             max-height: 92vh; overflow-y: auto;
-            animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            animation: slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1);
         }
-        @keyframes slideUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
 
         /* ===== PAGAMENTO ===== */
-        .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
-        .pay-item {
-            border: 2px solid #eee; padding: 15px 10px;
-            border-radius: 16px; text-align: center;
-            cursor: pointer; font-weight: 700;
-            transition: all 0.2s; font-size: 15px;
-            background: #fafafa;
-        }
-        .pay-item:active { transform: scale(0.96); }
-        .pay-item.selected {
-            border-color: var(--success);
-            background: linear-gradient(135deg, #e8f5e9, #f1fff4);
-            color: var(--success-dark);
-            box-shadow: 0 4px 14px rgba(37,211,102,0.2);
-        }
-        .pay-item.disabled { opacity: 0.3; pointer-events: none; }
-        .pay-item.sugerido { border-color: var(--warning); background: #fffde7; position: relative; }
-        .pay-item.sugerido::after {
-            content: "⭐ Sugerido"; position: absolute; top: -11px; left: 50%;
-            transform: translateX(-50%); background: var(--warning); color: #333;
-            font-size: 10px; padding: 2px 9px; border-radius: 10px;
-            white-space: nowrap; font-weight: 800;
-        }
-        .pay-item.sugerido.selected { border-color: var(--success); background: linear-gradient(135deg, #e8f5e9, #f1fff4); color: var(--success-dark); }
-        .pay-item.sugerido.selected::after { background: var(--success); color: white; }
 
         .credit-box {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -814,39 +789,6 @@
         }
 
         /* ===== MODAL INSTALAÇÃO =====  */
-        #modalInstalarApp {
-            position: fixed; inset: 0;
-            background: rgba(10,10,20,0.85);
-            backdrop-filter: blur(8px);
-            display: none; align-items: center;
-            justify-content: center; z-index: 9500;
-            animation: fadeIn 0.3s ease;
-        }
-        #modalInstalarApp.active { display: flex !important; }
-
-        .modal-instalar-content {
-            background: linear-gradient(135deg, #7209b7 0%, #5a189a 30%, #3c096c 70%, #2d0a4e 100%);
-            border-radius: 32px; padding: 40px 28px;
-            max-width: 360px; width: 90%;
-            text-align: center; color: white;
-            box-shadow: 0 25px 80px rgba(114, 9, 183, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-            animation: slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1);
-            border: 1px solid rgba(199, 129, 255, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .modal-instalar-content::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(199, 129, 255, 0.15) 0%, transparent 70%);
-            animation: glow 8s ease-in-out infinite;
-            pointer-events: none;
-        }
 
         @keyframes glow {
             0%, 100% {
@@ -857,14 +799,6 @@
             }
         }
 
-        .modal-instalar-emoji {
-            font-size: 72px; margin-bottom: 20px;
-            animation: pulse 2s ease-in-out infinite;
-            filter: drop-shadow(0 0 20px rgba(199, 129, 255, 0.6));
-            z-index: 1;
-            position: relative;
-        }
-
         @keyframes pulse {
             0%, 100% {
                 transform: scale(1);
@@ -872,65 +806,6 @@
             50% {
                 transform: scale(1.15);
             }
-        }
-
-        .modal-instalar-title {
-            font-size: 26px; font-weight: 900;
-            margin-bottom: 12px; letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #ffffff 0%, #c77dff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            z-index: 1;
-            position: relative;
-        }
-
-        .modal-instalar-desc {
-            font-size: 15px; color: rgba(255,255,255,0.88);
-            margin-bottom: 28px; line-height: 1.7;
-            z-index: 1;
-            position: relative;
-            font-weight: 500;
-        }
-
-        .modal-instalar-buttons {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            z-index: 1;
-            position: relative;
-        }
-
-        .btn-instalar-sim {
-            padding: 15px 20px; border: none; border-radius: 16px;
-            font-weight: 800; font-size: 14px; cursor: pointer;
-            background: linear-gradient(135deg, #c77dff 0%, #9d4edd 50%, #c77dff 100%);
-            color: white;
-            box-shadow: 0 10px 28px rgba(199, 125, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-            letter-spacing: 0.4px;
-            position: relative;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn-instalar-sim:active {
-            transform: translateY(-1px);
-            box-shadow: 0 15px 35px rgba(199, 125, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-instalar-nao {
-            padding: 15px 20px; border: 2px solid rgba(231, 76, 60, 0.6);
-            border-radius: 16px; font-weight: 800; font-size: 14px;
-            cursor: pointer; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 50%, #e74c3c 100%);
-            color: white;
-            transition: all 0.3s;
-            letter-spacing: 0.4px;
-            position: relative;
-            box-shadow: 0 10px 28px rgba(231, 76, 60, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-instalar-nao:active {
-            transform: translateY(-1px);
-            box-shadow: 0 15px 35px rgba(231, 76, 60, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
         }
     
         @keyframes roboEntrar {
@@ -1243,22 +1118,26 @@
 
 <!-- ===== APP ===== -->
 <div id="app" style="display:none;">
-    <div class="header">
-        <!-- Saudação à esquerda -->
-        <div style="display:flex;flex-direction:column;gap:2px;flex:1;">
-            <span id="hi" style="font-size:16px;font-weight:800;color:white;"></span>
-            <span id="headerBalance"></span>
-        </div>
-        <!-- Botões do header: 🔔 ⚙️ -->
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button class="header-btn" onclick="abrirPainelSino()" title="Notificações" style="position:relative;">
-                🔔
-                <span id="headerDotSino" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f1c40f;display:none;"></span>
-            </button>
-            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
+    <div class="header" style="display:flex;align-items:center;justify-content:space-between;position:relative;">
+        <!-- ⚙️ esquerda -->
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
             <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
                 ⚙️
                 <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
+            </button>
+        </div>
+        <!-- Nome centralizado -->
+        <div style="position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;background:transparent;">
+            <span id="hi" style="font-size:18px;font-weight:900;color:white;white-space:nowrap;letter-spacing:-0.3px;"></span>
+            <span id="headerStatusLabel" style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;"></span>
+            <span id="headerBalance" style="white-space:nowrap;"></span>
+        </div>
+        <!-- 🔔 direita -->
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
+            <button class="header-btn" onclick="abrirPainelSino()" title="Notificações" style="position:relative;">
+                🔔
+                <span id="headerDotSino" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f1c40f;display:none;"></span>
             </button>
         </div>
     </div>
@@ -1304,13 +1183,13 @@
 </div>
 
 <div id="favModal" class="modal">
-    <div class="modal-content">
-        <div style="width:40px;height:5px;background:#e9ecef;border-radius:3px;margin:0 auto 20px;"></div>
+    <div class="modal-content" style="background:linear-gradient(160deg,#1a1a2e,#16213e);">
+        <div style="width:40px;height:5px;background:rgba(255,255,255,0.15);border-radius:3px;margin:0 auto 20px;"></div>
         <div style="position:relative; text-align:center; margin-bottom:18px;">
-            <h3 style="font-size:18px;font-weight:800;color:#1a1a2e;">Seu Pedido Favorito ⭐</h3>
+            <h3 style="font-size:18px;font-weight:800;color:white;">Seu Pedido Favorito ⭐</h3>
             <button onclick="document.getElementById('favModal').classList.remove('active')" style="position:absolute; top:-3px; right:-3px; width:34px; height:34px; border-radius:50%; border:none; background:linear-gradient(135deg,#e74c3c,#c0392b); color:white; font-size:16px; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 3px 10px rgba(231,76,60,0.4);">✕</button>
         </div>
-        <div id="favDetails" style="background:#f8f9fa; padding:16px; border-radius:16px; margin-bottom:20px; line-height:1.7; border:1px solid #f0f2f6;"></div>
+        <div id="favDetails" style="background:rgba(255,255,255,0.07); padding:16px; border-radius:16px; margin-bottom:20px; line-height:1.7; border:1px solid rgba(255,255,255,0.1);"></div>
         <div style="display:flex; gap:10px;">
             <button onclick="addFavToCart()" style="flex:1; padding:14px; background:linear-gradient(135deg,#3498db,#2980b9); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(52,152,219,0.35);">🛒 Carrinho</button>
             <button onclick="pedirFavorito()" style="flex:2; padding:14px; background:linear-gradient(135deg,#25d366,#1aad52); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(37,211,102,0.35);">✅ Fazer Pedido</button>
@@ -1320,39 +1199,41 @@
 
 <!-- Modal Pagamento -->
 <div id="payModal" class="modal">
-    <div class="modal-content">
-        <div style="width:40px;height:5px;background:#e9ecef;border-radius:3px;margin:0 auto 20px;"></div>
-        <h3 style="text-align:center; margin-bottom:16px; font-size:18px; font-weight:800; color:#1a1a2e;">Como deseja pagar? 💳</h3>
-        <div class="pay-grid" style="grid-template-columns: 1fr 1fr;">
-            <div id="btnEntrega" class="pay-item selected" onclick="setMethod('PAGA NA ENTREGA', this)">🤝 Pagar na Entrega</div>
-            <div id="fBtnModal" class="pay-item" onclick="setMethod('FIADO', this)">⏳ Pagar Depois</div>
-        </div>
-        <div id="creditBox" class="credit-box">
-            <h4>💰 Você tem crédito disponível!</h4>
-            <label class="credit-toggle" onclick="toggleCreditDiscount()">
-                <input type="checkbox" id="useCredit">
-                <div class="credit-toggle-label">
-                    <span>Usar crédito no pedido</span>
-                    <div class="credit-toggle-check"></div>
-                </div>
-            </label>
-            <div class="credit-info">
-                Crédito disponível: <strong id="creditAvailable">R$ 0,00</strong><br>
-                <span id="creditUsedText" style="display:none;">Será abatido: <strong id="creditUsed">R$ 0,00</strong></span>
+    <div class="modal-content" style="padding-top:16px;">
+
+        <!-- Header: total simplificado -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; min-height:48px;">
+            <div>
+                <div style="font-size:11px; color:#999; font-weight:600; margin-bottom:2px;">🤝 Total do pedido</div>
+                <div id="payHeaderTotal" style="font-size:26px; font-weight:900; color:#1a1a2e; letter-spacing:-0.5px;">R$ 0,00</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:11px; font-weight:600; margin-bottom:2px; color:#1a1a2e;">a pagar</div>
+                <div id="payHeaderFinal" style="font-size:26px; font-weight:900; color:#1a1a2e; letter-spacing:-0.5px;">R$ 0,00</div>
             </div>
         </div>
 
-        <!-- Cupons de desconto -->
-        <div id="cupomBox" style="display:none; margin-top:14px; background:#fffbea; border:1.5px solid #f1c40f; border-radius:14px; padding:14px;">
-            <div style="font-weight:800; color:#b8860b; margin-bottom:10px;">🎟️ Seus cupons de desconto</div>
-            <div id="cupomLista" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <!-- Crédito disponível -->
+        <div id="creditBox" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#1a3a5c,#1a4a7a); border:1.5px solid rgba(52,152,219,0.5); border-radius:14px; padding:14px;">
+            <div style="font-weight:800; color:#5dade2; margin-bottom:10px;">💸 você tem dinheiro em conta 👀</div>
+            <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(52,152,219,0.4);border-radius:10px;padding:10px 12px;cursor:pointer;" onclick="toggleCreditDiscount()">
+                <input type="checkbox" id="useCredit" style="display:none;">
+                <div id="creditRadio" style="width:20px;height:20px;border-radius:50%;border:2px solid #3498db;background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;">
+                    <div id="creditRadioDot" style="width:10px;height:10px;border-radius:50%;background:#3498db;display:none;"></div>
+                </div>
+                <span style="font-weight:700;color:white;font-size:14px;">Usar <span id="creditValueBtn">R$ 0,00</span></span>
+            </label>
         </div>
 
-        <div id="finalTotalBox" class="final-total" style="display:none;">
-            <div id="originalTotal" style="text-decoration:line-through; color:#999; font-size:14px;"></div>
-            <div id="discountedTotal" style="color:var(--success); font-size:24px; font-weight:bold;"></div>
+        <!-- Cupons de desconto -->
+        <div id="cupomBox" style="display:none; margin-bottom:14px; background:#fffbea; border:1.5px solid #f1c40f; border-radius:14px; padding:14px;">
+            <div style="font-weight:800; color:#b8860b; margin-bottom:10px;">🎟️ Cupons de desconto</div>
+            <div id="cupomLista"></div>
         </div>
-        <div style="display:flex; gap:10px; margin-top:16px;">
+
+        <div id="finalTotalBox" style="display:none;"></div>
+
+        <div style="display:flex; gap:10px; margin-top:4px;">
             <button onclick="closePayModal()" style="flex:1; padding:14px; background:#f0f2f6; color:#666; border:none; border-radius:14px; font-weight:700; cursor:pointer;">Voltar</button>
             <button onclick="confirmOrder()" id="btnConfirm" style="flex:2; padding:14px; background:linear-gradient(135deg,#25d366,#1aad52); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 5px 16px rgba(37,211,102,0.35);">Confirmar Pedido</button>
         </div>
@@ -1360,6 +1241,50 @@
 </div>
 
 <!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
+<!-- MODAL: Pedido duplicado -->
+<div id="modalPedidoDuplicado" style="
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.75);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    display:none; align-items:center;
+    justify-content:center; z-index:4000;
+    flex-direction:column; padding:24px;
+">
+    <div style="
+        background:linear-gradient(135deg,#1a1a2e,#16213e);
+        border:1.5px solid rgba(255,255,255,0.12);
+        border-radius:24px;
+        padding:28px 24px;
+        max-width:360px; width:100%;
+        text-align:center;
+        box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    ">
+        <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
+        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px;">
+            Pedido anterior encontrado!
+        </div>
+        <div id="txtPedidoDupInfo" style="font-size:13px; color:rgba(255,255,255,0.65); margin-bottom:24px; line-height:1.5;">
+            Você já fez um pedido há poucos minutos.<br>Deseja cancelar o pedido anterior?
+        </div>
+        <button id="btnDupCancelar" onclick="this.disabled=true; document.getElementById('btnDupManter').disabled=true; responderDuplicado(true)" style="
+            width:100%; padding:15px;
+            background:linear-gradient(135deg,#e74c3c,#c0392b);
+            color:white; font-size:15px; font-weight:800;
+            border:none; border-radius:14px;
+            margin-bottom:10px; cursor:pointer;
+            letter-spacing:0.2px;
+        ">🗑️ Cancelar o pedido anterior</button>
+        <button id="btnDupManter" onclick="this.disabled=true; document.getElementById('btnDupCancelar').disabled=true; responderDuplicado(false)" style="
+            width:100%; padding:15px;
+            background:rgba(255,255,255,0.1);
+            color:white; font-size:15px; font-weight:700;
+            border:1.5px solid rgba(255,255,255,0.2);
+            border-radius:14px; cursor:pointer;
+        ">✅ Manter os dois pedidos</button>
+    </div>
+</div>
+
 <div id="modalRoboConfirm" style="
     position:fixed; inset:0;
     backdrop-filter:blur(8px);
@@ -1389,6 +1314,25 @@ const ADMIN_NUM = "81996603348";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ===== NOTIFICAÇÕES: função centralizada =====
+async function inserirNotificacao(customer_phone, tipo, valor, descricao) {
+    try {
+        const { error } = await sb.from('notificacoes').insert({
+            customer_phone,
+            tipo,
+            valor: Number(valor) || 0,
+            descricao
+        });
+        if (error) {
+            console.error(`❌ [Notificação] Erro ao inserir (${tipo} para ${customer_phone}):`, error.message, error);
+        } else {
+            console.log(`✅ [Notificação] ${tipo} de R$ ${Number(valor).toFixed(2)} registrada para ${customer_phone}`);
+        }
+    } catch(e) {
+        console.error(`❌ [Notificação] Exceção inesperada (${tipo} para ${customer_phone}):`, e);
+    }
+}
+
 // ===== FUSO HORÁRIO SÃO PAULO (America/Sao_Paulo) =====
 const TZ_SP = 'America/Sao_Paulo';
 
@@ -1402,7 +1346,7 @@ function _partesSP(d) {
 }
 
 function _getViradaHoraMin(diaSemana) {
-  return diaSemana === 0 ? [8, 0] : [14, 30];
+  return diaSemana === 0 ? [8, 0] : [15, 0];
 }
 
 /** Retorna Date "espelhado" para SP — getHours()/getMinutes() retornam BRT/BRST correto. */
@@ -1411,7 +1355,7 @@ function horasBRT(d) {
   return new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`);
 }
 
-// Janela de pedido com regra de virada: Domingo 08:00, demais dias 14:30
+// Janela de pedido com regra de virada: Domingo 08:00, demais dias 15:00
 function _janelaPedido() {
   const agora = new Date();
   const p = _partesSP(agora);
@@ -1485,8 +1429,8 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
-let cupomDesconto = 0;   // % de desconto do cupom selecionado
-let cupomId = null;      // id do pedido PREMIO a resgatar
+let cupomDesconto = 0;
+let cupomId = null;
 let cupomDescontoPct = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
@@ -1530,14 +1474,21 @@ window.onload = async () => {
 
         // 1. Painel de controle ⚙️
         const painelControle = document.getElementById('painelControle');
-        if (painelControle && painelControle.style.transform !== 'translateY(100%)') {
+        if (painelControle && painelControle.style.transform !== 'translateX(-100%)') {
             fecharPainelControle();
             return;
         }
 
-        // 2. Painel sino 🔔
+        // 2. Painel pedidos 🛍️
+        const painelPedidos = document.getElementById('painelPedidos');
+        if (painelPedidos && painelPedidos.style.transform !== 'translateY(-100%)') {
+            fecharPainelPedidos();
+            return;
+        }
+
+        // 3. Painel sino 🔔
         const painelSino = document.getElementById('painelSino');
-        if (painelSino && painelSino.style.transform !== 'translateY(100%)') {
+        if (painelSino && painelSino.style.transform !== 'translateY(-100%)') {
             fecharPainelSino();
             return;
         }
@@ -1631,6 +1582,8 @@ window.onload = async () => {
                     ativarNotificacoesPush(savedPhone);
                     // Verifica se ganhou tickets enquanto estava offline
                     verificarTicketsGanhos(savedPhone, client);
+                    // Inicia escuta em tempo real para tickets e debt
+                    iniciarRealtimeCliente(savedPhone);
                     return;
                 }
             } catch (e) {
@@ -1769,6 +1722,9 @@ async function auth() {
     // Verifica se ganhou tickets enquanto estava offline
     verificarTicketsGanhos(phone, client);
 
+    // Inicia escuta em tempo real para tickets e debt
+    iniciarRealtimeCliente(phone);
+
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
     setTimeout(() => {
         mostrarPopupInstalacao();
@@ -1784,90 +1740,91 @@ function showLoginError(msg) {
 
 // ===== LOGOUT =====
 function logout() {
-    if (confirm('Deseja sair da conta?')) {
-        // Limpar dados salvos
+    let popup = document.getElementById('logoutPopup');
+    if (popup) popup.remove();
+
+    popup = document.createElement('div');
+    popup.id = 'logoutPopup';
+    popup.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,0);transition:background 0.3s ease;';
+    popup.innerHTML = `
+        <div id="logoutPopupCard" style="
+            width:100%; max-width:340px;
+            background:linear-gradient(160deg,#1c0540 0%,#2e0d55 50%,#1a0535 100%);
+            border:1px solid rgba(231,76,60,0.25);
+            border-radius:28px;
+            padding:32px 24px 24px;
+            box-shadow:0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset;
+            text-align:center;
+            transform:scale(0.82) translateY(30px);
+            opacity:0;
+            transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+        ">
+            <div style="
+                width:72px;height:72px;border-radius:50%;
+                background:linear-gradient(135deg,rgba(231,76,60,0.2),rgba(192,57,43,0.3));
+                border:1.5px solid rgba(231,76,60,0.4);
+                display:flex;align-items:center;justify-content:center;
+                font-size:34px;margin:0 auto 18px;
+                box-shadow:0 8px 30px rgba(231,76,60,0.25);
+            ">📲</div>
+            <div style="font-size:20px;font-weight:900;color:white;margin-bottom:8px;letter-spacing:-0.3px;">Sair da conta?</div>
+            <div style="font-size:13.5px;color:rgba(255,255,255,0.45);margin-bottom:26px;line-height:1.5;">Você precisará fazer login<br>novamente para acessar.</div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="fecharLogoutPopup()" style="
+                    flex:1;padding:14px;border-radius:16px;
+                    background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);
+                    color:rgba(255,255,255,0.8);font-size:14px;font-weight:800;cursor:pointer;
+                    -webkit-tap-highlight-color:transparent;transition:background 0.2s;
+                " ontouchstart="this.style.background='rgba(255,255,255,0.16)'" ontouchend="this.style.background='rgba(255,255,255,0.08)'">Cancelar</button>
+                <button onclick="confirmarLogout()" style="
+                    flex:1;padding:14px;border-radius:16px;
+                    background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;
+                    color:white;font-size:14px;font-weight:800;cursor:pointer;
+                    box-shadow:0 6px 20px rgba(231,76,60,0.5);
+                    -webkit-tap-highlight-color:transparent;transition:opacity 0.2s;
+                " ontouchstart="this.style.opacity='0.75'" ontouchend="this.style.opacity='1'">🚪 Sair</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    setTimeout(() => {
+        popup.style.background = 'rgba(0,0,0,0.55)';
+        const card = document.getElementById('logoutPopupCard');
+        if (card) { card.style.transform = 'scale(1) translateY(0)'; card.style.opacity = '1'; }
+    }, 20);
+
+    popup.addEventListener('click', function(e) {
+        if (e.target === popup) fecharLogoutPopup();
+    });
+}
+
+function fecharLogoutPopup() {
+    const popup = document.getElementById('logoutPopup');
+    const card = document.getElementById('logoutPopupCard');
+    if (!popup) return;
+    popup.style.background = 'rgba(0,0,0,0)';
+    if (card) { card.style.transform = 'scale(0.88) translateY(20px)'; card.style.opacity = '0'; }
+    setTimeout(() => { if (popup) popup.remove(); }, 350);
+}
+
+function confirmarLogout() {
+    fecharLogoutPopup();
+    setTimeout(() => {
         localStorage.removeItem('salgados_phone');
         cart = {};
         user = null;
         favorites = {};
-
-        // Voltar para tela de login
         document.getElementById('app').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'flex';
-
-        // Limpar inputs
         document.getElementById('userPhone').value = '';
         document.getElementById('userName').value = '';
         document.getElementById('nameBox').style.display = 'none';
-
         showToast("Você saiu da conta", 'success');
-    }
+    }, 350);
 }
 
-// ===== PWA INSTALL =====
-let deferredPrompt = null;
-let jaVerificouDesinstalacao = false;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-});
-
-// Verificar desinstalação assim que o usuário faz login
-function verificarDesinstalacao() {
-    // Se foi instalado antes mas agora é possível instalar novamente = foi desinstalado
-    if (!jaVerificouDesinstalacao && deferredPrompt) {
-        jaVerificouDesinstalacao = true;
-
-        if (localStorage.getItem('app_installed') === 'true') {
-            // App foi desinstalado!
-            localStorage.setItem('app_installed', 'false');
-            // Mostrar pop-up
-            mostrarPopupInstalacao();
-        }
-    }
-}
-
-function mostrarPopupInstalacao() {
-    // Mostra TODA VEZ que entra (se pode instalar e não está instalado)
-    if (deferredPrompt && localStorage.getItem('app_installed') !== 'true') {
-        const modal = document.getElementById('modalInstalarApp');
-        if (modal) {
-            modal.classList.add('active');
-        }
-    }
-}
-
-function fecharPopupInstalacao() {
-    const modal = document.getElementById('modalInstalarApp');
-    if (modal) modal.classList.remove('active');
-    // Não salva que foi fechado - vai aparecer novamente na próxima entrada
-}
-
-function instalarApp() {
-    if (!deferredPrompt) {
-        showToast("Aplicativo já está instalado! 📱", 'warning');
-        return;
-    }
-
-    fecharPopupInstalacao();
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            showToast("Aplicativo instalado com sucesso! 🎉", 'success');
-            localStorage.setItem('app_installed', 'true');
-        } else {
-            showToast("Tudo bem! Pode instalar depois", 'warning');
-        }
-        deferredPrompt = null;
-    });
-}
-
-// Quando app é instalado com sucesso
-window.addEventListener('appinstalled', () => {
-    localStorage.setItem('app_installed', 'true');
-    deferredPrompt = null;
-});
 
 // ===== PRODUTOS =====
 async function loadProducts() {
@@ -1903,7 +1860,7 @@ function render() {
                     <div><strong class="card-title">${p.name}</strong><br><span class="card-price">R$ ${p.price.toFixed(2)}</span></div>
                     <div class="card-controls">
                         <button onclick="qty('${p.id}',-1)" class="qty-btn minus">-</button>
-                        <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value===''||this.value==='0'){this.value=cart['${p.id}']||0}" inputmode="numeric">
+                        <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)" onfocus="this.select();this.value=''" onblur="if(this.value===''||this.value==='0'){this.value=cart['${p.id}']||0}" inputmode="numeric">
                         <button onclick="qty('${p.id}',1)" class="qty-btn plus">+</button>
                     </div>
                 </div>
@@ -1948,13 +1905,32 @@ function setQty(id, val) {
 
 // ===== CABEÇALHO =====
 function atualizarCabecalho() {
-    document.getElementById('hi').innerText = "Olá, " + user.name.split(' ')[0];
+    const primeiroNome = user.name.split(' ')[0];
+    document.getElementById('hi').innerText = primeiroNome;
+
+    const statusLabel = document.getElementById('headerStatusLabel');
     const hb = document.getElementById('headerBalance');
-    hb.innerHTML = user.debt > 0
-        ? `<span style="display:inline-flex;align-items:center;gap:5px;background:white;color:#e74c3c;font-weight:bold;font-size:16px;padding:3px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(0,0,0,0.2);">divida❗  R$ ${user.debt.toFixed(2)}</span>`
-        : user.debt < 0
-        ? `<span style="display:inline-flex;align-items:center;gap:5px;background:white;color:#3498db;font-weight:bold;font-size:16px;padding:3px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(0,0,0,0.2);">✅ : R$ +${Math.abs(user.debt).toFixed(2)}</span>`
-        : `<span style="color:rgba(255,255,255,0.85);font-size:13px;">tudo em dia </span>`;
+
+    const debt = Number(user.debt) || 0;
+
+    if (debt < 0) {
+        // Saldo a favor (crédito)
+        const credito = Math.abs(debt);
+        statusLabel.style.color = 'rgba(37,211,102,0.75)';
+        statusLabel.textContent = 'crédito';
+        hb.innerHTML = `<span style="color:#25d366;font-size:20px;font-weight:900;letter-spacing:-0.5px;">R$ ${credito.toFixed(2).replace('.',',')}</span>`;
+    } else if (debt > 0) {
+        // Tem dívida
+        statusLabel.style.color = 'rgba(255,100,100,0.85)';
+        statusLabel.textContent = 'dívida!';
+        hb.innerHTML = `<span style="color:#ff6b6b;font-size:20px;font-weight:900;letter-spacing:-0.5px;">R$ ${debt.toFixed(2).replace('.',',')}</span>`;
+    } else {
+        // Zerado
+        statusLabel.style.color = 'rgba(255,255,255,0.45)';
+        statusLabel.textContent = 'conta paga';
+        hb.innerHTML = '';
+    }
+
     // Sempre manter os dados do usuário atualizados no cache local
     if (user) localStorage.setItem('salgados_user', JSON.stringify(user));
 }
@@ -2020,8 +1996,31 @@ function openFavoriteModal() {
 
     const total = Number(fav.saved_order_total) || 0;
     const linhas = fav.saved_order.replace(/✅ /g, '').split('\n').filter(Boolean);
-    let html = "<strong>Itens:</strong><br>" + linhas.map(l => `• ${l}`).join('<br>');
-    html += `<br><br><strong>Total: R$ ${total.toFixed(2).replace('.', ',')}</strong>`;
+    
+    // Extrair produtos e suas quantidades
+    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+    
+    linhas.forEach(linha => {
+        const match = linha.match(/^(\d+)x\s+(.+)$/);
+        if (match) {
+            const qty = match[1];
+            const nomeProduto = match[2].trim();
+            const produto = products.find(p => p.name.trim() === nomeProduto);
+            
+            if (produto) {
+                const imagem = produto.img || 'https://via.placeholder.com/150';
+                html += `
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;background:rgba(255,255,255,0.07);border-radius:14px;border:1px solid rgba(255,255,255,0.1);">
+                        <img src="${imagem}" style="width:90px;height:90px;object-fit:cover;border-radius:10px;background:#eee;">
+                        <div style="text-align:center;font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);">${qty}x ${nomeProduto}</div>
+                    </div>
+                `;
+            }
+        }
+    });
+    
+    html += '</div>';
+    html += `<div style="text-align:center;font-size:16px;font-weight:800;color:white;margin-top:16px;">Total: R$ ${total.toFixed(2).replace('.', ',')}</div>`;
 
     document.getElementById('favDetails').innerHTML = html;
     document.getElementById('favModal').classList.add('active');
@@ -2031,6 +2030,7 @@ function openFavoriteModal() {
 function addFavToCart() {
     const fav = favorites[user.phone];
     if (!fav || !fav.saved_order) return;
+    cart = {};
     cart = textToCart(fav.saved_order);
     render();
     document.getElementById('favModal').classList.remove('active');
@@ -2040,6 +2040,7 @@ function addFavToCart() {
 function pedirFavorito() {
     const fav = favorites[user.phone];
     if (!fav || !fav.saved_order) return;
+    cart = {};
     cart = textToCart(fav.saved_order);
     render();
     document.getElementById('favModal').classList.remove('active');
@@ -2048,34 +2049,35 @@ function pedirFavorito() {
 
 // ===== PAGAMENTO =====
 function showPayModal() {
+    lerPedidoVoz();
     document.getElementById('payModal').classList.add('active');
     window.history.pushState({ state: 'pay_modal_aberto' }, '', window.location.href);
-    const fiadoBtn = document.getElementById('fBtnModal');
-    const entregaBtn = document.getElementById('btnEntrega');
-    if (user.fiado) {
-        fiadoBtn.classList.remove('disabled');
-        fiadoBtn.classList.add('sugerido');
-        setMethod('FIADO', fiadoBtn);
-    } else {
-        fiadoBtn.classList.remove('sugerido');
-        fiadoBtn.classList.add('disabled');
-        setMethod('PAGA NA ENTREGA', entregaBtn);
-    }
+    method = 'PAGA NA ENTREGA';
+    const ht = document.getElementById('payHeaderTotal');
+    if (ht) { ht.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ','); ht.style.textDecoration = 'none'; ht.style.color = '#1a1a2e'; }
+    const hf = document.getElementById('payHeaderFinal');
+    if (hf) hf.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
     setupCreditOption();
     carregarCupons();
 }
 
 function setupCreditOption() {
     const creditBox = document.getElementById('creditBox');
-    if (user.debt < 0) {
+    if (!creditBox) return;
+    if (user && user.debt < 0) {
         const creditValue = Math.abs(user.debt);
-        creditBox.classList.add('active');
-        document.getElementById('creditAvailable').innerText = "R$ " + creditValue.toFixed(2).replace('.', ',');
+        creditBox.style.display = 'block';
+        document.getElementById('creditValueBtn').innerText = "R$ " + creditValue.toFixed(2).replace('.', ',');
         document.getElementById('useCredit').checked = true;
+        const dot = document.getElementById('creditRadioDot');
+        const ring = document.getElementById('creditRadio');
+        if (dot) dot.style.display = 'block';
+        if (ring) ring.style.background = 'rgba(52,152,219,0.15)';
         applyCreditCalculation(creditValue);
     } else {
-        creditBox.classList.remove('active');
-        document.getElementById('useCredit').checked = false;
+        creditBox.style.display = 'none';
+        const cb = document.getElementById('useCredit');
+        if (cb) cb.checked = false;
         creditDiscount = 0;
         updateFinalTotalDisplay();
     }
@@ -2084,30 +2086,55 @@ function setupCreditOption() {
 function toggleCreditDiscount() {
     const checkbox = document.getElementById('useCredit');
     setTimeout(() => {
-        if (checkbox.checked && user.debt < 0) applyCreditCalculation(Math.abs(user.debt));
-        else { creditDiscount = 0; document.getElementById('creditUsedText').style.display = 'none'; updateFinalTotalDisplay(); }
+        const dot = document.getElementById('creditRadioDot');
+        const ring = document.getElementById('creditRadio');
+        if (checkbox.checked && user.debt < 0) {
+            if (dot) dot.style.display = 'block';
+            if (ring) ring.style.background = 'rgba(52,152,219,0.15)';
+            // Desativa todos os cupons ao usar crédito
+            cupomDescontoPct = 0;
+            cupomId = null;
+            const cards = document.querySelectorAll('#cupomLista [data-selected]');
+            cards.forEach(t => {
+                t.style.background = 'white';
+                t.style.border = '2px solid #f1c40f';
+                t.style.boxShadow = 'none';
+                t.dataset.selected = '0';
+            });
+            applyCreditCalculation(Math.abs(user.debt));
+        } else {
+            if (dot) dot.style.display = 'none';
+            if (ring) ring.style.background = 'transparent';
+            creditDiscount = 0;
+            updateFinalTotalDisplay();
+        }
     }, 50);
 }
 
 function applyCreditCalculation(availableCredit) {
     creditDiscount = Math.min(availableCredit, currentOrderTotal);
-    document.getElementById('creditUsed').innerText = "R$ " + creditDiscount.toFixed(2).replace('.', ',');
-    document.getElementById('creditUsedText').style.display = 'block';
     updateFinalTotalDisplay();
 }
 
+
+
 function updateFinalTotalDisplay() {
-    const box = document.getElementById('finalTotalBox');
     const descontoCupomValor = cupomDescontoPct > 0 ? (currentOrderTotal * cupomDescontoPct / 100) : 0;
     const totalFinal = Math.max(0, currentOrderTotal - creditDiscount - descontoCupomValor);
-    if (creditDiscount > 0 || descontoCupomValor > 0) {
-        box.style.display = 'block';
-        document.getElementById('originalTotal').innerText = 'Total original: R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
-        let desc = '';
-        if (creditDiscount > 0) desc += ` crédito -R$${creditDiscount.toFixed(2).replace('.',',')}`;
-        if (descontoCupomValor > 0) desc += ` cupom -${cupomDescontoPct}%`;
-        document.getElementById('discountedTotal').innerText = 'A pagar: R$ ' + totalFinal.toFixed(2).replace('.', ',') + (desc ? ` (${desc.trim()})` : '');
-    } else { box.style.display = 'none'; }
+    const temDesconto = creditDiscount > 0 || descontoCupomValor > 0;
+
+    const elTotal = document.getElementById('payHeaderTotal');
+    const elFinal = document.getElementById('payHeaderFinal');
+
+    if (elTotal) {
+        elTotal.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
+        elTotal.style.textDecoration = temDesconto ? 'line-through' : 'none';
+        elTotal.style.color = temDesconto ? '#aaa' : '#1a1a2e';
+    }
+
+    if (elFinal) {
+        elFinal.innerText = 'R$ ' + totalFinal.toFixed(2).replace('.', ',');
+    }
 }
 
 
@@ -2140,26 +2167,23 @@ async function carregarCupons() {
         const cupons = Object.values(grupos).sort((a, b) => b.pct - a.pct);
         if (!cupons.length) { box.style.display = 'none'; return; }
 
-        // Auto-seleciona o melhor cupom (maior %)
-        const melhor = cupons[0];
-        aplicarCupom(melhor.pct, melhor.ids[0]);
-
         box.style.display = 'block';
-        lista.innerHTML = cupons.map((c, i) => {
+        lista.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">` + cupons.map((c, i) => {
             const qtd = c.ids.length;
-            const badge = qtd > 1
-                ? `<span style="background:#f1c40f;color:#333;font-size:11px;font-weight:900;padding:2px 8px;border-radius:20px;margin-left:6px;">${qtd}x</span>`
-                : '';
-            const checked = i === 0 ? 'checked' : '';
-            const selectedStyle = i === 0
-                ? 'background:#fffbea;border:2px solid #e6b800;'
-                : 'background:white;border:1.5px solid #f1c40f;';
-            return `<label style="display:flex;align-items:center;gap:10px;${selectedStyle}border-radius:10px;padding:10px 12px;cursor:pointer;">
-                <input type="radio" name="cupomSelect" value="${c.pct}" data-id="${c.ids[0]}" onchange="aplicarCupom(${c.pct}, '${c.ids[0]}')"
-                    style="accent-color:#f1c40f;width:18px;height:18px;" ${checked}>
-                <span style="font-weight:700;color:#1a1a2e;font-size:14px;display:flex;align-items:center;">🎟️ Cupom ${c.pct}% OFF${badge}</span>
-            </label>`;
-        }).join('');
+            const isSelected = false;
+            return `<div onclick="selecionarCupom(${c.pct}, '${c.ids[0]}', this)"
+                style="position:relative;cursor:pointer;border-radius:12px;padding:12px 10px;min-width:72px;text-align:center;
+                background:white;
+                border:2px solid #f1c40f;
+                box-shadow:none;
+                transition:all 0.15s;"
+                data-selected="${isSelected ? '1' : '0'}">
+                ${qtd > 1 ? `<div style="position:absolute;top:-8px;right:-8px;background:#25d366;color:white;font-size:10px;font-weight:900;padding:2px 6px;border-radius:20px;min-width:20px;">${qtd}x</div>` : ''}
+                <div style="font-size:18px;margin-bottom:4px;">🎟️</div>
+                <div class="cupom-pct" style="font-size:13px;font-weight:900;color:#b8860b;">${c.pct}%</div>
+                <div class="cupom-off" style="font-size:10px;font-weight:700;color:#999;">OFF</div>
+            </div>`;
+        }).join('') + `</div>`;
     } catch(e) {
         console.warn('Erro inesperado ao carregar cupons:', e);
         box.style.display = 'none';
@@ -2172,12 +2196,48 @@ function aplicarCupom(pct, id) {
     updateFinalTotalDisplay();
 }
 
-function closePayModal() { document.getElementById('payModal').classList.remove('active'); cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; }
-function setMethod(m, el) {
-    method = m;
-    document.querySelectorAll('.pay-item').forEach(x => x.classList.remove('selected'));
-    el.classList.add('selected');
+function selecionarCupom(pct, id, el) {
+    // Toggle: se já está selecionado, desmarca
+    if (el.dataset.selected === '1') {
+        el.style.background = 'white';
+        el.style.border = '2px solid #f1c40f';
+        el.style.boxShadow = 'none';
+        el.dataset.selected = '0';
+        cupomDescontoPct = 0;
+        cupomId = null;
+        updateFinalTotalDisplay();
+        return;
+    }
+    // Desativa crédito ao selecionar cupom
+    const cb = document.getElementById('useCredit');
+    if (cb && cb.checked) {
+        cb.checked = false;
+        creditDiscount = 0;
+        const dot = document.getElementById('creditRadioDot');
+        const ring = document.getElementById('creditRadio');
+        if (dot) dot.style.display = 'none';
+        if (ring) ring.style.background = 'transparent';
+    }
+    // Atualiza visual dos cartõezinhos
+    const todos = el.parentElement.querySelectorAll('[data-selected]');
+    todos.forEach(t => {
+        t.style.background = 'white';
+        t.style.border = '2px solid #f1c40f';
+        t.style.boxShadow = 'none';
+        t.dataset.selected = '0';
+    });
+    el.style.background = '#e8f8f0';
+    el.style.border = '2px solid #25d366';
+    el.style.boxShadow = '0 0 0 3px rgba(37,211,102,0.2)';
+    el.dataset.selected = '1';
+    // Aplica cupom
+    cupomDescontoPct = pct;
+    cupomId = id;
+    updateFinalTotalDisplay();
 }
+
+function closePayModal() { document.getElementById('payModal').classList.remove('active'); cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; creditDiscount = 0; }
+// setMethod removido
 
 async function confirmOrder() {
     const btn = document.getElementById('btnConfirm');
@@ -2189,16 +2249,12 @@ async function confirmOrder() {
     for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; } }
     if (total === 0) { btn.disabled = false; return; }
 
-    const useCredit = document.getElementById('useCredit').checked;
+    const useCredit = document.getElementById('useCredit')?.checked || false;
     const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
-    const finalTotal = Math.max(0, total - (useCredit ? creditDiscount : 0) - descontoCupomValor);
-    let newDebt = user.debt;
-    // Se cliente pedir FIADO, deposita na conta imediatamente
-    if (method === 'FIADO') newDebt += finalTotal;
-    // Se usar crédito, também adiciona ao débito
-    if (useCredit && creditDiscount > 0) newDebt += creditDiscount;
+    const creditoUsado = useCredit ? creditDiscount : 0;
+    const finalTotal = Math.max(0, total - creditoUsado - descontoCupomValor);
+    let newDebt = user.debt + finalTotal + creditoUsado;
 
-    // Salvar cupomId antes de fechar o modal (closePayModal zera as variáveis)
     const cupomIdParaExcluir = cupomId;
     const cupomPctParaExcluir = cupomDescontoPct;
 
@@ -2210,22 +2266,41 @@ async function confirmOrder() {
 
     try {
         // Salvar pedido na nuvem
-        const { error: errPedido } = await sb.from("pedidos").insert({
+        const insertTs = new Date().toISOString();
+        const { data: pedidoInserido, error: errPedido } = await sb.from("pedidos").insert({
             customer_name: user.name, customer_phone: user.phone,
-            total: finalTotal, payment_method: method, items: pedidoTexto
-        });
+            total: finalTotal, payment_method: method, items: pedidoTexto,
+            credito_usado: creditoUsado
+        }).select('id').single();
+        if (errPedido) throw errPedido;
+
+        // Salva crédito usado também no localStorage (fallback)
+        localStorage.setItem('credit_used_' + pedidoInserido.id, creditoUsado);
+
+        // ✅ Confirmar que o pedido realmente chegou no banco (até 3 tentativas)
+        let pedidoConfirmado = false;
+        for (let tentativa = 1; tentativa <= 3; tentativa++) {
+            await new Promise(r => setTimeout(r, tentativa * 800));
+            const { data: checkPedido } = await sb.from('pedidos')
+                .select('id')
+                .eq('id', pedidoInserido.id)
+                .maybeSingle();
+            if (checkPedido?.id) { pedidoConfirmado = true; break; }
+            console.warn(`⚠️ Tentativa ${tentativa}: pedido ainda não confirmado no banco`);
+        }
+        if (!pedidoConfirmado) throw new Error('Pedido não foi confirmado no banco após 3 tentativas');
+
         // Excluir cupom do Supabase quando usado
-        if (!errPedido && cupomIdParaExcluir && cupomPctParaExcluir > 0) {
+        if (cupomIdParaExcluir && cupomPctParaExcluir > 0) {
             const { error: errCupom } = await sb.from('premios').delete().eq('id', cupomIdParaExcluir);
             if (errCupom) console.warn('Erro ao excluir cupom:', errCupom);
         }
-        if (errPedido) throw errPedido;
 
         // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
         try {
             const janela = _janelaPedido();
             const horaAtual = parseInt(_partesSP().hour) * 60 + parseInt(_partesSP().minute);
-            const eParaAmanha = horaAtual >= (14 * 60 + 30); // regra: 14:30
+            const eParaAmanha = horaAtual >= (15 * 60); // regra: 15:00
 
             // Busca cadastro do cliente para pegar coordenadas
             const { data: cliDados } = await sb.from('clientes')
@@ -2246,7 +2321,7 @@ async function confirmOrder() {
                     const estaNoTemplate = template.find(p => p.cliente_phone === user.phone);
                     if (!estaNoTemplate) continue;
 
-                    // Pedido após 14:30 → não mexe nas paradas de hoje
+                    // Pedido após 15:00 → não mexe nas paradas de hoje
                     if (eParaAmanha) continue;
 
                     // ── SISTEMA desativado: parada já existe com desativado:true → só ativa ──
@@ -2293,51 +2368,7 @@ async function confirmOrder() {
         } catch(e) { console.warn('Erro ao adicionar nas paradas:', e); }
         // ===== FIM REGRA DAS 14H =====
 
-        // Tickets e Diamantes de jogo — só para PAGA NA ENTREGA
-        if (method === 'PAGA NA ENTREGA') {
-            try {
-                const [cfgTk, cfgDi] = await Promise.all([
-                    sb.from('configs').select('value').eq('key', 'ticket_valor_reais').maybeSingle(),
-                    sb.from('configs').select('value').eq('key', 'diamante_valor_reais').maybeSingle(),
-                ]);
-                const valorPorTicket   = cfgTk?.data ? Number(cfgTk.data.value) : 0;
-                const valorPorDiamante = cfgDi?.data ? Number(cfgDi.data.value) : 0;
-
-                const { data: gt } = await sb.from('clientes')
-                    .select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em,diamantes,diamantes_pendentes,diamantes_liberar_em')
-                    .eq('phone', user.phone).maybeSingle();
-
-                const novoTotalGasto    = (gt ? Number(gt.total_gasto) : 0) + finalTotal;
-                const ticketsAtual      = gt ? (gt.tickets || 0) : 0;
-                const ticketsPendentes  = gt ? (gt.tickets_pendentes || 0) : 0;
-                const diamantesAtual    = gt ? (gt.diamantes || 0) : 0;
-                const diamantesPendentes = gt ? (gt.diamantes_pendentes || 0) : 0;
-
-                const novosTickets   = valorPorTicket   > 0 ? Math.max(0, Math.floor(novoTotalGasto / valorPorTicket)   - (ticketsAtual   + ticketsPendentes))   : 0;
-                const novosDiamantes = valorPorDiamante > 0 ? Math.max(0, Math.floor(novoTotalGasto / valorPorDiamante) - (diamantesAtual + diamantesPendentes)) : 0;
-
-                // Libera às 15h SP (ou amanhã 15h se já passou das 15h)
-                const _agora = new Date();
-                const _pAgora = _partesSP(_agora);
-                const _horaAtual = parseInt(_pAgora.hour) * 60 + parseInt(_pAgora.minute);
-                const _liberacaoHoje = new Date(`${_pAgora.year}-${_pAgora.month}-${_pAgora.day}T15:00:00-03:00`);
-                const liberarEm = (_horaAtual < 15 * 60 ? _liberacaoHoje : new Date(_liberacaoHoje.getTime() + 86400000)).toISOString();
-
-                await sb.from('clientes').update({
-                    total_gasto:            novoTotalGasto,
-                    tickets:                ticketsAtual,
-                    tickets_pendentes:      ticketsPendentes   + novosTickets,
-                    tickets_liberar_em:     novosTickets   > 0 ? liberarEm : (gt?.tickets_liberar_em || null),
-                    diamantes:              diamantesAtual,
-                    diamantes_pendentes:    diamantesPendentes + novosDiamantes,
-                    diamantes_liberar_em:   novosDiamantes > 0 ? liberarEm : (gt?.diamantes_liberar_em || null),
-                }).eq('phone', user.phone);
-
-                if (novosTickets   > 0) setTimeout(() => mostrarTicketPopup(novosTickets, 'ticket'),   2400);
-                if (novosDiamantes > 0) setTimeout(() => mostrarTicketPopup(novosDiamantes, 'diamante'), novosTickets > 0 ? 5500 : 2400);
-
-            } catch(e) { console.warn('Tickets/Diamantes:', e); }
-        }
+        // Tickets e Diamantes liberados pelo ADM ao confirmar pagamento
 
         // Rota aleatória
         try {
@@ -2371,11 +2402,11 @@ async function confirmOrder() {
         user.debt = newDebt; atualizarCabecalho();
 
         let finalMsg = msgTemplate
-            .replace('{nome}', user.name.toUpperCase())
+            .replace('{nome}', user.name.split(' ')[0].toUpperCase())
             .replace('{pedido}', pedidoTexto)
             .replace('{total}', finalTotal.toFixed(2).replace('.',','))
-            .replace('{pagamento}', method);
-        if (useCredit && creditDiscount > 0) finalMsg += `\n\n💳 Crédito usado`;
+            .replace('{pagamento}', 'Pagar na Entrega');
+
         if (cupomDescontoPct > 0) finalMsg += `\n🎟️ Cupom ${cupomDescontoPct}% aplicado`;
 
         // ===== ROBOZINHO: SIM ✅ =====
@@ -2398,9 +2429,46 @@ async function confirmOrder() {
         cart = {}; creditDiscount = 0; cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; render();
         btn.disabled = false;
 
-        setTimeout(() => {
+        // ===== VERIFICAR PEDIDO DUPLICADO (últimos 20 min) =====
+        setTimeout(async () => {
             modal.style.display = 'none';
-            window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(finalMsg)}`;
+
+            try {
+                const vinte = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+                const { data: pedidosRecentes } = await sb.from('pedidos')
+                    .select('id, created_at, items, total, payment_method')
+                    .eq('customer_phone', user.phone)
+                    .neq('id', pedidoInserido.id)
+                    .gte('created_at', vinte)
+                    .neq('status', 'cancelado')  // Qualquer pedido não cancelado nos últimos 10 min
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                // Filtra IDs já cancelados pelo painel para evitar duplo cancelamento
+                const jaCancel = window._canceladosPeloPainel || new Set();
+                const pedidoValido = (pedidosRecentes || []).find(p => !jaCancel.has(p.id));
+
+                if (pedidoValido) {
+                    // Há pedido anterior — mostrar modal de confirmação
+                    window._pedidoDupAnteriorId      = pedidoValido.id;
+                    window._pedidoDupAnteriorTotal   = pedidoValido.total;
+                    window._pedidoDupAnteriorMetodo  = pedidoValido.payment_method;
+                    window._pedidoDupAnteriorCredito = Number(localStorage.getItem('credit_used_' + pedidoValido.id)) || 0;
+                    window._pedidoDupFinalMsg        = finalMsg;
+                    const minAtras = Math.round((Date.now() - new Date(pedidoValido.created_at).getTime()) / 60000);
+                    document.getElementById('txtPedidoDupInfo').innerHTML =
+                        `Você já fez um pedido há <strong style="color:#f39c12">${minAtras} min</strong>.<br>Deseja cancelar o pedido anterior?`;
+                    document.getElementById('modalPedidoDuplicado').style.display = 'flex';
+                    document.getElementById('btnDupCancelar').disabled = false;
+                    document.getElementById('btnDupManter').disabled = false;
+                } else {
+                    // Sem duplicata — ir direto pro WhatsApp
+                    irParaWhatsApp(finalMsg);
+                }
+            } catch(e) {
+                console.warn('Erro ao checar duplicata:', e);
+                irParaWhatsApp(finalMsg);
+            }
         }, 2200);
 
     } catch(err) {
@@ -2410,6 +2478,67 @@ async function confirmOrder() {
         btn.disabled = false;
         setTimeout(() => { modal.style.display = 'none'; }, 3000);
     }
+}
+
+function irParaWhatsApp(msg) {
+    window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
+}
+
+async function responderDuplicado(cancelar) {
+    document.getElementById('modalPedidoDuplicado').style.display = 'none';
+    const msg = window._pedidoDupFinalMsg;
+
+    if (cancelar && window._pedidoDupAnteriorId) {
+        try {
+            const anteriorId      = window._pedidoDupAnteriorId;
+            const anteriorTotal   = Number(window._pedidoDupAnteriorTotal) || 0;
+            const anteriorMetodo  = window._pedidoDupAnteriorMetodo || 'FIADO';
+            const anteriorCredito = Number(window._pedidoDupAnteriorCredito) || 0;
+
+            // 1. Verifica se o pedido ainda existe e não foi processado pelo ADM
+            const { data: pedidoVerif } = await sb.from('pedidos')
+                .select('id, total, status')
+                .eq('id', anteriorId)
+                .maybeSingle();
+
+            if (!pedidoVerif) {
+                // Pedido não existe mais
+                showToast('Pedido não encontrado.', 'warning', 3000);
+                return;
+            }
+
+            if (pedidoVerif.status === 'PAGO') {
+                // ADM já confirmou o pagamento — não estorna
+                showToast('Pedido já processado, não foi estornado.', 'warning', 3000);
+                return;
+            }
+
+            // 2. Deleta o pedido anterior
+            await sb.from('pedidos').delete().eq('id', anteriorId);
+            localStorage.removeItem('credit_used_' + anteriorId);
+
+            // 3. Estorna: devolve o valor pago + devolve o crédito usado
+            const { data: cli } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
+            if (cli !== null) {
+                // Subtrai o que foi cobrado (anteriorTotal) e devolve o crédito usado (anteriorCredito)
+                const novoDebt = (Number(cli.debt) || 0) - anteriorTotal - anteriorCredito;
+                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+                user.debt = novoDebt;
+                atualizarCabecalho();
+            }
+
+            showToast('Pedido cancelado e reembolso aplicado ✅', 'success', 3000);
+        } catch(e) {
+            console.warn('Erro ao cancelar pedido anterior:', e);
+        }
+    }
+
+    window._pedidoDupAnteriorId      = null;
+    window._pedidoDupAnteriorTotal   = null;
+    window._pedidoDupAnteriorMetodo  = null;
+    window._pedidoDupAnteriorCredito = null;
+    window._pedidoDupFinalMsg        = null;
+    irParaWhatsApp(msg);
 }
 
 function roboEstado(estado) {
@@ -2474,17 +2603,240 @@ function togglePrivacidadeHeader() {
     salvarPrivacidade(novoValor);
 }
 
+// ===== PEDIDOS ATIVOS NO PAINEL =====
+async function carregarPedidosAtivos() {
+    const lista = document.getElementById('listaPedidosAtivos');
+    const badge = document.getElementById('badgePedidosAtivos');
+    if (!lista || !user) return;
+
+    try {
+        const { data: pedidos } = await sb.from('pedidos')
+            .select('id, total, payment_method, items, created_at, status')
+            .eq('customer_phone', user.phone)
+            .not('status', 'in', '("PAGO","cancelado")')
+            .neq('payment_method', 'PREMIO')
+            .not('items', 'ilike', '%🎮%')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (!pedidos || pedidos.length === 0) {
+            lista.innerHTML = `<div style="text-align:center;padding:16px 10px;">
+                <div style="font-size:28px;margin-bottom:6px;opacity:0.35;">🛍️</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.3);font-weight:600;">Nenhum pedido pendente</div>
+            </div>`;
+            if (badge) badge.style.display = 'none';
+            return;
+        }
+
+        if (badge) { badge.textContent = pedidos.length + ' pedido' + (pedidos.length > 1 ? 's' : ''); badge.style.display = ''; }
+
+        lista.innerHTML = '';
+        lista.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+        pedidos.forEach(function(p, idx) {
+            var total = Number(p.total || 0);
+            var metodo = (p.payment_method || 'FIADO');
+            var isFiado = metodo === 'FIADO';
+
+            var dtBRT = horasBRT(new Date(p.created_at));
+            var horaStr = String(dtBRT.getHours()).padStart(2,'0') + ':' + String(dtBRT.getMinutes()).padStart(2,'0');
+
+            var linhasItens = (p.items || '').replace(/✅ /g, '').split('\n').filter(function(l){ return l.trim(); });
+
+            var badgeColor = isFiado ? '#e67e22' : '#25d366';
+            var badgeBg    = isFiado ? 'rgba(230,126,34,0.15)' : 'rgba(37,211,102,0.15)';
+            var badgeBorder= isFiado ? 'rgba(230,126,34,0.4)' : 'rgba(37,211,102,0.4)';
+            var badgeLabel = isFiado ? 'FIADO' : 'ENTREGA';
+
+            // Até 3 itens: coluna única. 4-6: 2 colunas (3+3). Acima de 6: 2 colunas + "+X mais"
+            var col1 = linhasItens.slice(0, 3);
+            var col2 = linhasItens.slice(3, 6);
+            var extra = linhasItens.length > 6 ? linhasItens.length - 6 : 0;
+            var itemStyle = 'font-size:11px;color:rgba(255,255,255,0.8);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            var col1Html = col1.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
+            var col2Html = col2.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
+            if (extra) col2Html += '<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;">+' + extra + ' mais</div>';
+            var itensHtml = col2.length > 0
+                ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">' + col1Html + col2Html + '</div>'
+                : col1Html;
+
+            var safeid    = String(p.id);
+            var safeTotal = total;
+            var safeMetodo = metodo.replace(/'/g, '');
+
+            // Janela e prazo de cancelamento
+            var _pPedido = _partesSP(new Date(p.created_at));
+            var _horaPedidoMin = parseInt(_pPedido.hour) * 60 + parseInt(_pPedido.minute);
+            var _naJanela = _horaPedidoMin >= (15 * 60) || _horaPedidoMin < (5 * 60);
+            var _diaBase = new Date(_pPedido.year + '-' + _pPedido.month + '-' + _pPedido.day + 'T05:00:00-03:00');
+            var limiteCancelMs = _diaBase.getTime() + 86400000;
+            var dentroDoprazo = _naJanela && (Date.now() < limiteCancelMs);
+
+            var card = document.createElement('div');
+            card.id = 'pedidoAtivoCard_' + safeid;
+            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:0;';
+            card.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+                    '<div style="font-size:12px;font-weight:800;color:white;">' + horaStr + '</div>' +
+                    '<div style="font-size:9px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 7px;border-radius:20px;">' + badgeLabel + '</div>' +
+                '</div>' +
+                '<div style="flex:1;margin-bottom:6px;">' + itensHtml + '</div>' +
+                (dentroDoprazo
+                    ? '<div id="countdown_' + safeid + '" style="font-size:9px;color:rgba(255,165,0,0.8);font-weight:700;margin-bottom:6px;">⏳ --:--:--</div>'
+                    : '<div style="font-size:9px;color:rgba(255,255,255,0.2);font-weight:600;margin-bottom:6px;">🔒 Encerrado</div>'
+                ) +
+                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                    '<div style="font-size:14px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
+                    (dentroDoprazo
+                        ? '<button onclick="cancelarPedidoDosPainel(\'' + safeid + '\', ' + safeTotal + ', \'' + safeMetodo + '\', true)" ' +
+                            'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#ff6b6b;padding:5px 10px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" ' +
+                            'ontouchstart="this.style.background=\'rgba(231,76,60,0.35)\'" ontouchend="this.style.background=\'rgba(231,76,60,0.15)\'">' +
+                            '❌' +
+                          '</button>'
+                        : ''
+                    ) +
+                '</div>';
+            lista.appendChild(card);
+
+            // Contagem regressiva
+            if (dentroDoprazo) {
+                (function(id, limite) {
+                    var el = document.getElementById('countdown_' + id);
+                    if (!el) return;
+                    var interval = setInterval(function() {
+                        var diff = limite - Date.now();
+                        if (diff <= 0) {
+                            clearInterval(interval);
+                            if (el) el.textContent = '🔒 Encerrado';
+                            var c = document.getElementById('pedidoAtivoCard_' + id);
+                            if (c) { var btn = c.querySelector('button'); if (btn) btn.remove(); }
+                            return;
+                        }
+                        var h = Math.floor(diff / 3600000);
+                        var m = Math.floor((diff % 3600000) / 60000);
+                        var s = Math.floor((diff % 60000) / 1000);
+                        el.textContent = '⏳ ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+                    }, 1000);
+                    window._countdownIntervals = window._countdownIntervals || [];
+                    window._countdownIntervals.push(interval);
+                })(safeid, limiteCancelMs);
+            }
+        });
+    } catch(e) {
+        console.warn('Erro ao carregar pedidos ativos:', e);
+        lista.innerHTML = `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3);">Erro ao carregar pedidos</div>`;
+    }
+}
+
+async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
+    // Confirma antes de cancelar
+    if (!confirm('Cancelar este pedido e estornar R$ ' + Number(total).toFixed(2).replace('.',',') + '?')) return;
+
+    try {
+        // Verifica se o pedido ainda existe no banco
+        const { data: verif } = await sb.from('pedidos')
+            .select('id, total, status, created_at')
+            .eq('id', pedidoId)
+            .maybeSingle();
+
+        if (!verif) {
+            showToast('Pedido não encontrado.', 'warning', 3000);
+            carregarPedidosAtivos();
+            return;
+        }
+
+        // Se já foi confirmado/pago pelo ADM, não cancela
+        if (verif.status === 'PAGO') {
+            showToast('Este pedido já foi confirmado pelo ADM.', 'warning', 3000);
+            carregarPedidosAtivos();
+            return;
+        }
+
+        // Regra de janela: só pedidos feitos entre 15:00 e 05:00 podem cancelar
+        const _pPed = _partesSP(new Date(verif.created_at));
+        const _horaPedMin = parseInt(_pPed.hour) * 60 + parseInt(_pPed.minute);
+        const _naJanela = _horaPedMin >= (15 * 60) || _horaPedMin < (5 * 60);
+        if (!_naJanela) {
+            showToast('Pedidos feitos entre 05:00 e 15:00 não podem ser cancelados.', 'warning', 4000);
+            return;
+        }
+
+        // Regra de prazo: só pode cancelar até 05:00 do dia seguinte ao pedido
+        const _diaBasePed = new Date(_pPed.year + '-' + _pPed.month + '-' + _pPed.day + 'T05:00:00-03:00');
+        const _limiteMs = _diaBasePed.getTime() + 86400000;
+        if (Date.now() >= _limiteMs) {
+            showToast('Prazo de cancelamento encerrado. Só até 05:00 do dia seguinte.', 'warning', 4000);
+            return;
+        }
+
+        // Marca que este ID foi cancelado pelo painel — evita duplo cancelamento
+        window._canceladosPeloPainel = window._canceladosPeloPainel || new Set();
+        window._canceladosPeloPainel.add(pedidoId);
+
+        // 1. Deleta o pedido
+        await sb.from('pedidos').delete().eq('id', pedidoId);
+
+        // 2. Estorna o valor no debt
+        if (total > 0) {
+            const { data: cli } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
+            if (cli !== null) {
+                const novoDebt = (Number(cli.debt) || 0) - total;
+                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+                user.debt = novoDebt;
+                atualizarCabecalho();
+            }
+
+            // Insere notificação de reembolso
+            await inserirNotificacao(user.phone, 'reembolso', total, 'Pedido cancelado pelo cliente');
+        }
+
+        // Remove o card com animação
+        const card = document.getElementById('pedidoAtivoCard_' + pedidoId);
+        if (card) {
+            card.style.transition = 'opacity 0.3s, max-height 0.3s';
+            card.style.opacity = '0';
+            setTimeout(() => { card.remove(); carregarPedidosAtivos(); }, 300);
+        }
+
+        showToast('Pedido cancelado e reembolso aplicado ✅', 'success', 3000);
+        setTimeout(() => renderHistoricoSaldo(), 600);
+    } catch(e) {
+        console.warn('Erro ao cancelar pelo painel:', e);
+        showToast('Erro ao cancelar pedido', 'error', 3000);
+    }
+}
+
 function abrirPainelControle() {
-    document.getElementById('painelControle').style.transform = 'translateY(0)';
+    document.getElementById('painelControle').style.transform = 'translateX(0)';
     atualizarLabelPainel();
     window.history.pushState({ state: 'painel_aberto' }, '', window.location.href);
 }
 
 function fecharPainelControle() {
+    // Limpa countdowns ativos
+    if (window._countdownIntervals) {
+        window._countdownIntervals.forEach(function(iv){ clearInterval(iv); });
+        window._countdownIntervals = [];
+    }
     const p = document.getElementById('painelControle');
     p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
-    p.style.transform = 'translateY(100%)';
+    p.style.transform = 'translateX(-100%)';
 }
+
+function abrirPainelPedidos() {
+    carregarPedidosAtivos();
+    document.getElementById('painelPedidos').style.transform = 'translateY(0)';
+    window.history.pushState({ state: 'pedidos_aberto' }, '', window.location.href);
+}
+
+function fecharPainelPedidos() {
+    if (window._countdownIntervals) {
+        window._countdownIntervals.forEach(function(iv){ clearInterval(iv); });
+        window._countdownIntervals = [];
+    }
+    document.getElementById('painelPedidos').style.transform = 'translateY(-100%)';
+}
+
 
 function abrirPainelSino() {
     document.getElementById('painelSino').style.transform = 'translateY(0)';
@@ -2495,7 +2847,91 @@ function abrirPainelSino() {
 function fecharPainelSino() {
     const p = document.getElementById('painelSino');
     p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
-    p.style.transform = 'translateY(100%)';
+    p.style.transform = 'translateY(-100%)';
+}
+
+// ===== LEITURA DO PEDIDO 🗣️ =====
+let leituraPedidoAtiva = localStorage.getItem('leitura_pedido') === 'true';
+
+function initLeituraToggle() {
+    atualizarVisualLeitura(leituraPedidoAtiva);
+}
+
+// Pré-aquece o motor de voz no primeiro toque (elimina delay)
+let vozAquecida = false;
+document.addEventListener('touchstart', () => {
+    if (vozAquecida || !('speechSynthesis' in window)) return;
+    vozAquecida = true;
+    const silencio = new SpeechSynthesisUtterance(' ');
+    silencio.volume = 0;
+    silencio.lang = 'pt-BR';
+    window.speechSynthesis.speak(silencio);
+}, { once: true });
+
+function toggleLeituraPedido() {
+    leituraPedidoAtiva = !leituraPedidoAtiva;
+    localStorage.setItem('leitura_pedido', leituraPedidoAtiva);
+    atualizarVisualLeitura(leituraPedidoAtiva);
+    const msg = new SpeechSynthesisUtterance(leituraPedidoAtiva ? 'Leitura ativada' : 'Leitura desativada');
+    msg.lang = 'pt-BR';
+    msg.rate = 1;
+    msg.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(msg);
+}
+
+function atualizarVisualLeitura(ativo) {
+    const btn = document.getElementById('leituraToggleBtn');
+    const knob = document.getElementById('leituraToggleKnob');
+    const label = document.getElementById('labelLeituraTop');
+    if (!btn || !knob || !label) return;
+    if (ativo) {
+        btn.style.background = 'linear-gradient(135deg,#25d366,#1aad52)';
+        btn.style.boxShadow = '0 3px 10px rgba(37,211,102,0.4)';
+        knob.style.left = '22px';
+        label.style.color = '#25d366';
+        label.textContent = '● LIGADO';
+    } else {
+        btn.style.background = '#2a2a2a';
+        btn.style.boxShadow = '0 3px 10px rgba(0,0,0,0.4)';
+        knob.style.left = '2px';
+        label.style.color = '#ff4d4d';
+        label.textContent = '● DESLIGADO';
+    }
+}
+
+function lerPedidoVoz() {
+    if (!leituraPedidoAtiva) return;
+    if (!('speechSynthesis' in window)) return;
+
+    const itens = [];
+    for (let id in cart) {
+        const p = products.find(x => x.id == id);
+        if (!p || !cart[id]) continue;
+        const qtd = cart[id];
+        const nome = p.name.replace(/Cox\.\s*/gi, 'coxinha de ').trim();
+        const femininos = ['coxinha','enroladinha','bolinha','empada','esfiha','pizza','pastel','mini'];
+        const ehF = femininos.some(f => nome.toLowerCase().includes(f));
+        if (qtd === 1) {
+            itens.push(`${ehF ? 'uma' : 'um'} ${nome}`);
+        } else {
+            itens.push(`${qtd} ${nome}s`);
+        }
+    }
+
+    if (itens.length === 0) return;
+
+    // Sem vírgulas entre itens para evitar pausas
+    const frase = 'Você vai comprar ' + itens.join(' ');
+
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(frase);
+    utter.lang = 'pt-BR';
+    utter.rate = 0.85;
+    utter.pitch = 1.18;
+    utter.volume = 1;
+
+    window.speechSynthesis.speak(utter);
 }
 
 async function salvarPrivacidade(valor) {
@@ -2503,6 +2939,46 @@ async function salvarPrivacidade(valor) {
     await sb.from("clientes").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
     showToast(valor ? "Pedido automático 🤖" : "Pedido manual 🔒", valor ? 'success' : 'warning');
+}
+
+// ===== REALTIME: detecta quando ADM libera tickets ou atualiza debt =====
+function iniciarRealtimeCliente(phone) {
+    // Escuta UPDATE na tabela clientes (debt, tickets)
+    sb.channel('cliente_watch_' + phone)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'clientes',
+            filter: `phone=eq.${phone}`
+        }, (payload) => {
+            const novo = payload.new;
+            if (!novo) return;
+            user.debt = Number(novo.debt);
+            atualizarCabecalho();
+            verificarTicketsGanhos(phone, novo);
+        })
+        .subscribe();
+
+    // Escuta INSERT na tabela notificacoes (pagamento ou reembolso)
+    sb.channel('notificacoes_watch_' + phone)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notificacoes',
+            filter: `customer_phone=eq.${phone}`
+        }, (payload) => {
+            const novo = payload.new;
+            if (!novo) return;
+            const valorFmt = Number(novo.valor || 0).toFixed(2).replace('.', ',');
+            if (novo.tipo === 'pagamento') {
+                showToast(`✅ Pagamento de R$ ${valorFmt} confirmado!`, 'success', 5000);
+                setTimeout(() => renderHistoricoSaldo(), 600);
+            } else if (novo.tipo === 'reembolso') {
+                showToast(`♻️ Pedido cancelado — R$ ${valorFmt} reembolsado!`, 'warning', 5000);
+                setTimeout(() => renderHistoricoSaldo(), 600);
+            }
+        })
+        .subscribe();
 }
 
 // ===== REALTIME: detecta quando ADM manda limpar cache =====
@@ -2550,10 +3026,10 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
 <!-- PAINEL DE ajuda de ia - PÁGINA COMPLETA -->
 <div id="painelControle" style="
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     z-index: 3000;
     background: linear-gradient(180deg, #120220 0%, #0d0118 100%);
-    transform: translateY(100%);
+    transform: translateX(-100%);
     transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
     display: flex;
     flex-direction: column;
@@ -2575,118 +3051,137 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             <div style="font-size: 19px; margin-bottom: 1px; filter: drop-shadow(0 3px 10px rgba(180,120,255,0.7));">⚙️</div>
             <div style="font-size: 14px; font-weight: 800; color:white; letter-spacing:-0.2px;">configurações</div>
         </div>
+        <div onclick="logout()" style="position:absolute;top:12px;right:14px;color:#ff6b6b;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;z-index:10;display:flex;flex-direction:column;align-items:center;line-height:1.1;user-select:none;" ontouchstart="this.style.opacity='0.6'" ontouchend="this.style.opacity='1'"><span style="font-size:22px;">📲</span><span style="font-size:14px;font-weight:900;letter-spacing:0.2px;">sair/conta</span></div>
     </div>
 
     <!-- Conteúdo rolável -->
     <div id="painelScroll" style="flex:1; min-height:0; overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding: 18px 16px 50px; display: flex; flex-direction: column; gap: 0;">
 
-        <!-- ===== SEÇÃO: ATALHOS ===== -->
-        <div style="display:flex;align-items:center;gap:6px;padding:4px 2px 14px;">
-            <div style="width:5px;height:5px;border-radius:50%;background:#a29bfe;flex-shrink:0;"></div>
-            <span style="font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.38);text-transform:uppercase;letter-spacing:1.4px;">Atalhos</span>
-        </div>
+        <!-- ===== GRID 2 COLUNAS ===== -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:24px;">
-
-            <!-- Jogos -->
-            <div onclick="irParaRoleta()" ontouchstart="this.style.transform='scale(0.91)'" ontouchend="this.style.transform='scale(1)'" style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;">
-                <div style="width:62px;height:62px;border-radius:18px;background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 4px 16px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.07) inset;position:relative;overflow:hidden;">
-                    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(52,152,219,0.25),rgba(41,128,185,0.1));"></div>
-                    🎮
-                </div>
-                <span style="font-size:10.5px;font-weight:600;color:rgba(255,255,255,0.75);text-align:center;line-height:1.2;">Jogos</span>
-            </div>
-
-            <!-- Acompanhar -->
-            <div onclick="showToast('🔒 Em breve!','warning')" ontouchstart="this.style.transform='scale(0.91)'" ontouchend="this.style.transform='scale(1)'" style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;opacity:0.5;">
-                <div style="width:62px;height:62px;border-radius:18px;background:linear-gradient(145deg,#001a33,#002244);border:1px solid rgba(52,152,219,0.15);display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 4px 16px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.07) inset;position:relative;overflow:hidden;">
-                    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(52,152,219,0.2),rgba(41,128,185,0.05));"></div>
-                    🛵
-                    <span style="position:absolute;top:4px;right:5px;font-size:9px;">🔒</span>
-                </div>
-                <span style="font-size:10.5px;font-weight:600;color:rgba(255,255,255,0.75);text-align:center;line-height:1.2;">Entrega</span>
-            </div>
-
-            <!-- Tema -->
-            <div onclick="document.getElementById('temaExpand').style.display=document.getElementById('temaExpand').style.display==='none'?'block':'none'" ontouchstart="this.style.transform='scale(0.91)'" ontouchend="this.style.transform='scale(1)'" style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform 0.15s;-webkit-tap-highlight-color:transparent;">
-                <div style="width:62px;height:62px;border-radius:18px;background:linear-gradient(145deg,#0d1a0d,#112211);border:1px solid rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 4px 16px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.07) inset;position:relative;overflow:hidden;">
-                    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,0.18),rgba(0,153,255,0.08));"></div>
-                    🎨
-                </div>
-                <span style="font-size:10.5px;font-weight:600;color:rgba(255,255,255,0.75);text-align:center;line-height:1.2;">Tema</span>
-            </div>
-
-        </div>
-
-        <!-- Seletor de Tema (expansível) -->
-        <div id="temaExpand" style="display:none;margin-bottom:20px;">
-            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;">
-                <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:12px;text-align:center;letter-spacing:0.5px;">ESCOLHA O TEMA</div>
-                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-                    <div onclick="alterarTema('azul')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#4dd0ff,#0099ff,#0052cc);box-shadow:0 4px 12px rgba(0,153,255,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkAzul">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Azul</span>
-                    </div>
-                    <div onclick="alterarTema('roxo')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#c77dff,#9d4edd,#7209b7);box-shadow:0 4px 12px rgba(157,78,221,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkRoxo" style="display:none;">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Roxo</span>
-                    </div>
-                    <div onclick="alterarTema('verde')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#52ffb0,#00c96e,#007a3d);box-shadow:0 4px 12px rgba(0,201,110,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkVerde" style="display:none;">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Verde</span>
-                    </div>
-                    <div onclick="alterarTema('grafite')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#6e6e6e,#3a3a3a,#1a1a1a);box-shadow:0 4px 12px rgba(80,80,80,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkGrafite" style="display:none;">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Grafite</span>
-                    </div>
-                    <div onclick="alterarTema('rosa')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#ffb3de,#ff2d87,#a0005a);box-shadow:0 4px 12px rgba(255,45,135,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkRosa" style="display:none;">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Rosa</span>
-                    </div>
-                    <div onclick="alterarTema('teal')" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform='scale(1)'">
-                        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#80ffee,#00bfa5,#00675b);box-shadow:0 4px 12px rgba(0,191,165,0.5);display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid rgba(255,255,255,0.25);"><span id="checkTeal" style="display:none;">✓</span></div>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.5);font-weight:600;">Teal</span>
-                    </div>
+            <!-- CARD: Meus Pedidos -->
+            <div onclick="fecharPainelControle(); setTimeout(abrirPainelPedidos, 350);"
+                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(243,156,18,0.3)'"
+                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(243,156,18,0.2)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#1a1000,#241800);
+                border:1px solid rgba(243,156,18,0.25);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 6px 24px rgba(243,156,18,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(243,156,18,0.18),transparent 70%);"></div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(243,156,18,0.5));">🛍️</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Meus Pedidos</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Ver e cancelar<br>pedidos ativos</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#f39c12;box-shadow:0 0 6px #f39c12;" id="dotPedidosCard"></div>
+                    <span style="font-size:10px;color:rgba(243,156,18,0.9);font-weight:700;">VER PEDIDOS →</span>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== SEÇÃO: AUTOMAÇÃO ===== -->
-        <div style="display:flex;align-items:center;gap:6px;padding:4px 2px 14px;">
-            <div style="width:5px;height:5px;border-radius:50%;background:#a29bfe;flex-shrink:0;"></div>
-            <span style="font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.38);text-transform:uppercase;letter-spacing:1.4px;">Automação</span>
-        </div>
-
-        <!-- Pedido Automático — estilo linha de config iOS -->
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:18px;overflow:hidden;margin-bottom:24px;">
-            <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;">
-                <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#8e44ad,#6c3483);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 3px 10px rgba(142,68,173,0.45);">🤖</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:14px;font-weight:700;color:white;margin-bottom:1px;">Pedido Automático</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Repete seu pedido todo dia às 3h</div>
-                </div>
-                <div onclick="togglePrivacidadeHeader(); atualizarLabelPainel();" id="painelToggleBtn" style="flex-shrink:0;width:51px;height:28px;border-radius:28px;background:linear-gradient(135deg,#25d366,#1aad52);position:relative;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 10px rgba(37,211,102,0.4);transition:background 0.35s,box-shadow 0.35s;">
-                    <div id="painelToggleKnob" style="position:absolute;top:3px;left:26px;width:22px;height:22px;border-radius:50%;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:left 0.35s cubic-bezier(0.34,1.56,0.64,1);"></div>
+            <!-- CARD: Entrega -->
+            <div onclick="showToast('🔒 Em breve!','warning')"
+                ontouchstart="this.style.transform='scale(0.95)'"
+                ontouchend="this.style.transform='scale(1)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;opacity:0.5;
+                background:linear-gradient(145deg,#0a1520,#111e2e);
+                border:1px solid rgba(255,255,255,0.07);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 4px 14px rgba(0,0,0,0.4);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:10px;right:12px;font-size:13px;">🔒</div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4));">🛵</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Entrega</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Rastrear sua<br>entrega em tempo real</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#666;"></div>
+                    <span style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:700;">EM BREVE</span>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== SEÇÃO: CONTA ===== -->
-        <div style="display:flex;align-items:center;gap:6px;padding:4px 2px 14px;">
-            <div style="width:5px;height:5px;border-radius:50%;background:#e74c3c;flex-shrink:0;"></div>
-            <span style="font-size:10.5px;font-weight:700;color:rgba(255,255,255,0.38);text-transform:uppercase;letter-spacing:1.4px;">Conta</span>
-        </div>
-
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:18px;overflow:hidden;margin-bottom:24px;">
-            <div onclick="logout()" ontouchstart="this.style.background='rgba(231,76,60,0.15)'" ontouchend="this.style.background='transparent'" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;transition:background 0.2s;">
-                <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#e74c3c,#c0392b);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 3px 10px rgba(231,76,60,0.4);">🚪</div>
-                <div style="flex:1;">
-                    <div style="font-size:14px;font-weight:700;color:#ff6b6b;">Sair da Conta</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.38);">Encerrar sessão atual</div>
+            <!-- CARD: Jogos -->
+            <div onclick="irParaRoleta()"
+                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(52,152,219,0.3)'"
+                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(52,152,219,0.2)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#0e1a2e,#162436);
+                border:1px solid rgba(52,152,219,0.22);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 6px 24px rgba(52,152,219,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(52,152,219,0.18),transparent 70%);"></div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(52,152,219,0.5));">🎮</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Jogos</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Roleta, Foguete,<br>Campo Minado e +</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#3498db;box-shadow:0 0 6px #3498db;"></div>
+                    <span style="font-size:10px;color:rgba(52,152,219,0.9);font-weight:700;">ACESSAR →</span>
                 </div>
-                <div style="color:rgba(255,255,255,0.2);font-size:18px;">›</div>
             </div>
+
+            <!-- CARD: Tema -->
+            <div onclick="abrirTemaPopup()"
+                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(0,212,255,0.3)'"
+                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(0,212,255,0.15)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#0a1a1a,#0e2222);
+                border:1px solid rgba(0,212,255,0.2);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 6px 24px rgba(0,212,255,0.1);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.15),transparent 70%);"></div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,212,255,0.4));">🎨</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Tema</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Azul, Roxo, Verde,<br>Grafite, Rosa, Teal</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#00d4ff;box-shadow:0 0 6px #00d4ff;"></div>
+                    <span style="font-size:10px;color:rgba(0,212,255,0.9);font-weight:700;">PERSONALIZAR →</span>
+                </div>
+            </div>
+
+            <!-- CARD: Pedido Automático -->
+            <div style="background:linear-gradient(145deg,#150a25,#1e0f35);
+                border:1px solid rgba(142,68,173,0.25);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 6px 24px rgba(142,68,173,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(142,68,173,0.2),transparent 70%);"></div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(142,68,173,0.6));">🤖</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Automático</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Repete seu pedido<br>todo dia às 3h</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:10px;color:rgba(142,68,173,0.9);font-weight:700;" id="labelAutoToggle">ATIVADO</span>
+                    <div onclick="togglePrivacidadeHeader(); atualizarLabelPainel();" id="painelToggleBtn"
+                        style="width:44px;height:24px;border-radius:24px;background:linear-gradient(135deg,#25d366,#1aad52);position:relative;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 10px rgba(37,211,102,0.4);transition:background 0.35s,box-shadow 0.35s;flex-shrink:0;">
+                        <div id="painelToggleKnob" style="position:absolute;top:2px;left:22px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:left 0.35s cubic-bezier(0.34,1.56,0.64,1);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD: Leitura do Pedido -->
+            <div onclick="toggleLeituraPedido()" id="cardLeituraPedido"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#0a1f12,#0e2a1a);
+                border:1px solid rgba(0,255,120,0.2);border-radius:22px;
+                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                box-shadow:0 6px 24px rgba(0,255,120,0.1);position:relative;overflow:hidden;aspect-ratio:1;"
+                ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
+                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,120,0.15),transparent 70%);"></div>
+                <div id="labelLeituraTop" style="position:absolute;top:10px;right:12px;font-size:9px;font-weight:800;color:#ff4d4d;letter-spacing:0.5px;">● DESLIGADO</div>
+                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,255,120,0.5));">🗣️</div>
+                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Leitura</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Fala o pedido<br>antes de enviar</div>
+                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:10px;color:rgba(0,255,120,0.9);font-weight:700;">Toque para mudar</span>
+                    <div id="leituraToggleBtn"
+                        style="width:44px;height:24px;border-radius:24px;background:#2a2a2a;position:relative;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 10px rgba(0,0,0,0.4);transition:background 0.35s,box-shadow 0.35s;flex-shrink:0;">
+                        <div id="leituraToggleKnob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:left 0.35s cubic-bezier(0.34,1.56,0.64,1);"></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
+
+        <!-- Seletor de Tema (agora é popup flutuante) -->
+        <div id="temaExpand" style="display:none;"></div>
+
+
 
         <!-- Rodapé -->
         <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:11px;margin-top:4px;font-weight:500;letter-spacing:0.3px;">
@@ -2702,7 +3197,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
     inset: 0;
     z-index: 3000;
     background: linear-gradient(180deg, #120220 0%, #0d0118 100%);
-    transform: translateY(100%);
+    transform: translateY(-100%);
     transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
     display: flex;
     flex-direction: column;
@@ -2710,7 +3205,6 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
 ">
     <!-- Header do painel sino -->
     <div id="painelSinoHeader" style="padding: 6px 18px 7px; color: white; position: relative; flex-shrink:0; background:#1a0535; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
-        <div style="width:43px;height:5px;background:rgba(255,255,255,0.18);border-radius:2px;margin:0 auto 5px;"></div>
         <button onclick="fecharPainelSino()" style="
             position: absolute; top: 16px; left: 14px;
             background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); color: white;
@@ -2746,6 +3240,55 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
 </div>
 <!-- ===== FIM PAINEL SINO ===== -->
 
+<!-- ===== PAINEL MEUS PEDIDOS 🛍️ ===== -->
+<div id="painelPedidos" style="
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: linear-gradient(180deg, #0d1a0f 0%, #080f09 100%);
+    transform: translateY(-100%);
+    transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+">
+    <!-- Header -->
+    <div style="padding: 6px 18px 7px; color: white; position: relative; flex-shrink:0; background:#0a1f0c; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+        <button onclick="fecharPainelPedidos()" style="
+            position: absolute; top: 16px; left: 14px;
+            background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); color: white;
+            width: 34px; height: 34px; border-radius: 11px; font-size: 20px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+            z-index: 10; transition:background 0.2s;
+        " ontouchstart="this.style.background='rgba(255,255,255,0.28)'" ontouchend="this.style.background='rgba(255,255,255,0.12)'">‹</button>
+        <div style="text-align:center;">
+            <div style="font-size: 19px; margin-bottom: 1px; filter: drop-shadow(0 3px 10px rgba(243,156,18,0.7));">🛍️</div>
+            <div style="font-size: 14px; font-weight: 800; color:white; letter-spacing:-0.2px;">meus pedidos</div>
+        </div>
+    </div>
+
+    <!-- Conteúdo rolável -->
+    <div style="flex:1; min-height:0; overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding: 14px 12px 40px; display: flex; flex-direction: column; gap: 0;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:#f39c12;box-shadow:0 0 6px #f39c12;"></div>
+                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Pedidos de hoje</span>
+            </div>
+            <span id="badgePedidosAtivos" style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;display:none;"></span>
+        </div>
+
+        <div id="listaPedidosAtivos" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+        <div style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:20px;font-weight:500;letter-spacing:0.3px;">
+            O Rei da Coxinha 🍗 · Painel v1.0
+        </div>
+
+    </div>
+</div>
+<!-- ===== FIM PAINEL PEDIDOS ===== -->
+
 <script>
 // ===== HISTÓRICO DE PAGAMENTOS & FIADO (Supabase) =====
 
@@ -2772,45 +3315,68 @@ async function renderHistoricoSaldo() {
         <div class="spinner" style="margin:0 auto;border-color:rgba(255,255,255,0.15);border-top-color:rgba(255,255,255,0.7);"></div>
     </div>`;
 
-    // Histórico baseado em pedidos (pagamentos_reembolsos migrado para pedidos)
-    const { data: pagamentos } = await sb.from("pedidos")
-        .select("id, total, payment_method, status, created_at, items")
+    // Busca notificações da tabela dedicada
+    const { data: notifs, error: errNotifs } = await sb.from("notificacoes")
+        .select("id, tipo, valor, descricao, created_at")
         .eq("customer_phone", user.phone)
-        .neq("payment_method", "PREMIO")
-        .not("items", "ilike", "%🎮%")
         .order("created_at", { ascending: false })
-        .limit(8);
+        .limit(20);
+    console.log('[Notificações] phone usado na query:', user.phone);
+    console.log('[Notificações] resultado:', notifs);
+    if (errNotifs) console.error('[Notificações] ERRO:', errNotifs.message, errNotifs);
+    if (!notifs || notifs.length === 0) {
+        const { data: debug } = await sb.from("notificacoes").select("id, customer_phone, tipo").limit(5);
+        console.warn('[Notificações] Debug — registros na tabela (sem filtro):', debug);
+    }
 
-    // Montar lista unificada ordenada por data
+    // Limpeza automática: mantém só as 15 mais recentes
+    try {
+        const { data: todas } = await sb.from("notificacoes")
+            .select("id")
+            .eq("customer_phone", user.phone)
+            .order("created_at", { ascending: false });
+        if (todas && todas.length > 15) {
+            const parasApagar = todas.slice(15).map(n => n.id);
+            await sb.from("notificacoes").delete().in("id", parasApagar);
+        }
+    } catch(e) { console.warn('Erro ao limpar notificações antigas:', e); }
+
+    // Montar lista
     let itens = [];
 
-    (pagamentos || []).forEach(p => {
-        const isReembolso = (p.status || '').toLowerCase().includes('cancel') || (p.status || '').toLowerCase().includes('reembolso');
-        const valor = parseFloat(p.total || 0);
-        const metodo = p.payment_method || '';
-        const saldoLabel = isReembolso ? 'Pedido cancelado' : `${metodo}`;
+    (notifs || []).forEach(p => {
+        const isReembolso = p.tipo === 'reembolso';
+        const valor = Math.abs(parseFloat(p.valor || 0));
+        const saldoLabel = isReembolso ? 'Pedido cancelado' : 'Pagar na Entrega';
 
         // Definir cores baseadas no tema e tipo
-        let cor;
-        if (isReembolso) {
-            // Reembolso muda de cor conforme tema
-            cor = temaSelecionado === 'roxo' ? '#5a0f3f' : '#e74c3c'; // Rosa muito escuro no roxo, Vermelho no azul
-        } else {
-            // Pago sempre verde
-            cor = '#25d366';
-        }
+        const coresTema = {
+            azul:     { reembolsoBg: 'rgba(0,153,255,0.18)',    borda: 'rgba(0,153,255,0.45)',    badge: '#0099ff' },
+            grafite:  { reembolsoBg: 'rgba(120,120,120,0.18)',  borda: 'rgba(120,120,120,0.45)',  badge: '#888888' },
+            vermelho: { reembolsoBg: 'rgba(120,120,120,0.18)',  borda: 'rgba(120,120,120,0.45)',  badge: '#888888' },
+            roxo:     { reembolsoBg: 'rgba(157,78,221,0.18)',   borda: 'rgba(157,78,221,0.45)',   badge: '#9d4edd' },
+            rosa:     { reembolsoBg: 'rgba(139,0,69,0.22)',     borda: 'rgba(139,0,69,0.5)',      badge: '#8b0045' },
+            prata:    { reembolsoBg: 'rgba(139,90,26,0.22)',    borda: 'rgba(139,90,26,0.5)',     badge: '#cd7f32' },
+        };
+        const temaAtual = (localStorage.getItem('temaSelecionado') || 'grafite');
+        const paleta = coresTema[temaAtual] || coresTema['grafite'];
+
+        const cor = isReembolso ? paleta.badge : '#25d366';
 
         itens.push({
             id: String(p.id),
             data: p.created_at,
-            icone: isReembolso ? '↩️' : '✅',
+            icone: isReembolso ? '♻️' : '✅',
             titulo: isReembolso ? 'Pedido cancelado' : 'Pagamento recebido',
             sub: saldoLabel,
-            valor: isReembolso ? `− R$ ${valor.toFixed(2).replace('.',',')}` : `− R$ ${valor.toFixed(2).replace('.',',')}`,
+            valor: `R$ ${valor.toFixed(2).replace('.',',')}`,
             valorCor: cor,
             badge: isReembolso ? 'REEMBOLSO' : 'PAGO',
             badgeCor: cor,
             iconeBg: cor,
+            isReembolso: isReembolso,
+            cardBg: isReembolso ? paleta.reembolsoBg : 'rgba(37,211,102,0.12)',
+            cardBorda: isReembolso ? paleta.borda : 'rgba(37,211,102,0.35)',
         });
     });
 
@@ -2835,11 +3401,17 @@ async function renderHistoricoSaldo() {
             animation: fadeSlide 0.4s ease ${idx * 0.06}s both;
         `;
 
-        // Fundo lixeira — aparece conforme arrasta (cor muda conforme tema)
-        const temaSalvo = localStorage.getItem('temaSelecionado') || 'azul';
-        const corLixeira = temaSalvo === 'roxo'
-            ? 'linear-gradient(135deg,#ff1493,#ff69b4)' // Rosa para tema roxo
-            : 'linear-gradient(135deg,#ff3b30,#c0392b)'; // Vermelho para tema azul
+        // Fundo lixeira — usa a cor do tema
+        const gradLixeiras = {
+            azul:     'linear-gradient(135deg,#0066cc,#0099ff)',
+            grafite:  'linear-gradient(135deg,#1a1a1a,#555)',
+            vermelho: 'linear-gradient(135deg,#3d0000,#8b0000)',
+            roxo:     'linear-gradient(135deg,#7209b7,#9d4edd)',
+            rosa:     'linear-gradient(135deg,#2e0015,#8b0045)',
+            prata:    'linear-gradient(135deg,#4a2d00,#cd7f32)',
+        };
+        const temaSalvo = localStorage.getItem('temaSelecionado') || 'grafite';
+        const corLixeira = gradLixeiras[temaSalvo] || gradLixeiras['azul'];
 
         const lixeira = document.createElement('div');
         lixeira.style.cssText = `
@@ -2864,10 +3436,10 @@ async function renderHistoricoSaldo() {
         // Card notificação estilo iOS/Android
         const card = document.createElement('div');
         card.style.cssText = `
-            background: rgba(255,255,255,0.09);
+            background: ${item.cardBg};
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255,255,255,0.13);
+            border: 1px solid ${item.cardBorda};
             border-radius:22px;
             padding:16px 16px;
             display:flex; gap:14px; align-items:center;
@@ -2885,13 +3457,13 @@ async function renderHistoricoSaldo() {
                 box-shadow:0 6px 18px ${item.iconeBg}55;
             ">${item.icone}</div>
             <div style="flex:1;min-width:0;">
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;letter-spacing:-0.2px;">${item.titulo}</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.45);display:flex;align-items:center;gap:4px;">🕐 ${_fmtData(item.data)}</div>
-                ${item.sub ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.sub}</div>` : ''}
+                <div style="font-size:15px;font-weight:900;color:#ffffff;margin-bottom:4px;letter-spacing:-0.2px;text-shadow:0 1px 8px rgba(0,0,0,0.6),0 0 20px rgba(255,255,255,0.15);">${item.titulo}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.75);display:flex;align-items:center;gap:4px;text-shadow:0 1px 4px rgba(0,0,0,0.5);">🕐 ${_fmtData(item.data)}</div>
+                ${item.sub ? `<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,0.5);">${item.sub}</div>` : ''}
             </div>
             <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-                <div style="font-size:18px;font-weight:900;color:${item.valorCor};letter-spacing:-0.5px;">${item.valor}</div>
-                <div style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;color:white;background:${item.badgeCor};letter-spacing:0.5px;box-shadow:0 2px 8px ${item.badgeCor}66;">${item.badge}</div>
+                <div style="font-size:18px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;text-shadow:0 1px 8px rgba(0,0,0,0.6),0 0 16px rgba(255,255,255,0.2);">${item.valor}</div>
+                <div style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;color:white;background:${item.badgeCor};letter-spacing:0.5px;box-shadow:0 2px 8px ${item.badgeCor}66;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${item.badge}</div>
             </div>
         `;
 
@@ -2950,8 +3522,8 @@ async function renderHistoricoSaldo() {
                     setTimeout(() => {
                         // Deletar registro do Supabase
                         if (item.id) {
-                            sb.from("pedidos").update({ status: 'cancelado' }).eq("id", item.id).then(({ error }) => {
-                                if (error) console.warn('Erro ao cancelar pedido:', error);
+                            sb.from("notificacoes").delete().eq("id", item.id).then(({ error }) => {
+                                if (error) console.warn('Erro ao deletar notificação:', error);
                             });
                         }
                         wrapper.remove();
@@ -2980,19 +3552,106 @@ async function renderHistoricoSaldo() {
 }
 
 
+function abrirTemaPopup() {
+    let popup = document.getElementById('temaPopupOverlay');
+    if (popup) popup.remove();
+
+    popup = document.createElement('div');
+    popup.id = 'temaPopupOverlay';
+    popup.style.cssText = 'position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,0);transition:background 0.3s ease;';
+
+    const temasLinha1 = [
+        { id:'azul',     label:'Azul',      bg:'linear-gradient(135deg,#4dd0ff,#0099ff,#0052cc)',          shadow:'rgba(0,153,255,0.7)' },
+        { id:'grafite',  label:'Grafite',   bg:'linear-gradient(135deg,#6e6e6e,#3a3a3a,#1a1a1a)',          shadow:'rgba(80,80,80,0.6)' },
+        { id:'vermelho', label:'Vermelho',  bg:'linear-gradient(135deg,#8b0000,#6a0000,#3d0000)',          shadow:'rgba(100,0,0,0.7)' },
+    ];
+    const temasLinha2 = [
+        { id:'roxo',     label:'Roxo',      bg:'linear-gradient(135deg,#c77dff,#9d4edd,#7209b7)',          shadow:'rgba(157,78,221,0.7)' },
+        { id:'rosa',     label:'Rosa',      bg:'linear-gradient(135deg,#8b0045,#5c002e,#2e0015)',          shadow:'rgba(139,0,69,0.7)' },
+        { id:'prata',    label:'Bronze',    bg:'linear-gradient(135deg,#cd7f32,#8b5a1a,#4a2d00)',          shadow:'rgba(139,90,26,0.7)' },
+    ];
+
+    const atual = localStorage.getItem('temaSelecionado') || 'grafite';
+
+    function _bolinha(t) {
+        return `
+        <div onclick="alterarTema('${t.id}'); fecharTemaPopup();"
+            ontouchstart="this.style.transform='scale(0.88)'"
+            ontouchend="this.style.transform='scale(1)'"
+            style="display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;transition:transform 0.15s;width:60px;">
+            <div style="
+                width:52px;height:52px;border-radius:16px;
+                background:${t.bg};
+                box-shadow:0 6px 18px ${t.shadow};
+                display:flex;align-items:center;justify-content:center;
+                font-size:20px;
+                border:${atual === t.id ? '2.5px solid white' : '2px solid rgba(255,255,255,0.2)'};
+                transition:transform 0.15s;
+            ">${atual === t.id ? '✓' : ''}</div>
+            <span style="font-size:10px;color:${atual === t.id ? 'white' : 'rgba(255,255,255,0.45)'};font-weight:${atual === t.id ? '800' : '600'};white-space:nowrap;">${t.label}</span>
+        </div>`;
+    }
+
+    const linha1 = temasLinha1.map(_bolinha).join('');
+    const linha2 = temasLinha2.map(_bolinha).join('');
+
+    popup.innerHTML = `
+        <div id="temaPopupCard" style="
+            width:100%;max-width:360px;
+            background:linear-gradient(160deg,#0d0118 0%,#1a0535 60%,#0d0118 100%);
+            border:1px solid rgba(0,212,255,0.2);
+            border-radius:28px;
+            padding:28px 20px 24px;
+            box-shadow:0 30px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04) inset;
+            text-align:center;
+            transform:scale(0.82) translateY(30px);
+            opacity:0;
+            transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+        ">
+            <div style="font-size:28px;margin-bottom:6px;">🎨</div>
+            <div style="font-size:16px;font-weight:900;color:white;margin-bottom:4px;letter-spacing:-0.3px;">Escolha o Tema</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:20px;">Toque em uma cor para aplicar</div>
+            <div style="display:flex;justify-content:center;gap:10px;margin-bottom:16px;">${linha1}</div>
+            <div style="height:1px;background:rgba(255,255,255,0.07);margin-bottom:16px;"></div>
+            <div style="display:flex;justify-content:center;gap:10px;">${linha2}</div>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    setTimeout(() => {
+        popup.style.background = 'rgba(0,0,0,0.6)';
+        const card = document.getElementById('temaPopupCard');
+        if (card) { card.style.transform = 'scale(1) translateY(0)'; card.style.opacity = '1'; }
+    }, 20);
+
+    popup.addEventListener('click', function(e) {
+        if (e.target === popup) fecharTemaPopup();
+    });
+}
+
+function fecharTemaPopup() {
+    const popup = document.getElementById('temaPopupOverlay');
+    const card = document.getElementById('temaPopupCard');
+    if (!popup) return;
+    popup.style.background = 'rgba(0,0,0,0)';
+    if (card) { card.style.transform = 'scale(0.88) translateY(20px)'; card.style.opacity = '0'; }
+    setTimeout(() => { if (popup) popup.remove(); }, 350);
+}
+
 function alterarTema(cor) {
     const root = document.documentElement;
-    const checks = ['checkAzul','checkRoxo','checkVerde','checkGrafite','checkRosa','checkTeal'];
+    const checks = ['checkAzul','checkGrafite','checkVermelho','checkRoxo','checkRosa','checkPrata'];
     checks.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
     temaSelecionado = cor;
 
     const temas = {
-        azul:    { grad:'linear-gradient(135deg,#4dd0ff 0%,#0099ff 25%,#0052cc 50%,#003d99 75%,#0066ff 100%)', bg:'#001a33', border:'rgba(0,153,255,0.2)', shadow:'0 12px 40px rgba(0,153,255,0.6)' },
-        roxo:    { grad:'linear-gradient(135deg,#c77dff 0%,#9d4edd 25%,#7209b7 50%,#5a189a 75%,#b5179e 100%)', bg:'#1a0535', border:'rgba(157,78,221,0.2)', shadow:'0 12px 40px rgba(157,78,221,0.6)' },
-        verde:   { grad:'linear-gradient(135deg,#52ffb0 0%,#00c96e 30%,#007a3d 60%,#00c96e 80%,#52ffb0 100%)', bg:'#002918', border:'rgba(0,201,110,0.2)', shadow:'0 12px 40px rgba(0,201,110,0.6)' },
-        grafite: { grad:'linear-gradient(135deg,#6e6e6e 0%,#3a3a3a 30%,#1a1a1a 60%,#3a3a3a 80%,#555 100%)', bg:'#111111', border:'rgba(120,120,120,0.2)', shadow:'0 12px 40px rgba(80,80,80,0.6)' },
-        rosa:    { grad:'linear-gradient(135deg,#ffb3de 0%,#ff2d87 30%,#a0005a 60%,#ff2d87 80%,#ffb3de 100%)', bg:'#2a0018', border:'rgba(255,45,135,0.2)', shadow:'0 12px 40px rgba(255,45,135,0.6)' },
-        teal:    { grad:'linear-gradient(135deg,#80ffee 0%,#00bfa5 30%,#00675b 60%,#00bfa5 80%,#80ffee 100%)', bg:'#00201c', border:'rgba(0,191,165,0.2)', shadow:'0 12px 40px rgba(0,191,165,0.6)' },
+        azul:     { grad:'linear-gradient(135deg,#4dd0ff 0%,#0099ff 25%,#0052cc 50%,#003d99 75%,#0066ff 100%)', bg:'#001a33', border:'rgba(0,153,255,0.2)',    shadow:'0 12px 40px rgba(0,153,255,0.6)' },
+        grafite:  { grad:'linear-gradient(135deg,#6e6e6e 0%,#3a3a3a 30%,#1a1a1a 60%,#3a3a3a 80%,#555 100%)',  bg:'#111111', border:'rgba(120,120,120,0.2)',  shadow:'0 12px 40px rgba(80,80,80,0.6)' },
+        vermelho: { grad:'linear-gradient(135deg,#8b0000 0%,#6a0000 30%,#3d0000 60%,#6a0000 80%,#8b0000 100%)',bg:'#1a0000', border:'rgba(100,0,0,0.3)',       shadow:'0 12px 40px rgba(100,0,0,0.7)' },
+        roxo:     { grad:'linear-gradient(135deg,#c77dff 0%,#9d4edd 25%,#7209b7 50%,#5a189a 75%,#b5179e 100%)',bg:'#1a0535', border:'rgba(157,78,221,0.2)',   shadow:'0 12px 40px rgba(157,78,221,0.6)' },
+        rosa:     { grad:'linear-gradient(135deg,#8b0045 0%,#5c002e 30%,#2e0015 60%,#5c002e 80%,#8b0045 100%)',bg:'#1a0010', border:'rgba(139,0,69,0.3)',     shadow:'0 12px 40px rgba(139,0,69,0.7)' },
+        prata:    { grad:'linear-gradient(135deg,#cd7f32 0%,#8b5a1a 30%,#4a2d00 60%,#8b5a1a 80%,#cd7f32 100%)',bg:'#1a0e00', border:'rgba(139,90,26,0.3)',  shadow:'0 12px 40px rgba(139,90,26,0.6)' },
     };
 
     const t = temas[cor];
@@ -3024,7 +3683,7 @@ function alterarTema(cor) {
 }
 
 function carregarTemaSalvo() {
-    const temaSalvo = localStorage.getItem('temaSelecionado') || 'azul';
+    const temaSalvo = localStorage.getItem('temaSelecionado') || 'grafite';
     alterarTema(temaSalvo);
 }
 
@@ -3147,42 +3806,7 @@ async function verificarTicketsGanhos(phone, client) {
 
         let ticketsAtuais    = client.tickets    || 0;
         let diamantesAtuais  = client.diamantes  || 0;
-        const ticketsPendentes   = client.tickets_pendentes   || 0;
-        const diamantesPendentes = client.diamantes_pendentes || 0;
-        const liberarEmTk = client.tickets_liberar_em   ? new Date(client.tickets_liberar_em)   : null;
-        const liberarEmDi = client.diamantes_liberar_em ? new Date(client.diamantes_liberar_em) : null;
         const agora = new Date();
-
-        // ── Caso 1: tickets pendentes com prazo passado → libera ──
-        if (liberarEmTk && agora >= liberarEmTk && ticketsPendentes > 0) {
-            try {
-                await sb.from('clientes').update({
-                    tickets: ticketsAtuais + ticketsPendentes,
-                    tickets_pendentes: 0,
-                    tickets_liberar_em: null
-                }).eq('phone', phone);
-            } catch(e) { console.warn('Erro ao liberar tickets pendentes:', e); }
-            ticketsAtuais += ticketsPendentes;
-            setTimeout(() => mostrarTicketPopup(ticketsPendentes, 'ticket'), 800);
-            localStorage.setItem(chave, ticketsAtuais);
-        }
-
-        // ── Caso 1b: diamantes pendentes com prazo passado → libera ──
-        if (liberarEmDi && agora >= liberarEmDi && diamantesPendentes > 0) {
-            try {
-                await sb.from('clientes').update({
-                    diamantes: diamantesAtuais + diamantesPendentes,
-                    diamantes_pendentes: 0,
-                    diamantes_liberar_em: null
-                }).eq('phone', phone);
-            } catch(e) { console.warn('Erro ao liberar diamantes pendentes:', e); }
-            diamantesAtuais += diamantesPendentes;
-            setTimeout(() => mostrarTicketPopup(diamantesPendentes, 'diamante'), ticketsPendentes > 0 ? 3500 : 800);
-            localStorage.setItem(chaveDi, diamantesAtuais);
-        }
-
-        if ((liberarEmTk && agora >= liberarEmTk && ticketsPendentes > 0) ||
-            (liberarEmDi && agora >= liberarEmDi && diamantesPendentes > 0)) return;
 
         // ── Caso 2: primeira vez ──
         if (isNaN(ticketsSalvos)) {
@@ -3283,16 +3907,20 @@ function atualizarLabelPainel() {
         const ativo = user.show_name;
         const toggle = document.getElementById('painelToggleBtn');
         const knob = document.getElementById('painelToggleKnob');
+        const label = document.getElementById('labelAutoToggle');
         if (!toggle || !knob) return;
         if (ativo) {
             toggle.style.background = 'linear-gradient(135deg,#25d366,#1aad52)';
-            toggle.style.boxShadow = '0 4px 14px rgba(37,211,102,0.4)';
-            knob.style.left = '34px';
+            toggle.style.boxShadow = '0 3px 10px rgba(37,211,102,0.4)';
+            knob.style.left = '22px';
+            if (label) { label.textContent = 'ATIVADO'; label.style.color = 'rgba(37,211,102,0.9)'; }
         } else {
             toggle.style.background = 'linear-gradient(135deg,#ccc,#aaa)';
-            toggle.style.boxShadow = '0 4px 14px rgba(0,0,0,0.15)';
-            knob.style.left = '4px';
+            toggle.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
+            knob.style.left = '2px';
+            if (label) { label.textContent = 'DESATIVADO'; label.style.color = 'rgba(255,255,255,0.35)'; }
         }
+        initLeituraToggle();
     }, 300);
 }
 </script>
