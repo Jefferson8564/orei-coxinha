@@ -2677,10 +2677,10 @@ async function carregarPedidosAtivos() {
             var col1 = linhasItens.slice(0, 3);
             var col2 = linhasItens.slice(3, 6);
             var extra = linhasItens.length > 6 ? linhasItens.length - 6 : 0;
-            var itemStyle = 'font-size:11px;color:rgba(255,255,255,0.8);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            var itemStyle = 'font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
             var col1Html = col1.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
             var col2Html = col2.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
-            if (extra) col2Html += '<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;">+' + extra + ' mais</div>';
+            if (extra) col2Html += '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">+' + extra + ' mais</div>';
             var itensHtml = col2.length > 0
                 ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">' + col1Html + col2Html + '</div>'
                 : col1Html;
@@ -2699,27 +2699,33 @@ async function carregarPedidosAtivos() {
 
             var card = document.createElement('div');
             card.id = 'pedidoAtivoCard_' + safeid;
-            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:0;';
+            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:160px;';
             card.innerHTML =
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                    '<div style="font-size:12px;font-weight:800;color:white;">' + horaStr + '</div>' +
-                    '<div style="font-size:9px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 7px;border-radius:20px;">' + badgeLabel + '</div>' +
+                    '<div style="font-size:13px;font-weight:800;color:white;">' + horaStr + '</div>' +
+                    '<div style="font-size:10px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 8px;border-radius:20px;">' + badgeLabel + '</div>' +
                 '</div>' +
-                '<div style="flex:1;margin-bottom:6px;">' + itensHtml + '</div>' +
-                (dentroDoprazo
-                    ? '<div id="countdown_' + safeid + '" style="font-size:9px;color:rgba(255,165,0,0.8);font-weight:700;margin-bottom:6px;">⏳ --:--:--</div>'
-                    : '<div style="font-size:9px;color:rgba(255,255,255,0.2);font-weight:600;margin-bottom:6px;">🔒 Encerrado</div>'
-                ) +
-                '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                    '<div style="font-size:14px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
-                    (dentroDoprazo
-                        ? '<button onclick="cancelarPedidoDosPainel(\'' + safeid + '\', ' + safeTotal + ', \'' + safeMetodo + '\', true)" ' +
-                            'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#ff6b6b;padding:5px 10px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" ' +
-                            'ontouchstart="this.style.background=\'rgba(231,76,60,0.35)\'" ontouchend="this.style.background=\'rgba(231,76,60,0.15)\'">' +
-                            '❌' +
-                          '</button>'
-                        : ''
-                    ) +
+                '<div style="min-height:50px;overflow-y:auto;margin-bottom:6px;">' + itensHtml + '</div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;margin-bottom:-4px;">' +
+                    '<div style="font-size:16px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
+                    '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">' +
+                        (dentroDoprazo
+                            ? '<span style="font-size:12px;color:rgba(255,165,0,0.9);font-weight:700;">⏳ Cancelar disponível até:</span>'
+                            : '<span style="font-size:12px;color:rgba(255,255,255,0.25);font-weight:600;">🔒 Cancelamento bloqueado</span>'
+                        ) +
+                        (dentroDoprazo
+                            ? '<button onclick="cancelarPedidoDosPainel(\'' + safeid + '\', ' + safeTotal + ', \'' + safeMetodo + '\', true)" ' +
+                                'style="background:#8b0000;border:none;color:white;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" ' +
+                                'ontouchstart="this.style.background=\'#a00000\'" ontouchend="this.style.background=\'#8b0000\'">' +
+                                'Cancelar Compra' +
+                              '</button>'
+                            : ''
+                        ) +
+                        (dentroDoprazo
+                            ? '<div id="countdown_' + safeid + '" style="font-size:12px;color:rgba(255,165,0,0.9);font-weight:900;">--:--:--</div>'
+                            : ''
+                        ) +
+                    '</div>' +
                 '</div>';
             lista.appendChild(card);
 
@@ -2732,15 +2738,19 @@ async function carregarPedidosAtivos() {
                         var diff = limite - Date.now();
                         if (diff <= 0) {
                             clearInterval(interval);
-                            if (el) el.textContent = '🔒 Encerrado';
                             var c = document.getElementById('pedidoAtivoCard_' + id);
-                            if (c) { var btn = c.querySelector('button'); if (btn) btn.remove(); }
+                            if (c) { 
+                                var btn = c.querySelector('button'); 
+                                if (btn) btn.remove();
+                                var countdownDiv = document.getElementById('countdown_' + id);
+                                if (countdownDiv) countdownDiv.parentElement.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.25);font-weight:600;">🔒 Cancelamento bloqueado</span>';
+                            }
                             return;
                         }
                         var h = Math.floor(diff / 3600000);
                         var m = Math.floor((diff % 3600000) / 60000);
                         var s = Math.floor((diff % 60000) / 1000);
-                        el.textContent = '⏳ ' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+                        if (el) el.textContent = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
                     }, 1000);
                     window._countdownIntervals = window._countdownIntervals || [];
                     window._countdownIntervals.push(interval);
@@ -2811,8 +2821,10 @@ async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
             .maybeSingle();
 
         if (cli !== null) {
-            // Estorna do debt
-            const novoDebt = Math.max(0, (Number(cli.debt) || 0) - valorReal);
+            // REEMBOLSO: SUBTRAI do debt (igual ao Adm.html)
+            // debt NEGATIVO = crédito do cliente
+            // Se debt = -40, cancelar R$ 10 fica debt = -40 - 10 = -50 (mais crédito)
+            const novoDebt = (Number(cli.debt) || 0) - valorReal;
             
             // Recalcula tickets e total_gasto (alinhado ao Adm.html)
             let updateObj = { debt: novoDebt };
@@ -2825,6 +2837,7 @@ async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
                 
                 const valorPorTicket = cfg ? Number(cfg.value) : 0;
                 if (valorPorTicket > 0) {
+                    // Reduz total_gasto (cancelar pedido = voltar o que foi gasto)
                     const novoTotalGasto = Math.max(0, (Number(cli.total_gasto) || 0) - valorReal);
                     const ticketsTotaisNovos = Math.floor(novoTotalGasto / valorPorTicket);
                     const ticketsJaConfirmados = cli.tickets || 0;
@@ -2857,7 +2870,6 @@ async function cancelarPedidoDosPainel(pedidoId, total, metodo, dentroJanela) {
             setTimeout(() => { card.remove(); carregarPedidosAtivos(); }, 300);
         }
 
-        showToast('Pedido cancelado e reembolso aplicado ✅', 'success', 3000);
         setTimeout(() => renderHistoricoSaldo(), 600);
     } catch(e) {
         console.warn('Erro ao cancelar pelo painel:', e);
