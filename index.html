@@ -56,7 +56,6 @@
                     body: JSON.stringify({ phone, subscription: sub.toJSON() })
                 });
 
-                console.log('Push ativado para', phone);
             } catch(err) {
                 console.warn('Push nao ativado:', err);
             }
@@ -129,7 +128,6 @@
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         #toast.error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
         #toast.warning { background: linear-gradient(135deg, #f1c40f, #e67e22); color: #fff; }
-
 
                 /* ===== POPUP TICKET GANHO ===== */
         @keyframes ticketSlideDown {
@@ -378,8 +376,6 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeSlide { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-
-
 
         /* ===== LOGIN PREMIUM ===== */
         @keyframes loginFloat {
@@ -788,17 +784,6 @@
             text-align: center; border: 1px solid #e9ecef;
         }
 
-        /* ===== MODAL INSTALAÇÃO =====  */
-
-        @keyframes glow {
-            0%, 100% {
-                transform: translate(0, 0);
-            }
-            50% {
-                transform: translate(-20px, -20px);
-            }
-        }
-
         @keyframes pulse {
             0%, 100% {
                 transform: scale(1);
@@ -1152,7 +1137,6 @@
     </div>
 </div>
 
-
 <!-- canvas fogos -->
 <canvas id="tpFireCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99998;display:none;"></canvas>
 
@@ -1213,16 +1197,13 @@
             </div>
         </div>
 
-        <!-- Crédito disponível -->
-        <div id="creditBox" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#1a3a5c,#1a4a7a); border:1.5px solid rgba(52,152,219,0.5); border-radius:14px; padding:14px;">
-            <div style="font-weight:800; color:#5dade2; margin-bottom:10px;">💸 você tem dinheiro em conta 👀</div>
-            <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(52,152,219,0.4);border-radius:10px;padding:10px 12px;cursor:pointer;" onclick="toggleCreditDiscount()">
-                <input type="checkbox" id="useCredit" style="display:none;">
-                <div id="creditRadio" style="width:20px;height:20px;border-radius:50%;border:2px solid #3498db;background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;">
-                    <div id="creditRadioDot" style="width:10px;height:10px;border-radius:50%;background:#3498db;display:none;"></div>
-                </div>
-                <span style="font-weight:700;color:white;font-size:14px;">Usar <span id="creditValueBtn">R$ 0,00</span></span>
-            </label>
+        <!-- Crédito disponível (sempre aplicado automaticamente) -->
+        <div id="creditBox" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#1a3a5c,#1a4a7a); border:1.5px solid rgba(52,152,219,0.5); border-radius:14px; padding:12px 14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-weight:800;color:#5dade2;font-size:14px;">💳 Crédito aplicado</span>
+                <span id="creditValueBtn" style="font-weight:900;color:white;font-size:15px;">R$ 0,00</span>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">Seu saldo será usado automaticamente ✅</div>
         </div>
 
         <!-- Cupons de desconto -->
@@ -1241,7 +1222,6 @@
 </div>
 
 <!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
-<!-- MODAL: Pedido duplicado -->
 <div id="modalRoboConfirm" style="
     position:fixed; inset:0;
     backdrop-filter:blur(8px);
@@ -1273,6 +1253,28 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== CALCULA VALOR REAL DO PEDIDO PELOS ITENS =====
 // ===== NOTIFICAÇÕES: função centralizada =====
+async function calcularValorRealPedido(itemsTexto) {
+    if (!itemsTexto) return 0;
+    try {
+        const { data: cardapio } = await sb.from('cardapio').select('name, price');
+        if (!cardapio) return 0;
+        let total = 0;
+        const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
+        linhas.forEach(linha => {
+            const match = linha.match(/^(\d+)x\s+(.+)$/);
+            if (!match) return;
+            const qtd  = parseInt(match[1]);
+            const nome = match[2].trim();
+            const prod = cardapio.find(p => p.name.trim() === nome);
+            if (prod) total += qtd * Number(prod.price);
+        });
+        return total;
+    } catch(e) {
+        console.warn('Erro ao calcular valor real:', e);
+        return 0;
+    }
+}
+
 async function inserirNotificacao(customer_phone, tipo, valor, descricao) {
     try {
         const { error } = await sb.from('notificacoes').insert({
@@ -1387,7 +1389,6 @@ let cart = {};
 let method = "PAGA NA ENTREGA";
 let currentOrderTotal = 0;
 let creditDiscount = 0;
-let cupomDesconto = 0;
 let cupomId = null;
 let cupomDescontoPct = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
@@ -1782,8 +1783,6 @@ function confirmarLogout() {
     }, 350);
 }
 
-
-
 // ===== PRODUTOS =====
 async function loadProducts() {
     const { data, error } = await sb.from("cardapio").select("*").eq("available", true).order("created_at", { ascending: true });
@@ -2026,55 +2025,22 @@ function setupCreditOption() {
         const creditValue = Math.abs(user.debt);
         creditBox.style.display = 'block';
         document.getElementById('creditValueBtn').innerText = "R$ " + creditValue.toFixed(2).replace('.', ',');
-        document.getElementById('useCredit').checked = true;
-        const dot = document.getElementById('creditRadioDot');
-        const ring = document.getElementById('creditRadio');
-        if (dot) dot.style.display = 'block';
-        if (ring) ring.style.background = 'rgba(52,152,219,0.15)';
         applyCreditCalculation(creditValue);
     } else {
         creditBox.style.display = 'none';
-        const cb = document.getElementById('useCredit');
-        if (cb) cb.checked = false;
         creditDiscount = 0;
         updateFinalTotalDisplay();
     }
 }
 
-function toggleCreditDiscount() {
-    const checkbox = document.getElementById('useCredit');
-    setTimeout(() => {
-        const dot = document.getElementById('creditRadioDot');
-        const ring = document.getElementById('creditRadio');
-        if (checkbox.checked && user.debt < 0) {
-            if (dot) dot.style.display = 'block';
-            if (ring) ring.style.background = 'rgba(52,152,219,0.15)';
-            // Desativa todos os cupons ao usar crédito
-            cupomDescontoPct = 0;
-            cupomId = null;
-            const cards = document.querySelectorAll('#cupomLista [data-selected]');
-            cards.forEach(t => {
-                t.style.background = 'white';
-                t.style.border = '2px solid #f1c40f';
-                t.style.boxShadow = 'none';
-                t.dataset.selected = '0';
-            });
-            applyCreditCalculation(Math.abs(user.debt));
-        } else {
-            if (dot) dot.style.display = 'none';
-            if (ring) ring.style.background = 'transparent';
-            creditDiscount = 0;
-            updateFinalTotalDisplay();
-        }
-    }, 50);
-}
 
 function applyCreditCalculation(availableCredit) {
-    creditDiscount = Math.min(availableCredit, currentOrderTotal);
+    // Crédito é aplicado sobre o valor já com desconto do cupom
+    const descontoCupom = cupomDescontoPct > 0 ? (currentOrderTotal * cupomDescontoPct / 100) : 0;
+    const totalAposCupom = Math.max(0, currentOrderTotal - descontoCupom);
+    creditDiscount = Math.min(availableCredit, totalAposCupom);
     updateFinalTotalDisplay();
 }
-
-
 
 function updateFinalTotalDisplay() {
     const descontoCupomValor = cupomDescontoPct > 0 ? (currentOrderTotal * cupomDescontoPct / 100) : 0;
@@ -2094,7 +2060,6 @@ function updateFinalTotalDisplay() {
         elFinal.innerText = 'R$ ' + totalFinal.toFixed(2).replace('.', ',');
     }
 }
-
 
 async function carregarCupons() {
     if (!user?.phone) return;
@@ -2148,12 +2113,6 @@ async function carregarCupons() {
     }
 }
 
-function aplicarCupom(pct, id) {
-    cupomDescontoPct = pct;
-    cupomId = id;
-    updateFinalTotalDisplay();
-}
-
 function selecionarCupom(pct, id, el) {
     // Toggle: se já está selecionado, desmarca
     if (el.dataset.selected === '1') {
@@ -2163,18 +2122,10 @@ function selecionarCupom(pct, id, el) {
         el.dataset.selected = '0';
         cupomDescontoPct = 0;
         cupomId = null;
-        updateFinalTotalDisplay();
+        // Recalcula crédito sem o cupom
+        if (user?.debt < 0) applyCreditCalculation(Math.abs(user.debt));
+        else updateFinalTotalDisplay();
         return;
-    }
-    // Desativa crédito ao selecionar cupom
-    const cb = document.getElementById('useCredit');
-    if (cb && cb.checked) {
-        cb.checked = false;
-        creditDiscount = 0;
-        const dot = document.getElementById('creditRadioDot');
-        const ring = document.getElementById('creditRadio');
-        if (dot) dot.style.display = 'none';
-        if (ring) ring.style.background = 'transparent';
     }
     // Atualiza visual dos cartõezinhos
     const todos = el.parentElement.querySelectorAll('[data-selected]');
@@ -2188,15 +2139,14 @@ function selecionarCupom(pct, id, el) {
     el.style.border = '2px solid #25d366';
     el.style.boxShadow = '0 0 0 3px rgba(37,211,102,0.2)';
     el.dataset.selected = '1';
-    // Aplica cupom
+    // Aplica cupom e recalcula crédito sobre o valor com desconto
     cupomDescontoPct = pct;
     cupomId = id;
-    updateFinalTotalDisplay();
+    if (user?.debt < 0) applyCreditCalculation(Math.abs(user.debt));
+    else updateFinalTotalDisplay();
 }
 
 function closePayModal() { document.getElementById('payModal').classList.remove('active'); cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; creditDiscount = 0; }
-// setMethod removido
-
 async function confirmOrder() {
     const btn = document.getElementById('btnConfirm');
 
@@ -2207,7 +2157,7 @@ async function confirmOrder() {
     for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; } }
     if (total === 0) { btn.disabled = false; return; }
 
-    const useCredit = document.getElementById('useCredit')?.checked || false;
+    const useCredit = user.debt < 0; // crédito sempre aplicado automaticamente
     const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
     const creditoUsado = useCredit ? creditDiscount : 0;
     const finalTotal = Math.max(0, total - creditoUsado - descontoCupomValor);
@@ -2215,6 +2165,13 @@ async function confirmOrder() {
 
     const cupomIdParaExcluir = cupomId;
     const cupomPctParaExcluir = cupomDescontoPct;
+    // Embute descontos no items para recuperar no cancelamento (sem colunas extras)
+    if (cupomIdParaExcluir && cupomPctParaExcluir > 0) {
+        pedidoTexto += `🏷️ CUPOM:${cupomPctParaExcluir}:${cupomIdParaExcluir}\n`;
+    }
+    if (creditoUsado > 0) {
+        pedidoTexto += `💳 CREDITO:${creditoUsado.toFixed(2)}\n`;
+    }
 
     // Mostrar robozinho em modo SALVANDO
     closePayModal();
@@ -2256,7 +2213,6 @@ async function confirmOrder() {
 
         // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
         try {
-            const janela = _janelaPedido();
             const horaAtual = parseInt(_partesSP().hour) * 60 + parseInt(_partesSP().minute);
             const eParaAmanha = horaAtual >= (15 * 60); // regra: 15:00
 
@@ -2359,9 +2315,10 @@ async function confirmOrder() {
         await sb.from("clientes").update({ debt: newDebt }).eq("phone", user.phone);
         user.debt = newDebt; atualizarCabecalho();
 
+        const pedidoTextoMsg = pedidoTexto.split('\n').filter(l => !l.startsWith('🏷️ CUPOM:') && !l.startsWith('💳 CREDITO:')).join('\n');
         let finalMsg = msgTemplate
             .replace('{nome}', user.name.split(' ')[0].toUpperCase())
-            .replace('{pedido}', pedidoTexto)
+            .replace('{pedido}', pedidoTextoMsg)
             .replace('{total}', finalTotal.toFixed(2).replace('.',','))
             .replace('{pagamento}', 'Pagar na Entrega');
 
@@ -2401,7 +2358,6 @@ async function confirmOrder() {
 function irParaWhatsApp(msg) {
     window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
 }
-
 
 function roboEstado(estado) {
     const inner = document.getElementById('roboInner');
@@ -2503,7 +2459,15 @@ async function carregarPedidosAtivos() {
             var dtBRT = horasBRT(new Date(p.created_at));
             var horaStr = String(dtBRT.getHours()).padStart(2,'0') + ':' + String(dtBRT.getMinutes()).padStart(2,'0');
 
-            var linhasItens = (p.items || '').replace(/✅ /g, '').split('\n').filter(function(l){ return l.trim(); });
+            // Separa linhas de itens e linhas de desconto
+            var todasLinhas = (p.items || '').split('\n').filter(function(l){ return l.trim(); });
+            var cupomLine = todasLinhas.find(function(l){ return l.startsWith('🏷️ CUPOM:'); });
+            var creditoLine = todasLinhas.find(function(l){ return l.startsWith('💳 CREDITO:'); });
+            var cupomPctCard = cupomLine ? Number(cupomLine.split(':')[1]) : 0;
+            var creditoUsadoCard = creditoLine ? Number(creditoLine.split(':')[1]) : 0;
+            var linhasItens = todasLinhas
+                .filter(function(l){ return !l.startsWith('🏷️ CUPOM:') && !l.startsWith('💳 CREDITO:'); })
+                .map(function(l){ return l.replace(/✅ /g, ''); });
 
             var badgeColor = isFiado ? '#e67e22' : '#25d366';
             var badgeBg    = isFiado ? 'rgba(230,126,34,0.15)' : 'rgba(37,211,102,0.15)';
@@ -2521,6 +2485,10 @@ async function carregarPedidosAtivos() {
             var itensHtml = col2.length > 0
                 ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">' + col1Html + col2Html + '</div>'
                 : col1Html;
+            // Linha de descontos aplicados
+            var descontosHtml = '';
+            if (cupomPctCard > 0) descontosHtml += '<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷️ Cupom ' + cupomPctCard + '% aplicado</div>';
+            if (creditoUsadoCard > 0) descontosHtml += '<div style="font-size:11px;color:#3498db;margin-top:2px;">💳 Crédito R$ ' + creditoUsadoCard.toFixed(2).replace('.',',') + ' aplicado</div>';
 
             var card = document.createElement('div');
             card.id = 'pedidoAtivoCard_' + String(p.id);
@@ -2530,16 +2498,97 @@ async function carregarPedidosAtivos() {
                     '<div style="font-size:13px;font-weight:800;color:white;">' + horaStr + '</div>' +
                     '<div style="font-size:10px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 8px;border-radius:20px;">' + badgeLabel + '</div>' +
                 '</div>' +
-                '<div style="min-height:50px;overflow-y:auto;margin-bottom:6px;">' + itensHtml + '</div>' +
+                '<div style="min-height:50px;overflow-y:auto;margin-bottom:4px;">' + itensHtml + '</div>' +
+                (descontosHtml ? '<div style="margin-bottom:6px;">' + descontosHtml + '</div>' : '') +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;">' +
                     '<div style="font-size:16px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
-                    '<span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;">⏳ Aguardando entrega</span>' +
+                    '<button id="btnCancelPedido_' + String(p.id) + '" onclick="cancelarPedidoCliente(\'' + String(p.id) + '\', ' + total + ')"' +
+                        ' style="background:#8b0000;border:none;color:white;padding:7px 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;"' +
+                        ' ontouchstart="this.style.background=\'#a00000\'" ontouchend="this.style.background=\'#8b0000\'">' +
+                        '❌ Cancelar' +
+                    '</button>' +
                 '</div>';
             lista.appendChild(card);
         });
     } catch(e) {
         console.warn('Erro ao carregar pedidos ativos:', e);
         lista.innerHTML = `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3);">Erro ao carregar pedidos</div>`;
+    }
+}
+
+async function cancelarPedidoCliente(pedidoId, totalExibido) {
+    if (!confirm('Cancelar este pedido de R$ ' + Number(totalExibido).toFixed(2).replace('.',',') + '?')) return;
+
+    const card = document.getElementById('pedidoAtivoCard_' + pedidoId);
+    if (card) {
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+        setTimeout(() => card.remove(), 250);
+    }
+
+    try {
+        const { data: pedido } = await sb.from('pedidos')
+            .select('id, status, total, items, credito_usado')
+            .eq('id', pedidoId)
+            .maybeSingle();
+
+        if (!pedido) { showToast('Pedido não encontrado.', 'warning', 3000); carregarPedidosAtivos(); return; }
+        if (pedido.status === 'PAGO') { showToast('Pedido já confirmado pelo ADM.', 'warning', 3000); carregarPedidosAtivos(); return; }
+
+        // Extrai descontos embutidos no items
+        const cupomMatch = (pedido.items || '').match(/🏷️ CUPOM:(\d+):(.+)/);
+        const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
+        const cupomPct = cupomMatch ? Number(cupomMatch[1]) : 0;
+        const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+
+        // Reembolso correto: reverte exatamente o que foi somado ao debt na compra
+        // Na compra: newDebt = debt + total - descontoCupom = debt + pedido.total + creditoUsado
+        // Então para reverter: novoDebt = debt - pedido.total - creditoUsado
+        const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
+        if (c) {
+            const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
+            await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+            user.debt = novoDebt;
+            atualizarCabecalho();
+        }
+
+        // Restaura cupom se havia
+        if (cupomPct > 0) {
+            const { error: errCupom } = await sb.from('premios').insert({
+                customer_phone: user.phone,
+                customer_name: user.name,
+                descricao: `🏷️ ${cupomPct}% OFF — ${cupomPct}% de desconto`,
+                jogo: 'cupom_estornado',
+                tickets_usados: 0,
+                diamantes_usados: 0
+            });
+            if (errCupom) console.warn('Erro ao restaurar cupom:', errCupom);
+        }
+
+        // Deleta pedido (igual ADM)
+        await sb.from('pedidos').delete().eq('id', pedidoId);
+
+        // Notificação mostrando o que foi reembolsado
+        let descNotif = 'Pedido cancelado pelo cliente';
+        if (cupomPct > 0 && creditoUsado > 0) descNotif += ` • Cupom ${cupomPct}% e crédito R$ ${creditoUsado.toFixed(2)} devolvidos`;
+        else if (cupomPct > 0) descNotif += ` • Cupom ${cupomPct}% devolvido`;
+        else if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
+
+        await sb.from('notificacoes').insert({
+            customer_phone: user.phone,
+            tipo: 'reembolso',
+            valor: Number(pedido.total) + creditoUsado,
+            descricao: descNotif
+        });
+
+        showToast('Pedido cancelado ✅', 'success', 3000);
+        setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); if (cupomPct > 0) carregarCupons(); }, 500);
+
+    } catch(e) {
+        console.warn('Erro ao cancelar pedido:', e);
+        showToast('Erro ao cancelar pedido', 'error', 3000);
+        carregarPedidosAtivos();
     }
 }
 
@@ -2564,7 +2613,6 @@ function abrirPainelPedidos() {
 function fecharPainelPedidos() {
     document.getElementById('painelPedidos').style.transform = 'translateY(-100%)';
 }
-
 
 function abrirPainelSino() {
     document.getElementById('painelSino').style.transform = 'translateY(0)';
@@ -2906,8 +2954,6 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
         <!-- Seletor de Tema (agora é popup flutuante) -->
         <div id="temaExpand" style="display:none;"></div>
 
-
-
         <!-- Rodapé -->
         <div style="text-align:center;color:rgba(255,255,255,0.15);font-size:11px;margin-top:4px;font-weight:500;letter-spacing:0.3px;">
             O Rei da Coxinha 🍗 · Painel v1.0
@@ -3046,13 +3092,7 @@ async function renderHistoricoSaldo() {
         .eq("customer_phone", user.phone)
         .order("created_at", { ascending: false })
         .limit(20);
-    console.log('[Notificações] phone usado na query:', user.phone);
-    console.log('[Notificações] resultado:', notifs);
-    if (errNotifs) console.error('[Notificações] ERRO:', errNotifs.message, errNotifs);
-    if (!notifs || notifs.length === 0) {
-        const { data: debug } = await sb.from("notificacoes").select("id, customer_phone, tipo").limit(5);
-        console.warn('[Notificações] Debug — registros na tabela (sem filtro):', debug);
-    }
+    if (errNotifs) { console.warn('[Notificações] ERRO:', errNotifs.message); return; }
 
     // Limpeza automática: mantém só as 15 mais recentes
     try {
@@ -3069,21 +3109,22 @@ async function renderHistoricoSaldo() {
     // Montar lista
     let itens = [];
 
-    (notifs || []).filter(p => p.tipo === 'pagamento').forEach(p => {
+    (notifs || []).forEach(p => {
         const valor = Math.abs(parseFloat(p.valor || 0));
+        const isReembolso = p.tipo === 'reembolso';
         itens.push({
             id: String(p.id),
             data: p.created_at,
-            icone: '✅',
-            titulo: 'Pagamento recebido',
-            sub: 'Pagar na Entrega',
+            icone: isReembolso ? '♻️' : '✅',
+            titulo: isReembolso ? 'Reembolso recebido' : 'Pagamento recebido',
+            sub: isReembolso ? 'Pedido cancelado pelo ADM' : 'Pagar na Entrega',
             valor: `R$ ${valor.toFixed(2).replace('.',',')}`,
-            valorCor: '#25d366',
-            badge: 'PAGO',
-            badgeCor: '#25d366',
-            iconeBg: '#25d366',
-            cardBg: 'rgba(37,211,102,0.12)',
-            cardBorda: 'rgba(37,211,102,0.35)',
+            valorCor: isReembolso ? '#f39c12' : '#25d366',
+            badge: isReembolso ? 'REEMBOLSO' : 'PAGO',
+            badgeCor: isReembolso ? '#f39c12' : '#25d366',
+            iconeBg: isReembolso ? '#f39c12' : '#25d366',
+            cardBg: isReembolso ? 'rgba(243,156,18,0.12)' : 'rgba(37,211,102,0.12)',
+            cardBorda: isReembolso ? 'rgba(243,156,18,0.35)' : 'rgba(37,211,102,0.35)',
         });
     });
 
@@ -3257,7 +3298,6 @@ async function renderHistoricoSaldo() {
     });
 }
 
-
 function abrirTemaPopup() {
     let popup = document.getElementById('temaPopupOverlay');
     if (popup) popup.remove();
@@ -3393,7 +3433,6 @@ function carregarTemaSalvo() {
     alterarTema(temaSalvo);
 }
 
-
 // ===== POPUP TICKET GANHO =====
 let _tpTimer = null;
 
@@ -3497,7 +3536,6 @@ function abrirJogos() {
     window.open(url, '_blank');
 }
 
-
 // ===== VERIFICAÇÃO DE TICKETS GANHOS (sem query extra ao Supabase) =====
 // Usa os dados que já foram buscados no login/auto-login.
 // Trata dois casos:
@@ -3568,7 +3606,6 @@ async function limparCacheRedefinir() {
 }
 
 function mostrarAnimacaoRoboLimpando() {
-    console.log('🤖 Iniciando limpeza de cache...');
 
     // Criar overlay
     const overlay = document.createElement('div');
