@@ -21,46 +21,7 @@
         }
     </script>
 
-    <!-- ===== PUSH NOTIFICATIONS ===== -->
-    <script>
-        const VAPID_PUBLIC_KEY = 'BKpzD-7woo7ZrHNYEfFt4skqJulNk4k5ScyQh36tx0bTgIpQrPw1zMCdC6wiMz0snI_oBzFARr6qFPTWTkVf73Q';
 
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-        }
-
-        async function ativarNotificacoesPush(phone) {
-            try {
-                if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                const permissao = await Notification.requestPermission();
-                if (permissao !== 'granted') return;
-
-                const reg = await navigator.serviceWorker.ready;
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                    });
-                }
-
-                await fetch('https://vpeygijajywgswmelzlh.supabase.co/functions/v1/salvar-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ'
-                    },
-                    body: JSON.stringify({ phone, subscription: sub.toJSON() })
-                });
-
-            } catch(err) {
-                console.warn('Push nao ativado:', err);
-            }
-        }
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -129,242 +90,7 @@
         #toast.error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
         #toast.warning { background: linear-gradient(135deg, #f1c40f, #e67e22); color: #fff; }
 
-                /* ===== POPUP TICKET GANHO ===== */
-        @keyframes ticketSlideDown {
-            0%   { transform: translateY(-110%) scaleX(0.88); opacity: 0; }
-            60%  { transform: translateY(6px) scaleX(1.01); opacity: 1; }
-            100% { transform: translateY(0px) scaleX(1); opacity: 1; }
-        }
-        @keyframes ticketSlideUp {
-            0%   { transform: translateY(0px); opacity: 1; }
-            100% { transform: translateY(-115%); opacity: 0; }
-        }
-        @keyframes ticketGlowPulse {
-            0%, 100% { box-shadow: 0 12px 60px rgba(155,89,182,0.7), 0 2px 0 rgba(255,255,255,0.08) inset; }
-            50%       { box-shadow: 0 16px 80px rgba(200,100,255,0.9), 0 2px 0 rgba(255,255,255,0.12) inset; }
-        }
-        @keyframes ticketEmojiPop {
-            0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
-            55%  { transform: scale(1.35) rotate(8deg); }
-            75%  { transform: scale(0.92) rotate(-3deg); }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-        @keyframes ticketShimmer {
-            0%   { left: -80%; }
-            100% { left: 130%; }
-        }
-        @keyframes ticketParticle {
-            0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
-            100% { transform: translateY(90px) rotate(720deg) scale(0); opacity: 0; }
-        }
-        @keyframes ticketStarFloat {
-            0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
-            50%      { transform: translateY(-8px) rotate(180deg); opacity: 1; }
-        }
-        @keyframes ticketCountBounce {
-            0%,100% { transform: scale(1); }
-            40%      { transform: scale(1.18); }
-        }
-        @keyframes ticketBtnPulse {
-            0%,100% { transform: scale(1); }
-            50%      { transform: scale(1.03); }
-        }
 
-        #ticketPopupWrap {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            display: flex;
-            justify-content: center;
-            z-index: 99999;
-            pointer-events: none;
-        }
-        #ticketPopupCard {
-            pointer-events: all;
-            position: relative;
-            width: min(92vw, 390px);
-            background: linear-gradient(160deg, #2a0060 0%, #4a1a8a 40%, #3b1275 100%);
-            border: 1px solid #9b4dca;
-            border-top: none;
-            border-radius: 0 0 28px 28px;
-            padding: 0;
-            overflow: hidden;
-            transform: translateY(-110%);
-            opacity: 0;
-            cursor: pointer;
-        }
-        #ticketPopupCard.tp-entering {
-            animation: ticketSlideDown 0.62s cubic-bezier(0.22,1,0.36,1) forwards;
-        }
-        #ticketPopupCard.tp-visible {
-            transform: translateY(0); opacity: 1;
-            animation: ticketGlowPulse 2.5s ease-in-out infinite;
-        }
-        #ticketPopupCard.tp-leaving {
-            animation: ticketSlideUp 0.4s cubic-bezier(0.4,0,1,1) forwards;
-        }
-
-        /* Faixa superior colorida */
-        .tp-topbar {
-            height: 4px;
-            background: #7b2ff7;
-        }
-        /* corpo */
-        .tp-body {
-            padding: 20px 22px 22px;
-        }
-        /* shimmer highlight */
-        .tp-body::after {
-            content: '';
-            position: absolute;
-            top: 0; bottom: 0;
-            width: 40%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
-            animation: ticketShimmer 3s ease-in-out infinite;
-            pointer-events: none;
-        }
-        /* Row: emoji + textos */
-        .tp-row {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-        .tp-emoji {
-            font-size: 52px;
-            line-height: 1;
-            flex-shrink: 0;
-            filter: drop-shadow(0 0 14px rgba(255,190,50,0.85));
-            animation: ticketEmojiPop 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
-        }
-        .tp-texts { flex: 1; }
-        .tp-badge {
-            display: inline-block;
-            background: rgba(123,47,247,0.35);
-            border: 1px solid rgba(192,97,255,0.4);
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 800;
-            color: #c061ff;
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-            padding: 3px 10px;
-            margin-bottom: 5px;
-        }
-        .tp-title {
-            font-size: 19px;
-            font-weight: 900;
-            color: #fff;
-            letter-spacing: -0.3px;
-            line-height: 1.15;
-            text-shadow: 0 0 24px rgba(200,100,255,0.6);
-        }
-        .tp-sub {
-            font-size: 12px;
-            color: #d9d9d9;
-            margin-top: 3px;
-            line-height: 1.45;
-        }
-        /* Contador de tickets */
-        .tp-counter {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            background: rgba(255,215,0,0.07);
-            border: 1px solid rgba(255,215,0,0.28);
-            border-radius: 14px;
-            padding: 11px 16px;
-            margin-bottom: 14px;
-            animation: ticketCountBounce 1.6s ease-in-out 0.8s infinite;
-        }
-        .tp-counter-icon { font-size: 22px; }
-        .tp-counter-text {
-            font-size: 17px;
-            font-weight: 900;
-            color: #ffd700;
-            text-shadow: 0 0 12px rgba(255,215,0,0.55);
-        }
-        .tp-counter-hint {
-            font-size: 11px;
-            color: rgba(255,215,0,0.55);
-            margin-left: auto;
-        }
-        /* Botão principal */
-        .tp-btn {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-            padding: 15px 20px;
-            background: linear-gradient(135deg, #7b2ff7 0%, #9d4edd 50%, #c061ff 100%);
-            border: none;
-            border-radius: 16px;
-            color: #fff;
-            font-size: 15px;
-            font-weight: 800;
-            letter-spacing: 0.2px;
-            cursor: pointer;
-            overflow: hidden;
-            box-shadow: 0 6px 28px rgba(123,47,247,0.55);
-            animation: ticketBtnPulse 2s ease-in-out 1.2s infinite;
-        }
-        .tp-btn::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
-            animation: ticketShimmer 2.2s ease-in-out infinite;
-        }
-        .tp-btn:active { transform: scale(0.97); }
-        .tp-btn-icon { font-size: 20px; }
-        /* Botões duplos */
-        .tp-btn-row {
-            display: flex;
-            gap: 10px;
-        }
-        .tp-btn-later {
-            position: relative;
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 15px 10px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 16px;
-            color: rgba(255,255,255,0.65);
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            overflow: hidden;
-            transition: background 0.2s;
-        }
-        .tp-btn-later:active { background: rgba(255,255,255,0.14); transform: scale(0.97); }
-        /* Partículas */
-        .tp-particles {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-        }
-        .tp-particle {
-            position: absolute;
-            top: 10%;
-            font-size: 13px;
-            animation: ticketParticle linear forwards;
-        }
-        /* Estrelas flutuantes de fundo */
-        .tp-star {
-            position: absolute;
-            pointer-events: none;
-            opacity: 0;
-            animation: ticketStarFloat ease-in-out infinite;
-        }
-        /* ===== FIM POPUP TICKET ===== */
 
         /* ===== SPINNER ===== */
         .spinner {
@@ -1072,7 +798,6 @@
 
             <!-- Benefícios -->
             <div class="ls-benefits">
-                <div class="ls-benefit">🎟️ Tickets premiados</div>
                 <div class="ls-benefit">⭐ Pedido favorito</div>
                 <div class="ls-benefit">🛵 Rastrear entrega</div>
             </div>
@@ -1137,34 +862,6 @@
     </div>
 </div>
 
-<!-- canvas fogos -->
-<canvas id="tpFireCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99998;display:none;"></canvas>
-
-<!-- ===== POPUP TICKET GANHO ===== -->
-<div id="ticketPopupWrap">
-    <div id="ticketPopupCard">
-        <div class="tp-topbar"></div>
-        <div class="tp-body">
-            <div class="tp-row">
-                <div class="tp-emoji">🎟️</div>
-                <div class="tp-texts">
-                    <div class="tp-title" id="tp-titulo">Você ganhou<br>um ticket!</div>
-                    <div class="tp-sub" id="tp-subtitulo">Continue comprando e ganhe mais 🎉</div>
-                </div>
-            </div>
-            <div class="tp-btn-row">
-                <button class="tp-btn-later" onclick="fecharTicketPopup(event)">
-                    <span>⏰</span>
-                    <span>Jogar depois</span>
-                </button>
-                <button class="tp-btn" onclick="irParaRoleta()" style="flex:1.4;">
-                    <span class="tp-btn-icon">🎮</span>
-                    <span>Jogar agora!</span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div id="favModal" class="modal">
     <div class="modal-content" style="background:linear-gradient(160deg,#1a1a2e,#16213e);">
@@ -1517,7 +1214,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0, diamantes: client.diamantes || 0 };
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1537,10 +1234,7 @@ window.onload = async () => {
                     carregarPrivacidade();
                     carregarTemaSalvo();
                     await loadProducts();
-                    // Reativa push para quem já estava logado
-                    ativarNotificacoesPush(savedPhone);
-                    // Verifica se ganhou tickets enquanto estava offline
-                    verificarTicketsGanhos(savedPhone, client);
+
                     // Inicia escuta em tempo real para tickets e debt
                     iniciarRealtimeCliente(savedPhone);
                     return;
@@ -1648,7 +1342,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, tickets: client.tickets || 0, diamantes: client.diamantes || 0 };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -1675,14 +1369,7 @@ async function auth() {
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 
-    // Ativa push notifications para o cliente logado
-    ativarNotificacoesPush(phone);
 
-    // Verifica se ganhou tickets enquanto estava offline
-    verificarTicketsGanhos(phone, client);
-
-    // Inicia escuta em tempo real para tickets e debt
-    iniciarRealtimeCliente(phone);
 
     // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
     setTimeout(() => {
@@ -2735,7 +2422,6 @@ function iniciarRealtimeCliente(phone) {
             if (!novo) return;
             user.debt = Number(novo.debt);
             atualizarCabecalho();
-            verificarTicketsGanhos(phone, novo);
         })
         .subscribe();
 
@@ -2872,25 +2558,6 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
                     <div style="width:6px;height:6px;border-radius:50%;background:#666;"></div>
                     <span style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:700;">EM BREVE</span>
-                </div>
-            </div>
-
-            <!-- CARD: Jogos -->
-            <div onclick="irParaRoleta()"
-                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(52,152,219,0.3)'"
-                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(52,152,219,0.2)'"
-                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
-                background:linear-gradient(145deg,#0e1a2e,#162436);
-                border:1px solid rgba(52,152,219,0.22);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
-                box-shadow:0 6px 24px rgba(52,152,219,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(52,152,219,0.18),transparent 70%);"></div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(52,152,219,0.5));">🎮</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Jogos</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Roleta, Foguete,<br>Campo Minado e +</div>
-                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#3498db;box-shadow:0 0 6px #3498db;"></div>
-                    <span style="font-size:10px;color:rgba(52,152,219,0.9);font-weight:700;">ACESSAR →</span>
                 </div>
             </div>
 
@@ -3437,151 +3104,6 @@ function carregarTemaSalvo() {
     alterarTema(temaSalvo);
 }
 
-// ===== POPUP TICKET GANHO =====
-let _tpTimer = null;
-
-function mostrarTicketPopup(qtd, tipo = 'ticket') {
-    const card = document.getElementById('ticketPopupCard');
-    if (!card) return;
-
-    // Atualiza conteúdo conforme tipo
-    const isTk = tipo === 'ticket';
-    const emoji = isTk ? '🎟️' : '💎';
-    const nome  = isTk ? (qtd === 1 ? 'um ticket!' : `${qtd} tickets!`) : (qtd === 1 ? 'um diamante!' : `${qtd} diamantes!`);
-    const sub   = isTk ? 'Use na roleta e no foguete 🎉' : 'Use no Campo Minado 🎉';
-
-    const elEmoji = card.querySelector('.tp-emoji');
-    const elTitulo = document.getElementById('tp-titulo');
-    const elSub    = document.getElementById('tp-subtitulo');
-    if (elEmoji)  elEmoji.textContent  = emoji;
-    if (elTitulo) elTitulo.innerHTML   = `Você ganhou<br>${nome}`;
-    if (elSub)    elSub.textContent    = sub;
-
-    // Animação entrada
-    card.classList.remove('tp-leaving', 'tp-visible');
-    card.classList.add('tp-entering');
-    clearTimeout(_tpTimer);
-    _tpTimer = setTimeout(() => {
-        card.classList.remove('tp-entering');
-        card.classList.add('tp-visible');
-    }, 620);
-
-    // Fogos de artifício
-    _dispararFogos();
-
-    // Auto-fecha em 8s
-    _tpTimer = setTimeout(() => fecharTicketPopup(), 8500);
-}
-
-function fecharTicketPopup(e) {
-    if (e) e.stopPropagation();
-    clearTimeout(_tpTimer);
-    const card = document.getElementById('ticketPopupCard');
-    if (!card) return;
-    card.classList.remove('tp-entering', 'tp-visible');
-    card.classList.add('tp-leaving');
-    setTimeout(() => card.classList.remove('tp-leaving'), 420);
-}
-
-function irParaRoleta() {
-    fecharTicketPopup();
-    setTimeout(() => abrirJogos(), 320);
-}
-
-function _dispararFogos() {
-    const canvas = document.getElementById('tpFireCanvas');
-    if (!canvas) return;
-    canvas.style.display = 'block';
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const ctx = canvas.getContext('2d');
-    const cores = ['#ffd700','#ff6bff','#c061ff','#25d366','#ff4757','#1e90ff','#ffa502','#eccc68','#ffffff'];
-    let particulas = [], frame = 0, rodando = true;
-
-    function lancarFogo(x, y) {
-        const n = 60 + Math.floor(Math.random() * 40);
-        for (let i = 0; i < n; i++) {
-            const ang = (Math.PI * 2 / n) * i + (Math.random() - 0.5) * 0.4;
-            const vel = 3 + Math.random() * 6;
-            particulas.push({ x, y, vx: Math.cos(ang)*vel, vy: Math.sin(ang)*vel, alpha: 1, cor: cores[Math.floor(Math.random()*cores.length)], r: 2.5 + Math.random()*3, decay: 0.011 + Math.random()*0.013 });
-        }
-    }
-
-    const pos = [
-        [canvas.width*0.2, canvas.height*0.25],
-        [canvas.width*0.8, canvas.height*0.25],
-        [canvas.width*0.5, canvas.height*0.2],
-        [canvas.width*0.15, canvas.height*0.55],
-        [canvas.width*0.85, canvas.height*0.5],
-    ];
-    pos.forEach((p, i) => setTimeout(() => { if (rodando) lancarFogo(p[0], p[1]); }, i * 220));
-
-    function loop() {
-        if (!rodando) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particulas = particulas.filter(p => p.alpha > 0.01);
-        particulas.forEach(p => {
-            p.x += p.vx; p.y += p.vy; p.vy += 0.09; p.alpha -= p.decay; p.vx *= 0.98;
-            ctx.globalAlpha = p.alpha; ctx.fillStyle = p.cor;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.globalAlpha = 1; frame++;
-        if (frame < 220 || particulas.length > 0) requestAnimationFrame(loop);
-        else { canvas.style.display = 'none'; rodando = false; }
-    }
-    loop();
-    setTimeout(() => { rodando = false; ctx.clearRect(0,0,canvas.width,canvas.height); canvas.style.display='none'; }, 4500);
-}
-// ===== FIM POPUP TICKET =====
-
-function abrirJogos() {
-    const phone = user && user.phone ? user.phone : '';
-    const url = 'https://jefferson8564.github.io/Jogos-/' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
-    window.open(url, '_blank');
-}
-
-// ===== VERIFICAÇÃO DE TICKETS GANHOS (sem query extra ao Supabase) =====
-// Usa os dados que já foram buscados no login/auto-login.
-// Trata dois casos:
-//   1. Tickets pendentes com prazo passado → libera e mostra popup
-//   2. Coluna tickets/diamantes subiu → mostra popup com a diferença
-async function verificarTicketsGanhos(phone, client) {
-    try {
-        const chave = 'ticket_anterior_' + phone;
-        const chaveDi = 'diamante_anterior_' + phone;
-        const ticketsSalvos   = parseInt(localStorage.getItem(chave));
-        const diamantesSalvos = parseInt(localStorage.getItem(chaveDi));
-
-        let ticketsAtuais    = client.tickets    || 0;
-        let diamantesAtuais  = client.diamantes  || 0;
-        const agora = new Date();
-
-        // ── Caso 2: primeira vez ──
-        if (isNaN(ticketsSalvos)) {
-            if (ticketsAtuais > 0) setTimeout(() => mostrarTicketPopup(ticketsAtuais, 'ticket'), 800);
-            localStorage.setItem(chave, ticketsAtuais);
-        } else if (ticketsAtuais > ticketsSalvos) {
-            // ── Caso 3: saldo subiu ──
-            setTimeout(() => mostrarTicketPopup(ticketsAtuais - ticketsSalvos, 'ticket'), 800);
-            localStorage.setItem(chave, ticketsAtuais);
-        } else {
-            localStorage.setItem(chave, ticketsAtuais);
-        }
-
-        if (isNaN(diamantesSalvos)) {
-            if (diamantesAtuais > 0) setTimeout(() => mostrarTicketPopup(diamantesAtuais, 'diamante'), 2500);
-            localStorage.setItem(chaveDi, diamantesAtuais);
-        } else if (diamantesAtuais > diamantesSalvos) {
-            setTimeout(() => mostrarTicketPopup(diamantesAtuais - diamantesSalvos, 'diamante'), 2500);
-            localStorage.setItem(chaveDi, diamantesAtuais);
-        } else {
-            localStorage.setItem(chaveDi, diamantesAtuais);
-        }
-
-    } catch(e) {
-        console.warn('❌ Erro ao verificar tickets/diamantes:', e);
-    }
-}
 
 async function limparCacheRedefinir() {
     // Mostrar animação do robozinho limpando PRIMEIRO
