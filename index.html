@@ -1434,6 +1434,8 @@ window.onload = async () => {
 
                     // Inicia escuta em tempo real para tickets e debt
                     iniciarRealtimeCliente(savedPhone);
+                    // Registra push subscription se permissão já concedida
+                    if (Notification.permission === 'granted') _registrarPushSubscription();
                     // Atualizar contador de notificações
                     setTimeout(() => renderHistoricoSaldo(), 500);
                     return;
