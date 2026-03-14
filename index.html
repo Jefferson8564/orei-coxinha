@@ -2579,9 +2579,30 @@ async function salvarPrivacidade(valor) {
 
 // ===== REALTIME: detecta quando ADM libera tickets ou atualiza debt =====
 function iniciarRealtimeCliente(phone) {
-    // Pede permissão de notificação nativa (silencioso, sem popup intrusivo)
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // Pede permissão e registra Web Push subscription
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+        Notification.requestPermission().then(async perm => {
+            if (perm !== 'granted') return;
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const VAPID_PUBLIC = 'BPJzjw_67QZ8dNu4fwye4cs55PwoTgESBQeHl1xTy9fMOgQfsYsLjtBnaTB8TNfRj-ErZ3EfTV5489y-xCqToZ8';
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: VAPID_PUBLIC
+                    });
+                }
+                const subJson = sub.toJSON();
+                // Salva no Supabase (ignora duplicata pelo endpoint único)
+                await sb.from('push_subscriptions').upsert({
+                    customer_phone: phone,
+                    endpoint: subJson.endpoint,
+                    p256dh: subJson.keys.p256dh,
+                    auth: subJson.keys.auth
+                }, { onConflict: 'endpoint', ignoreDuplicates: true });
+            } catch(e) { console.warn('Web Push subscription falhou:', e); }
+        });
     }
 
     // Escuta UPDATE na tabela clientes (debt, tickets)
@@ -2610,26 +2631,33 @@ function iniciarRealtimeCliente(phone) {
             const novo = payload.new;
             if (!novo) return;
             const valorFmt = Number(novo.valor || 0).toFixed(2).replace('.', ',');
-            if (novo.tipo === 'pagamento') {
-                setTimeout(() => renderHistoricoSaldo(), 600);
-            }
+            setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 600);
+
             // ===== NOTIFICAÇÃO NATIVA DO CELULAR =====
-            if ('Notification' in window && Notification.permission === 'granted') {
-                const isReembolso = novo.tipo === 'reembolso';
-                const titulo = isReembolso ? '♻️ Reembolso recebido' : '✅ Pagamento recebido';
-                const corpo  = isReembolso
-                    ? `Pedido cancelado — R$ ${valorFmt} devolvido`
-                    : `Pagar na Entrega — R$ ${valorFmt} confirmado`;
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification('O Rei da Coxinha 🍗 — ' + titulo, {
-                        body: corpo,
-                        icon: '/icone.png',
-                        badge: '/icone.png',
-                        vibrate: [200, 100, 200]
-                    });
-                }).catch(() => {
-                    new Notification('O Rei da Coxinha 🍗 — ' + titulo, { body: corpo, icon: '/icone.png' });
-                });
+            const isReembolso = novo.tipo === 'reembolso';
+            const titulo = isReembolso ? '♻️ Reembolso recebido' : '✅ Pagamento recebido';
+            const corpo  = isReembolso
+                ? `Pedido cancelado\nR$ ${valorFmt} devolvido`
+                : `R$ ${valorFmt} confirmado`;
+
+            function _dispararNotifNativa() {
+                try {
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification('O Rei da Coxinha 🍗', { body: titulo + '\n' + corpo, icon: '/icone.png', badge: '/icone.png', vibrate: [200, 100, 200] });
+                        });
+                    } else {
+                        new Notification('O Rei da Coxinha 🍗 — ' + titulo, { body: corpo, icon: '/icone.png' });
+                    }
+                } catch(e) { console.warn('Notificação nativa falhou:', e); }
+            }
+
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    _dispararNotifNativa();
+                } else if (Notification.permission === 'default') {
+                    Notification.requestPermission().then(p => { if (p === 'granted') _dispararNotifNativa(); });
+                }
             }
         })
         .subscribe();
