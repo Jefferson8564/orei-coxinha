@@ -921,54 +921,65 @@
 <!-- ===== POPUP INSTALAR APP ===== -->
 <div id="modalInstalarApp" style="
     display:none; position:fixed; inset:0; z-index:5000;
+    background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
     align-items:center; justify-content:center;
     padding:24px 16px;
 ">
     <div style="
         position:relative; overflow:hidden;
-        background:transparent;
-        border:none;
+        background:linear-gradient(160deg,#0a1535,#0d1d50);
+        border:1px solid rgba(150,80,255,0.4);
         border-radius:28px; padding:32px 24px 24px;
         max-width:360px; width:100%;
         text-align:center;
+        box-shadow:0 20px 60px rgba(0,0,40,0.8), 0 0 0 1px rgba(150,80,255,0.15), inset 0 1px 0 rgba(150,80,255,0.2);
         animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
     ">
         <div style="
-            position:absolute; top:-60px; left:50%; transform:translateX(-50%);
-            width:220px; height:220px; border-radius:50%;
-            background:radial-gradient(circle, rgba(160,60,255,0.35) 0%, transparent 70%);
+            position:absolute; top:-80px; left:50%; transform:translateX(-50%);
+            width:260px; height:260px; border-radius:50%;
+            background:radial-gradient(circle, rgba(140,50,255,0.5) 0%, transparent 65%);
+            pointer-events:none;
+        "></div>
+        <div style="
+            position:absolute; bottom:-40px; right:-40px;
+            width:140px; height:140px; border-radius:50%;
+            background:radial-gradient(circle, rgba(120,40,220,0.3) 0%, transparent 70%);
             pointer-events:none;
         "></div>
 
         <img src="icone.png" style="
             width:100px; height:100px; border-radius:24px;
             margin:0 auto 18px; display:block; position:relative;
-            box-shadow:0 8px 32px rgba(150,50,255,0.5);
+            box-shadow:0 8px 32px rgba(140,50,255,0.6), 0 0 0 3px rgba(150,80,255,0.25);
         "/>
 
-        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px; position:relative; text-shadow:0 2px 12px rgba(0,0,0,0.8);">Instalar o app</div>
-        <div style="font-size:13px; color:rgba(220,180,255,0.9); font-weight:500; line-height:1.7; margin-bottom:24px; position:relative; text-shadow:0 1px 8px rgba(0,0,0,0.8);">
-            Tenha o <strong style="color:white;">Rei da Coxinha</strong> sempre à mão —<br>
-            peça rápido direto da sua tela inicial 🍗
+        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px; position:relative; text-shadow:0 2px 12px rgba(0,0,80,0.8);">Instalar o app</div>
+        <div style="font-size:13px; color:rgba(180,200,255,0.75); font-weight:500; line-height:1.7; margin-bottom:24px; position:relative; text-shadow:0 1px 8px rgba(0,0,60,0.9);">
+            Adicione na tela inicial e acesse<br>mais rápido, como um app de verdade! 📲
         </div>
 
-        <div style="background:rgba(255,255,255,0.07); border:1px solid rgba(180,100,255,0.15); border-radius:16px; padding:14px 16px; margin-bottom:22px; text-align:left; position:relative;">
+        <div style="
+            background:rgba(100,60,200,0.12);
+            border:1px solid rgba(150,80,255,0.2);
+            border-radius:16px; padding:14px 16px; margin-bottom:22px; text-align:left; position:relative;
+        ">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                 <span style="font-size:18px;">⚡</span>
-                <span style="font-size:12px;color:rgba(220,180,255,0.85);font-weight:600;">Abre instantaneamente</span>
+                <span style="font-size:12px;color:rgba(200,180,255,0.9);font-weight:600;text-shadow:0 1px 6px rgba(0,0,60,0.8);">Abre instantaneamente</span>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:18px;">🔔</span>
-                <span style="font-size:12px;color:rgba(220,180,255,0.85);font-weight:600;">Recebe notificações</span>
+                <span style="font-size:12px;color:rgba(200,180,255,0.9);font-weight:600;text-shadow:0 1px 6px rgba(0,0,60,0.8);">Recebe notificações</span>
             </div>
         </div>
 
         <button id="btnConfirmarInstalar" onclick="_confirmarInstalar()" style="
             width:100%; padding:16px; position:relative;
-            background:linear-gradient(135deg,#7c3aed,#a855f7);
+            background:linear-gradient(135deg,#1aad52,#25d366);
             border:none; border-radius:16px; color:white;
             font-size:15px; font-weight:900; cursor:pointer;
-            box-shadow:0 6px 24px rgba(168,85,247,0.5);
+            box-shadow:0 6px 24px rgba(37,211,102,0.4);
             -webkit-tap-highlight-color:transparent;
         ">📲 Instalar agora</button>
     </div>
