@@ -8,7 +8,7 @@
 //     Todos os celulares vão recarregar automaticamente!
 // ============================================================
 
-const VERSAO = 'v1'; // ← MUDE AQUI A CADA ATUALIZAÇÃO
+const VERSAO = 'v2'; // ← MUDE AQUI A CADA ATUALIZAÇÃO
 
 self.addEventListener('install', (event) => {
     self.skipWaiting(); // Ativa o novo SW na hora, sem esperar
