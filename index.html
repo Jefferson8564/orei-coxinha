@@ -844,7 +844,6 @@
         </div>
         <!-- 🔔 direita -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-            <button id="btnInstalarApp" class="header-btn" onclick="abrirPopupInstalar()" title="Instalar app" style="display:none;font-size:21px;">📲</button>
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
             <button class="header-btn" onclick="abrirPainelSino()" title="Notificações" style="position:relative;">
                 🔔
@@ -975,17 +974,8 @@
             border:none; border-radius:16px; color:white;
             font-size:15px; font-weight:900; cursor:pointer;
             box-shadow:0 6px 24px rgba(37,211,102,0.4);
-            margin-bottom:10px;
             -webkit-tap-highlight-color:transparent;
         ">📲 Instalar agora</button>
-
-        <button onclick="_fecharPopupInstalar()" style="
-            width:100%; padding:13px;
-            background:transparent; border:none;
-            color:rgba(255,255,255,0.35);
-            font-size:13px; font-weight:600; cursor:pointer;
-            -webkit-tap-highlight-color:transparent;
-        ">Agora não</button>
     </div>
 </div>
 
@@ -2646,6 +2636,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
     _pwaInstallPrompt = e;
     const btn = document.getElementById('btnInstalarApp');
     if (btn) btn.style.display = 'flex';
+    // Abre popup automaticamente
+    document.getElementById('modalInstalarApp').style.display = 'flex';
 });
 
 window.addEventListener('appinstalled', () => {
