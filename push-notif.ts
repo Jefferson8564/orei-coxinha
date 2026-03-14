@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     }
 
     const payload = JSON.stringify({
-      title: "O Rei da Coxinha 🍗",
-      body:  `${titulo}\n${corpo}`,
+      title: titulo,
+      body:  corpo,
       icon:  "/icone.png",
       badge: "/icone.png",
     });

@@ -2732,10 +2732,10 @@ function iniciarRealtimeCliente(phone) {
                 try {
                     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                         navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification('O Rei da Coxinha 🍗', { body: titulo + '\n' + corpo, icon: '/icone.png', badge: '/icone.png', vibrate: [200, 100, 200] });
+                            reg.showNotification(titulo, { body: corpo, icon: '/icone.png', badge: '/icone.png', vibrate: [200, 100, 200] });
                         });
                     } else {
-                        new Notification('O Rei da Coxinha 🍗 — ' + titulo, { body: corpo, icon: '/icone.png' });
+                        new Notification(titulo, { body: corpo, icon: '/icone.png' });
                     }
                 } catch(e) { console.warn('Notificação nativa falhou:', e); }
             }
