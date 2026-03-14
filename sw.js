@@ -81,21 +81,21 @@ self.addEventListener('notificationclick', (event) => {
     const urlBase = self.location.origin;
     const urlDestino = acao === 'abrir_mapa'
         ? urlBase + '/?abrir=mapa'
-        : urlBase + '/';
+        : urlBase + '/?abrir=notificacoes';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
-            // Se já tem uma aba aberta, foca nela e envia a ação
             for (const client of lista) {
                 if (client.url.startsWith(urlBase)) {
                     client.focus();
                     if (acao === 'abrir_mapa') {
                         client.postMessage({ acao: 'abrir_mapa' });
+                    } else {
+                        client.postMessage({ acao: 'abrir_notificacoes' });
                     }
                     return;
                 }
             }
-            // Senão, abre uma nova aba
             return clients.openWindow(urlDestino);
         })
     );

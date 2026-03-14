@@ -16,6 +16,9 @@
                     if (e.data?.acao === 'nova_versao') {
                         window.location.reload();
                     }
+                    if (e.data?.acao === 'abrir_notificacoes') {
+                        if (typeof abrirPainelSino === 'function') abrirPainelSino();
+                    }
                 });
             }).catch(() => {});
         }
@@ -1294,6 +1297,12 @@ function _mostrarApp() {
     _esconderLoading();
     const app = document.getElementById('app');
     if (app) app.style.display = 'block';
+    // Abre painel sino se veio de clique numa notificação
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('abrir') === 'notificacoes') {
+        setTimeout(() => { if (typeof abrirPainelSino === 'function') abrirPainelSino(); }, 400);
+        window.history.replaceState({}, '', window.location.pathname);
+    }
 }
 
 // Promessa com timeout: rejeita se demorar mais de `ms` milissegundos
