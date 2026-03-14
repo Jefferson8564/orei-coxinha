@@ -39,7 +39,6 @@ self.addEventListener('activate', (event) => {
 // ============================================================
 self.addEventListener('fetch', (event) => {
     // Deixa o navegador buscar normalmente, sem cache
-    return;
 });
 
 // ============================================================
@@ -51,10 +50,10 @@ self.addEventListener('push', (event) => {
     try {
         dados = event.data ? event.data.json() : {};
     } catch (e) {
-        dados = { title: 'O Rei da Coxinha 🍗', body: event.data ? event.data.text() : '' };
+        dados = { title: '', body: event.data ? event.data.text() : '' };
     }
 
-    const titulo = dados.title || 'O Rei da Coxinha 🍗';
+    const titulo = dados.title || '';
     const opcoes = {
         body:    dados.body    || '',
         icon:    dados.icon    || '/icone.png',
@@ -75,9 +74,6 @@ self.addEventListener('push', (event) => {
     );
 });
 
-// ============================================================
-//  NOTIFICATION CLICK — Abre o app ao clicar na notificação
-// ============================================================
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 

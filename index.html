@@ -844,6 +844,7 @@
         </div>
         <!-- 🔔 direita -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <button id="btnInstalarApp" class="header-btn" onclick="abrirPopupInstalar()" title="Instalar app" style="display:none;font-size:21px;">📲</button>
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
             <button class="header-btn" onclick="abrirPainelSino()" title="Notificações" style="position:relative;">
                 🔔
@@ -915,6 +916,76 @@
             <button onclick="closePayModal()" style="flex:1; padding:14px; background:#f0f2f6; color:#666; border:none; border-radius:14px; font-weight:700; cursor:pointer;">Voltar</button>
             <button onclick="confirmOrder()" id="btnConfirm" style="flex:2; padding:14px; background:linear-gradient(135deg,#25d366,#1aad52); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 5px 16px rgba(37,211,102,0.35);">Confirmar Pedido</button>
         </div>
+    </div>
+</div>
+
+<!-- ===== POPUP INSTALAR APP ===== -->
+<div id="modalInstalarApp" style="
+    display:none; position:fixed; inset:0; z-index:5000;
+    background:rgba(0,0,0,0.8); backdrop-filter:blur(14px);
+    align-items:flex-end; justify-content:center;
+    padding-bottom:24px;
+">
+    <div style="
+        background:linear-gradient(160deg,#0d1b0d,#0a2a1a);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:28px; padding:32px 24px 24px;
+        margin:0 16px; max-width:400px; width:100%;
+        text-align:center;
+        box-shadow:0 -8px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+        animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    ">
+        <div style="
+            width:72px; height:72px; border-radius:22px;
+            background:linear-gradient(135deg,#1aad52,#25d366);
+            display:flex; align-items:center; justify-content:center;
+            margin:0 auto 18px;
+            box-shadow:0 8px 32px rgba(37,211,102,0.4);
+            font-size:36px;
+        ">🍗</div>
+
+        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px;">
+            Instalar o app
+        </div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.55); font-weight:500; line-height:1.6; margin-bottom:24px;">
+            Adicione na tela inicial e acesse<br>mais rápido, como um app de verdade 🚀
+        </div>
+
+        <div style="
+            background:rgba(255,255,255,0.05); border-radius:16px;
+            padding:14px 16px; margin-bottom:22px; text-align:left;
+        ">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <span style="font-size:18px;">⚡</span>
+                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Abre instantaneamente</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <span style="font-size:18px;">📴</span>
+                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Funciona offline</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;">🔔</span>
+                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Recebe notificações</span>
+            </div>
+        </div>
+
+        <button id="btnConfirmarInstalar" onclick="_confirmarInstalar()" style="
+            width:100%; padding:16px;
+            background:linear-gradient(135deg,#1aad52,#25d366);
+            border:none; border-radius:16px; color:white;
+            font-size:15px; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(37,211,102,0.4);
+            margin-bottom:10px;
+            -webkit-tap-highlight-color:transparent;
+        ">📲 Instalar agora</button>
+
+        <button onclick="_fecharPopupInstalar()" style="
+            width:100%; padding:13px;
+            background:transparent; border:none;
+            color:rgba(255,255,255,0.35);
+            font-size:13px; font-weight:600; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
+        ">Agora não</button>
     </div>
 </div>
 
@@ -2566,6 +2637,44 @@ function fecharPainelPedidos() {
     document.getElementById('painelPedidos').style.transform = 'translateY(-100%)';
 }
 
+// ===== PWA INSTALL =====
+let _pwaInstallPrompt = null;
+const _isEmStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _pwaInstallPrompt = e;
+    const btn = document.getElementById('btnInstalarApp');
+    if (btn) btn.style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+    _pwaInstallPrompt = null;
+    const btn = document.getElementById('btnInstalarApp');
+    if (btn) btn.style.display = 'none';
+});
+
+function abrirPopupInstalar() {
+    if (_pwaInstallPrompt) {
+        document.getElementById('modalInstalarApp').style.display = 'flex';
+    }
+}
+function _fecharPopupInstalar() {
+    document.getElementById('modalInstalarApp').style.display = 'none';
+}
+async function _confirmarInstalar() {
+    if (!_pwaInstallPrompt) return;
+    _pwaInstallPrompt.prompt();
+    const { outcome } = await _pwaInstallPrompt.userChoice;
+    _pwaInstallPrompt = null;
+    document.getElementById('modalInstalarApp').style.display = 'none';
+    if (outcome === 'accepted') {
+        const btn = document.getElementById('btnInstalarApp');
+        if (btn) btn.style.display = 'none';
+    }
+}
+
+
 async function _registrarPushSubscription() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
     try {
@@ -2709,6 +2818,7 @@ function iniciarRealtimeCliente(phone) {
         .subscribe();
 
     // Escuta INSERT na tabela notificacoes (pagamento ou reembolso)
+    const _realtimeIniciadoEm = Date.now();
     sb.channel('notificacoes_watch_' + phone)
         .on('postgres_changes', {
             event: 'INSERT',
@@ -2718,6 +2828,11 @@ function iniciarRealtimeCliente(phone) {
         }, (payload) => {
             const novo = payload.new;
             if (!novo) return;
+
+            // Ignora eventos antigos que o Supabase reenvia ao reconectar
+            const eventTs = new Date(novo.created_at).getTime();
+            if (eventTs < _realtimeIniciadoEm - 5000) return;
+
             const valorFmt = Number(novo.valor || 0).toFixed(2).replace('.', ',');
             setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 600);
 
