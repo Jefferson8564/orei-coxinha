@@ -788,8 +788,8 @@
 
             <label class="ls-label">📱 Seu WhatsApp</label>
             <div class="input-prefix-container">
-                <span class="ls-prefix">(81) 9</span>
-                <input type="tel" id="userPhone" class="input-text" placeholder="XXXX-XXXX" maxlength="9" inputmode="tel">
+                <span class="ls-prefix"></span>
+                <input type="tel" id="userPhone" class="input-text" placeholder="+55 81 99660-3348" maxlength="25" inputmode="tel" style="font-size: 16px; padding: 16px 14px; letter-spacing: 0.3px;">
             </div>
 
             <div id="nameBox" style="display:none;">
@@ -1501,9 +1501,19 @@ async function auth() {
         phone = savedPhone;
     } else {
         // ❌ PRIMEIRO CADASTRO - pedir número
-        const partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
-        if (partialPhone.length < 8) {
-            showLoginError("Digite o número completo");
+        let partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
+        
+        // Remover código do país se existir (+55, 0055, etc)
+        // Se começa com 55, remove (código do Brasil)
+        if (partialPhone.startsWith('55')) {
+            partialPhone = partialPhone.substring(2);
+        }
+        
+        // Extrair apenas os 8 últimos dígitos
+        if (partialPhone.length >= 8) {
+            partialPhone = partialPhone.slice(-8); // Pega os últimos 8 dígitos
+        } else {
+            showLoginError("Digite o número completo (mínimo 8 dígitos)");
             btn.disabled = false; btn.textContent = "Entrar";
             return;
         }
@@ -1979,12 +1989,12 @@ async function carregarCupons() {
         box.style.display = 'block';
         lista.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">` + cupons.map((c, i) => {
             const qtd = c.ids.length;
-            const isSelected = false;
+            const isSelected = (i === 0); // Sempre marca o primeiro (maior desconto) como selecionado
             return `<div onclick="selecionarCupom(${c.pct}, '${c.ids[0]}', this)"
                 style="position:relative;cursor:pointer;border-radius:12px;padding:12px 10px;min-width:72px;text-align:center;
-                background:white;
-                border:2px solid #f1c40f;
-                box-shadow:none;
+                background:${isSelected ? '#e8f8f0' : 'white'};
+                border:2px solid ${isSelected ? '#25d366' : '#f1c40f'};
+                box-shadow:${isSelected ? '0 0 0 3px rgba(37,211,102,0.2)' : 'none'};
                 transition:all 0.15s;"
                 data-selected="${isSelected ? '1' : '0'}">
                 ${qtd > 1 ? `<div style="position:absolute;top:-8px;right:-8px;background:#25d366;color:white;font-size:10px;font-weight:900;padding:2px 6px;border-radius:20px;min-width:20px;">${qtd}x</div>` : ''}
@@ -1993,6 +2003,16 @@ async function carregarCupons() {
                 <div class="cupom-off" style="font-size:10px;font-weight:700;color:#999;">OFF</div>
             </div>`;
         }).join('') + `</div>`;
+
+        // Aplica automáticamente o cupom de maior desconto
+        if (cupons.length > 0) {
+            const maiorCupom = cupons[0];
+            cupomDescontoPct = maiorCupom.pct;
+            cupomId = maiorCupom.ids[0];
+            // Recalcula os totais com o desconto aplicado
+            if (user?.debt < 0) applyCreditCalculation(Math.abs(user.debt));
+            else updateFinalTotalDisplay();
+        }
     } catch(e) {
         console.warn('Erro inesperado ao carregar cupons:', e);
         box.style.display = 'none';
