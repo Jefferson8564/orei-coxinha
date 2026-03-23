@@ -1144,8 +1144,19 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 async function calcularValorRealPedido(itemsTexto) {
     if (!itemsTexto) return 0;
     try {
-        const { data: cardapio } = await sb.from('cardapio').select('name, price');
+        const { data: cardapio } = await sb.from('cardapio').select('name, price, price_promo');
         if (!cardapio) return 0;
+        
+        // Verificar se cliente é novo
+        let isNewCustomer = false;
+        if (user && user.created_at) {
+            const createdDate = new Date(user.created_at);
+            const now = new Date();
+            const diffMs = now - createdDate;
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            isNewCustomer = diffDays <= 30;
+        }
+        
         let total = 0;
         const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
         linhas.forEach(linha => {
@@ -1154,7 +1165,11 @@ async function calcularValorRealPedido(itemsTexto) {
             const qtd  = parseInt(match[1]);
             const nome = match[2].trim();
             const prod = cardapio.find(p => p.name.trim() === nome);
-            if (prod) total += qtd * Number(prod.price);
+            if (prod) {
+                // Determinar preço a usar
+                const priceToUse = (prod.price_promo && isNewCustomer) ? Number(prod.price_promo) : Number(prod.price);
+                total += qtd * priceToUse;
+            }
         });
         return total;
     } catch(e) {
@@ -1411,7 +1426,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1689,7 +1704,40 @@ async function loadProducts() {
         console.error(error);
         return;
     }
-    products = data.map(p => ({ id: p.id, name: p.name, price: Number(p.price), img: p.image_url || "" }));
+    
+    // Verificar se cliente é novo (menos de 30 dias)
+    let isNewCustomer = false;
+    if (user && user.created_at) {
+        const createdDate = new Date(user.created_at);
+        const now = new Date();
+        const diffMs = now - createdDate;
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        isNewCustomer = diffDays <= 30;
+    }
+    
+    products = data.map(p => {
+        const basePrice = Number(p.price);
+        const promoPrice = p.price_promo ? Number(p.price_promo) : null;
+        
+        // Determinar qual preço mostrar
+        let priceToShow = basePrice;
+        let hasPromo = false;
+        
+        if (promoPrice && isNewCustomer) {
+            priceToShow = promoPrice;
+            hasPromo = true;
+        }
+        
+        return {
+            id: p.id,
+            name: p.name,
+            price: basePrice,
+            pricePromo: promoPrice,
+            priceToShow: priceToShow,
+            hasPromo: hasPromo,
+            img: p.image_url || ""
+        };
+    });
     // Salvar cardápio no cache para uso offline
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
@@ -1708,9 +1756,17 @@ function render() {
 
         g.innerHTML = products.map(p => `
             <div class="card">
-                <div class="card-img">${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}</div>
+                <div class="card-img" style="position: relative;">
+                    ${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}
+                    ${p.hasPromo ? `<div style="position: absolute; top: 35px; right: 8px; transform: rotate(45deg); color: #f59e0b; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 6px rgba(0,0,0,0.6), 0 0 2px rgba(245,158,11,0.8); z-index: 10; white-space: nowrap; transform-origin: top right;">OFERTA</div>` : ''}
+                </div>
                 <div class="card-body">
-                    <div><strong class="card-title">${p.name}</strong><br><span class="card-price">R$ ${p.price.toFixed(2)}</span></div>
+                    <div><strong class="card-title">${p.name}</strong><br>
+                        <span class="card-price" style="display: flex; gap: 8px; align-items: center;">
+                            ${p.hasPromo ? `<span style="text-decoration: line-through; color: #999; font-size: 12px;">R$ ${p.price.toFixed(2)}</span>` : ''}
+                            <span style="color: white; font-weight: 700; font-size: ${p.hasPromo ? '17px' : '15px'};">R$ ${p.priceToShow.toFixed(2)}</span>
+                        </span>
+                    </div>
                     <div class="card-controls">
                         <button onclick="qty('${p.id}',-1)" class="qty-btn minus">-</button>
                         <input type="number" class="qty-display" value="${cart[p.id] || 0}" onchange="setQty('${p.id}', this.value)" onfocus="this.select();this.value=''" onblur="if(this.value===''||this.value==='0'){this.value=cart['${p.id}']||0}" inputmode="numeric">
@@ -1719,12 +1775,12 @@ function render() {
                 </div>
             </div>`).join('');
 
-        // Calcular total otimizado
+        // Calcular total otimizado (usa priceToShow - o preço que cliente vê)
         let total = 0;
         const cartIds = Object.keys(cart);
         for (let i = 0; i < cartIds.length; i++) {
             const p = products.find(x => x.id == cartIds[i]);
-            if (p) total += p.price * cart[cartIds[i]];
+            if (p) total += p.priceToShow * cart[cartIds[i]];
         }
 
         currentOrderTotal = total;
@@ -1797,7 +1853,7 @@ function cartToText() {
     let texto = ''; let total = 0;
     for (let id in cart) {
         const p = products.find(x => x.id == id);
-        if (p) { texto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; }
+        if (p) { texto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; }
     }
     return { texto, total };
 }
@@ -2147,7 +2203,7 @@ async function confirmOrder() {
     btn.disabled = true;
 
     let total = 0; let pedidoTexto = "";
-    for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.price * cart[id]; } }
+    for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; } }
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = user.debt < 0; // crédito sempre aplicado automaticamente
