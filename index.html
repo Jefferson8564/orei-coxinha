@@ -1426,7 +1426,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at };
+                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1566,7 +1566,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, dias_refazer: client.dias_refazer };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -3697,9 +3697,12 @@ function mostrarAnimacaoRoboLimpando() {
 
 function atualizarLabelPainel() {
     setTimeout(() => {
-        const ativo = user.show_name;
         const labelTop = document.getElementById('labelAutoTop');
-        if (!labelTop) return;
+        if (!labelTop || !user) return;
+        
+        // Verificar se dias_refazer tem dias ativados
+        const ativo = user.dias_refazer && user.dias_refazer.length > 0;
+        
         if (ativo) {
             labelTop.style.color = 'rgba(37,211,102,0.9)';
             labelTop.textContent = '● ATIVADO';
@@ -3715,7 +3718,7 @@ function atualizarLabelPainel() {
 function abrirConfigAutomatico() {
     const modal = document.getElementById('modalConfigAutomatico');
     if (modal) {
-        renderDias();
+        carregarDiasDoSupabase();
         modal.classList.add('active');
     }
 }
@@ -3723,6 +3726,33 @@ function abrirConfigAutomatico() {
 function fecharConfigAutomatico() {
     const modal = document.getElementById('modalConfigAutomatico');
     if (modal) modal.classList.remove('active');
+}
+
+// Carregar dias do Supabase
+async function carregarDiasDoSupabase() {
+    if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
+        renderDias();
+        return;
+    }
+    
+    try {
+        const { data } = await sb.from('clientes')
+            .select('dias_refazer')
+            .eq('phone', user.phone)
+            .maybeSingle();
+        
+        if (data && data.dias_refazer && data.dias_refazer.length > 0) {
+            diasSelecionados = new Set(data.dias_refazer);
+        } else {
+            diasSelecionados = new Set();
+        }
+        
+        renderDias();
+    } catch(e) {
+        console.error('Erro ao carregar dias:', e);
+        renderDias(); // renderiza com localStorage como fallback
+    }
 }
 
 const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -3742,24 +3772,31 @@ function renderDias() {
     const container = document.getElementById('diasContainer');
     if (!container) return;
     
-    container.innerHTML = diasSemana.map((dia, idx) => `
-        <button onclick="toggleDia(${idx})" style="
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            border: 2px solid ${diasSelecionados.has(idx) ? '#8e44ad' : 'rgba(255,255,255,0.2)'};
-            background: ${diasSelecionados.has(idx) ? 'rgba(142,68,173,0.3)' : 'rgba(255,255,255,0.05)'};
-            color: ${diasSelecionados.has(idx) ? '#b388ff' : 'rgba(255,255,255,0.6)'};
-            border-radius: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-            font-size: 15px;
-            -webkit-tap-highlight-color: transparent;
-        " ontouchstart="this.style.opacity='0.7'" ontouchend="this.style.opacity='1'">
-            ${diasSelecionados.has(idx) ? '✓ ' : ''}${dia}
-        </button>
-    `).join('');
+    container.innerHTML = diasSemana.map((dia, idx) => {
+        const selecionado = diasSelecionados.has(idx);
+        return `
+            <button onclick="toggleDia(${idx})" style="
+                padding: 14px 16px;
+                margin-bottom: 10px;
+                border: 2px solid ${selecionado ? '#8e44ad' : 'rgba(255,255,255,0.2)'};
+                background: ${selecionado ? 'rgba(142,68,173,0.3)' : 'rgba(255,255,255,0.05)'};
+                color: ${selecionado ? '#b388ff' : 'rgba(255,255,255,0.6)'};
+                border-radius: 14px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s;
+                width: 100%;
+                font-size: 15px;
+                -webkit-tap-highlight-color: transparent;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            " ontouchstart="this.style.opacity='0.7'" ontouchend="this.style.opacity='1'">
+                ${selecionado ? '✓' : '○'} ${dia}
+            </button>
+        `;
+    }).join('');
 }
 
 // Salvar dias no Supabase
@@ -3780,10 +3817,47 @@ async function salvarDiasRefazerSB() {
             return false;
         }
         
+        // Atualizar user local
+        user.dias_refazer = diasArray;
+        localStorage.setItem('salgados_user', JSON.stringify(user));
+        atualizarLabelPainel();
+        
         console.log('✅ Dias de refazer salvos:', diasArray);
         return true;
     } catch(e) {
         console.error('Erro ao salvar dias no Supabase:', e);
+        return false;
+    }
+}
+
+// Desativar refazer pedido (salva array vazio)
+async function desativarRefazer() {
+    if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
+        return;
+    }
+    
+    try {
+        const { error } = await sb.from('clientes')
+            .update({ dias_refazer: null })
+            .eq('phone', user.phone);
+        
+        if (error) {
+            console.error('Erro ao desativar:', error);
+            return false;
+        }
+        
+        // Atualizar user local
+        user.dias_refazer = null;
+        localStorage.setItem('salgados_user', JSON.stringify(user));
+        atualizarLabelPainel();
+        
+        console.log('✅ Refazer pedido desativado');
+        fecharConfigAutomatico();
+        return true;
+    } catch(e) {
+        console.error('Erro ao desativar:', e);
+        alert('❌ Erro ao desativar: ' + e.message);
         return false;
     }
 }
@@ -3823,16 +3897,28 @@ async function salvarDiasRefazerSB() {
             <!-- Renderizado por JavaScript -->
         </div>
 
-        <button onclick="salvarDiasRefazerSB(); fecharConfigAutomatico();" style="
-            width: 100%; padding: 14px;
-            background: linear-gradient(135deg, #8e44ad, #6c2fa8);
-            color: white; border: none; border-radius: 14px;
-            font-weight: 700; font-size: 15px;
-            cursor: pointer; transition: all 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
-            ✓ Salvar e Fechar
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="desativarRefazer()" style="
+                flex: 1; padding: 14px;
+                background: linear-gradient(135deg, #e74c3c, #c0392b);
+                color: white; border: none; border-radius: 14px;
+                font-weight: 700; font-size: 15px;
+                cursor: pointer; transition: all 0.2s;
+                -webkit-tap-highlight-color: transparent;
+            " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
+                Desligar
+            </button>
+            <button onclick="salvarDiasRefazerSB(); fecharConfigAutomatico();" style="
+                flex: 1; padding: 14px;
+                background: linear-gradient(135deg, #8e44ad, #6c2fa8);
+                color: white; border: none; border-radius: 14px;
+                font-weight: 700; font-size: 15px;
+                cursor: pointer; transition: all 0.2s;
+                -webkit-tap-highlight-color: transparent;
+            " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
+                ✓ Salvar e Ligar
+            </button>
+        </div>
     </div>
 </div>
 
