@@ -3105,7 +3105,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             </div>
 
             <!-- CARD: Pedido Automático -->
-            <div onclick="togglePrivacidadeHeader(); atualizarLabelPainel();" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+            <div onclick="abrirConfigAutomatico()" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
                 background:linear-gradient(145deg,#150a25,#1e0f35);
                 border:1px solid rgba(142,68,173,0.25);border-radius:22px;
                 padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
@@ -3115,7 +3115,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 <div id="labelAutoTop" style="position:absolute;top:10px;right:12px;font-size:9px;font-weight:800;color:rgba(37,211,102,0.9);letter-spacing:0.5px;">● ATIVADO</div>
                 <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(142,68,173,0.6));">🤖</div>
                 <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Automático</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Repete seu pedido<br>todo dia às 3h</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Configura dias de<br>refazer seu pedido</div>
             </div>
 
             <!-- CARD: Leitura do Pedido -->
@@ -3710,6 +3710,137 @@ function atualizarLabelPainel() {
         initLeituraToggle();
     }, 300);
 }
+
+// ===== MODAL CONFIGURAÇÃO PEDIDO AUTOMÁTICO =====
+function abrirConfigAutomatico() {
+    const modal = document.getElementById('modalConfigAutomatico');
+    if (modal) {
+        renderDias();
+        modal.classList.add('active');
+    }
+}
+
+function fecharConfigAutomatico() {
+    const modal = document.getElementById('modalConfigAutomatico');
+    if (modal) modal.classList.remove('active');
+}
+
+const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+let diasSelecionados = new Set(JSON.parse(localStorage.getItem('diasAutomatico') || '[]'));
+
+function toggleDia(indice) {
+    if (diasSelecionados.has(indice)) {
+        diasSelecionados.delete(indice);
+    } else {
+        diasSelecionados.add(indice);
+    }
+    localStorage.setItem('diasAutomatico', JSON.stringify([...diasSelecionados]));
+    renderDias();
+}
+
+function renderDias() {
+    const container = document.getElementById('diasContainer');
+    if (!container) return;
+    
+    container.innerHTML = diasSemana.map((dia, idx) => `
+        <button onclick="toggleDia(${idx})" style="
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border: 2px solid ${diasSelecionados.has(idx) ? '#8e44ad' : 'rgba(255,255,255,0.2)'};
+            background: ${diasSelecionados.has(idx) ? 'rgba(142,68,173,0.3)' : 'rgba(255,255,255,0.05)'};
+            color: ${diasSelecionados.has(idx) ? '#b388ff' : 'rgba(255,255,255,0.6)'};
+            border-radius: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            font-size: 15px;
+            -webkit-tap-highlight-color: transparent;
+        " ontouchstart="this.style.opacity='0.7'" ontouchend="this.style.opacity='1'">
+            ${diasSelecionados.has(idx) ? '✓ ' : ''}${dia}
+        </button>
+    `).join('');
+}
+
+// Salvar dias no Supabase
+async function salvarDiasRefazerSB() {
+    if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
+        return;
+    }
+    
+    try {
+        const diasArray = [...diasSelecionados].sort((a, b) => a - b);
+        const { error } = await sb.from('clientes')
+            .update({ dias_refazer: diasArray })
+            .eq('phone', user.phone);
+        
+        if (error) {
+            console.error('Erro ao salvar dias:', error);
+            return false;
+        }
+        
+        console.log('✅ Dias de refazer salvos:', diasArray);
+        return true;
+    } catch(e) {
+        console.error('Erro ao salvar dias no Supabase:', e);
+        return false;
+    }
+}
+
 </script>
+
+<!-- ===== MODAL: CONFIGURAÇÃO PEDIDO AUTOMÁTICO ===== -->
+<div id="modalConfigAutomatico" style="
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 4000; display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+    padding: 20px;
+    font-family: 'Inter', sans-serif;
+" onclick="if(event.target === this) fecharConfigAutomatico();">
+    <div style="
+        background: linear-gradient(145deg, #1a0f2e, #250f3e);
+        border-radius: 28px; padding: 24px; max-width: 400px;
+        width: 100%; max-height: 90vh; overflow-y: auto;
+        border: 1px solid rgba(142,68,173,0.3);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="font-size: 24px; font-weight: 900; color: white;">🤖 Pedido Automático</div>
+            <button onclick="fecharConfigAutomatico()" style="
+                background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                color: white; width: 36px; height: 36px; border-radius: 10px;
+                font-size: 18px; cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            ">×</button>
+        </div>
+
+        <div style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+            Selecione os dias da semana que você quer refazer seu pedido automaticamente:
+        </div>
+
+        <div id="diasContainer" style="margin-bottom: 20px;">
+            <!-- Renderizado por JavaScript -->
+        </div>
+
+        <button onclick="salvarDiasRefazerSB(); fecharConfigAutomatico();" style="
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #8e44ad, #6c2fa8);
+            color: white; border: none; border-radius: 14px;
+            font-weight: 700; font-size: 15px;
+            cursor: pointer; transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
+            ✓ Salvar e Fechar
+        </button>
+    </div>
+</div>
+
+<style>
+    #modalConfigAutomatico.active {
+        display: flex !important;
+        opacity: 1 !important;
+    }
+</style>
 
 </html>
