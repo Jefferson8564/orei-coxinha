@@ -1526,6 +1526,10 @@ window.onload = async () => {
                     iniciarRealtimeCliente(savedPhone);
                     // Atualizar contador de notificações
                     setTimeout(() => renderHistoricoSaldo(), 500);
+                    // Re-registra subscription push se permissão já concedida (garante após update do SW)
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        _registrarPushSubscription();
+                    }
                     return;
                 }
             } catch (e) {
@@ -1671,6 +1675,10 @@ async function auth() {
 
     // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
     mostrarPopupOferta(client, clienteNovo);
+    // Re-registra subscription push se permissão já concedida (garante após update do SW)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        _registrarPushSubscription();
+    }
 }
 
 function mostrarPopupOferta(client, clienteNovo) {
@@ -2247,6 +2255,85 @@ function closePayModal() { document.getElementById('payModal').classList.remove(
 var _pedidoAnteriorId = null;
 var _resolvePopupPedido = null;
 
+// ===== FUNÇÃO AUXILIAR: Calcular reembolso correto =====
+async function _efetuarReembolsoPedido(pedido) {
+    // Extrai descontos embutidos no items
+    const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
+    const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+
+    // Extrai desconto de cupom
+    const cupomMatch = (pedido.items || '').match(/🏷️ CUPOM:(\d+):/);
+    const cupomPct = cupomMatch ? Number(cupomMatch[1]) : 0;
+    const descontoCupomValor = cupomPct > 0 ? (Number(pedido.total) * cupomPct / 100) : 0;
+
+    // Agora pedido.total é o TOTAL ORIGINAL (antes de descontos)
+    // Na compra: 
+    //   finalTotal = total - creditoUsado - descontoCupomValor
+    //   newDebt = debt + finalTotal + creditoUsado
+    //          = debt + (total - creditoUsado - descontoCupomValor) + creditoUsado
+    //          = debt + total - descontoCupomValor
+    //
+    // Para reverter:
+    //   novoDebt = debt - (total - descontoCupomValor)
+    //           = debt - total + descontoCupomValor
+    
+    // Reembolso COMPLETO (dinheiro + crédito + cupom)
+    const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
+    if (c) {
+        const debtAtual = Number(c.debt || 0);
+        const totalPedido = Number(pedido.total);
+        
+        // Reverte o que foi adicionado ao debt
+        const novoDebt = debtAtual - totalPedido + descontoCupomValor;
+        
+        const { error: updateErr } = await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+        if (updateErr) {
+            console.error('Erro ao atualizar debt:', updateErr);
+        } else {
+            user.debt = novoDebt;
+            atualizarCabecalho();
+        }
+    }
+
+    // Restaura cupom se havia
+    try {
+        const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
+        if (linhasCupom.length > 0) {
+            const parts = linhasCupom[0].split(':');
+            const pct = Number(parts[1]) || 0;
+            if (pct > 0) {
+                await sb.from('premios').insert({
+                    customer_phone: user.phone,
+                    customer_name: user.name,
+                    descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
+                    jogo: 'cupom_estornado',
+                    tickets_usados: 0,
+                    diamantes_usados: 0,
+                    cancelado: false
+                });
+                await carregarCupons();
+            }
+        }
+    } catch(e) { }
+
+    // Notificação mostrando o que foi reembolsado
+    let descNotif = 'Pedido cancelado pelo cliente';
+    if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
+    if (descontoCupomValor > 0) descNotif += ` • Cupom ${cupomPct}% (R$ ${descontoCupomValor.toFixed(2).replace('.',',')}) restaurado`;
+
+    // Valor mostrado na notificação
+    const valorPago = Number(pedido.total) - descontoCupomValor - creditoUsado;
+
+    await sb.from('notificacoes').insert({
+        customer_phone: user.phone,
+        tipo: 'reembolso',
+        valor: valorPago,
+        descricao: descNotif
+    });
+
+    return { creditoUsado, descontoCupomValor };
+}
+
 async function _confirmarCancelarAnterior() {
     document.getElementById('modalPedidoAnterior').style.display = 'none';
     try {
@@ -2256,56 +2343,18 @@ async function _confirmarCancelarAnterior() {
             .maybeSingle();
 
         if (pedido) {
-            // Reverte debt (igual ao cancelarPedidoCliente)
-            const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-            const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
-            const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
-            if (c) {
-                const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
-                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-                user.debt = novoDebt;
-                atualizarCabecalho();
+            // Efetuar reembolso completo
+            await _efetuarReembolsoPedido(pedido);
+
+            // Deleta pedido COMPLETAMENTE
+            const { error: deleteErr } = await sb.from('pedidos').delete().eq('id', _pedidoAnteriorId);
+            if (deleteErr) {
+                console.error('Erro ao deletar pedido anterior:', deleteErr);
             }
-
-            // Restaura cupom se havia
-            try {
-                const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
-                if (linhasCupom.length > 0) {
-                    const parts = linhasCupom[0].split(':');
-                    const pct = Number(parts[1]) || 0;
-                    if (pct > 0) {
-                        await sb.from('premios').insert({
-                            customer_phone: user.phone,
-                            customer_name: user.name,
-                            descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
-                            jogo: 'cupom_estornado',
-                            tickets_usados: 0,
-                            diamantes_usados: 0,
-                            cancelado: false
-                        });
-                        await carregarCupons();
-                    }
-                }
-            } catch(e) { console.warn('Erro ao restaurar cupom no popup:', e); }
-
-            // Deleta pedido
-            await sb.from('pedidos').delete().eq('id', _pedidoAnteriorId);
-
-            // Notificação
-            let descNotif = 'Pedido cancelado pelo cliente';
-            const creditoUsadoFinal = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-            const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1]) : 0;
-            if (cvf > 0) descNotif += ` • Crédito R$ ${cvf.toFixed(2).replace('.',',')} devolvido`;
-            await sb.from('notificacoes').insert({
-                customer_phone: user.phone,
-                tipo: 'reembolso',
-                valor: Number(pedido.total) + cvf,
-                descricao: descNotif
-            });
 
             setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
         }
-    } catch(e) { console.warn('Erro ao cancelar pedido anterior no popup:', e); }
+    } catch(e) { console.error('Erro ao cancelar pedido anterior:', e); }
 
     if (_resolvePopupPedido) _resolvePopupPedido('cancelar');
 }
@@ -2380,6 +2429,8 @@ async function confirmOrder() {
             window.speechSynthesis.speak(u);
         }
         const decisao = await new Promise(res => { _resolvePopupPedido = res; });
+        // Recalcula newDebt pois o reembolso do pedido anterior pode ter alterado user.debt
+        newDebt = user.debt + finalTotal + creditoUsado;
     }
 
     // Mostrar robozinho em modo SALVANDO
@@ -2393,7 +2444,7 @@ async function confirmOrder() {
         const insertTs = new Date().toISOString();
         const { data: pedidoInserido, error: errPedido } = await sb.from("pedidos").insert({
             customer_name: user.name, customer_phone: user.phone,
-            total: finalTotal, payment_method: method, items: pedidoTexto,
+            total: total, payment_method: method, items: pedidoTexto,
             credito_usado: creditoUsado
         }).select('id').single();
         if (errPedido) throw errPedido;
@@ -2772,60 +2823,21 @@ async function cancelarPedidoCliente(pedidoId, totalExibido) {
             .eq('id', pedidoId)
             .maybeSingle();
 
-        if (!pedido) { carregarPedidosAtivos(); return; } // showToast('Pedido não encontrado.', 'warning', 3000);
+        if (!pedido) { carregarPedidosAtivos(); return; }
 
-        // Extrai descontos embutidos no items
-        const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-        const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+        // Efetuar reembolso completo (debt + cupom + crédito)
+        await _efetuarReembolsoPedido(pedido);
 
-        // Reembolso correto: reverte exatamente o que foi somado ao debt na compra
-        // Na compra: newDebt = debt + total - descontoCupom = debt + pedido.total + creditoUsado
-        // Então para reverter: novoDebt = debt - pedido.total - creditoUsado
-        const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
-        if (c) {
-            const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
-            await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-            user.debt = novoDebt;
-            atualizarCabecalho();
+        // Deleta pedido COMPLETAMENTE (não apenas marca como cancelado)
+        const { error: deleteErr } = await sb.from('pedidos').delete().eq('id', pedidoId);
+        if (deleteErr) {
+            console.error('Erro ao deletar pedido:', deleteErr);
         }
 
-        // Restaura cupom se havia
-        try {
-            const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
-            if (linhasCupom.length > 0) {
-                const parts = linhasCupom[0].split(':');
-                const pct = Number(parts[1]) || 0;
-                if (pct > 0) {
-                    await sb.from('premios').insert({
-                        customer_phone: user.phone,
-                        customer_name: user.name,
-                        descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
-                        jogo: 'cupom_estornado',
-                        tickets_usados: 0,
-                        diamantes_usados: 0,
-                        cancelado: false
-                    });
-                    await carregarCupons();
-                }
-            }
-        } catch(e) { console.warn('Erro ao restaurar cupom:', e); }
-
-        // Deleta pedido (igual ADM)
-        await sb.from('pedidos').delete().eq('id', pedidoId);
-
-        // Notificação mostrando o que foi reembolsado
-        let descNotif = 'Pedido cancelado pelo cliente';
-        if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
-
-        await sb.from('notificacoes').insert({
-            customer_phone: user.phone,
-            tipo: 'reembolso',
-            valor: Number(pedido.total) + creditoUsado,
-            descricao: descNotif
-        });
         setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
 
     } catch(e) {
+        console.error('Erro no cancelamento:', e);
         carregarPedidosAtivos();
     }
 }
@@ -2903,7 +2915,7 @@ async function _registrarPushSubscription() {
             endpoint: subJson.endpoint,
             p256dh: subJson.keys.p256dh,
             auth: subJson.keys.auth
-        }, { onConflict: 'endpoint', ignoreDuplicates: true });
+        }, { onConflict: 'endpoint' });
     } catch(e) { console.warn('Web Push subscription falhou:', e); }
 }
 
