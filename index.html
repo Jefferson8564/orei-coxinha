@@ -24,6 +24,7 @@
         }
     </script>
 
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -91,6 +92,8 @@
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         #toast.error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
         #toast.warning { background: linear-gradient(135deg, #f1c40f, #e67e22); color: #fff; }
+
+
 
         /* ===== SPINNER ===== */
         .spinner {
@@ -518,7 +521,7 @@
                 transform: scale(1.15);
             }
         }
-
+    
         @keyframes roboEntrar {
             0%   { transform: translateY(90px) scale(0.4); opacity:0; }
             60%  { transform: translateY(-20px) scale(1.1); opacity:1; }
@@ -862,6 +865,7 @@
     </div>
 </div>
 
+
 <div id="favModal" class="modal">
     <div class="modal-content" style="background:linear-gradient(160deg,#1a1a2e,#16213e);">
         <div style="width:40px;height:5px;background:rgba(255,255,255,0.15);border-radius:3px;margin:0 auto 20px;"></div>
@@ -1140,6 +1144,7 @@
 }
 </style>
 
+
 <div id="modalPedidoAnterior" style="
     display:none; position:fixed; inset:0; z-index:4000;
     background:rgba(0,0,0,0.72); backdrop-filter:blur(10px);
@@ -1188,7 +1193,7 @@
     flex-direction:column; gap:0;
     transition: background 0.4s;
 ">
-
+    
 
     <div id="roboInner" class="robo-state-salvando">
         <div class="robo-wrap" id="roboWrap">
@@ -1216,7 +1221,7 @@ async function calcularValorRealPedido(itemsTexto) {
     try {
         const { data: cardapio } = await sb.from('cardapio').select('name, price, price_promo');
         if (!cardapio) return 0;
-
+        
         // Verificar se cliente é novo
         let isNewCustomer = false;
         if (user && user.created_at) {
@@ -1226,7 +1231,7 @@ async function calcularValorRealPedido(itemsTexto) {
             const diffDays = diffMs / (1000 * 60 * 60 * 24);
             isNewCustomer = diffDays <= 30;
         }
-
+        
         let total = 0;
         const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
         linhas.forEach(linha => {
@@ -1243,6 +1248,7 @@ async function calcularValorRealPedido(itemsTexto) {
         });
         return total;
     } catch(e) {
+        console.warn('Erro ao calcular valor real:', e);
         return 0;
     }
 }
@@ -1366,7 +1372,6 @@ let cupomDescontoPct = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
-let temOferta = false;
 
 // ===== UTILS DE INIT =====
 function _esconderLoading() {
@@ -1409,6 +1414,7 @@ function comTimeout(promise, ms, mensagem) {
 window.onload = async () => {
     // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
     const timeoutGlobal = setTimeout(() => {
+        console.warn('[Init] Timeout global atingido — exibindo tela de login');
         _mostrarLogin();
     }, 12000);
 
@@ -1485,6 +1491,7 @@ window.onload = async () => {
                 });
             }
         } catch (e) {
+            console.warn('[Init] Configurações não carregadas, usando template padrão:', e.message);
         }
         // Inicia escuta em tempo real para limpeza de cache futura
         iniciarRealtimeCacheWatch(forceReloadVersao);
@@ -1526,13 +1533,10 @@ window.onload = async () => {
                     iniciarRealtimeCliente(savedPhone);
                     // Atualizar contador de notificações
                     setTimeout(() => renderHistoricoSaldo(), 500);
-                    // Re-registra subscription push se permissão já concedida (garante após update do SW)
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        _registrarPushSubscription();
-                    }
                     return;
                 }
             } catch (e) {
+                console.warn('[Init] Sem internet ou timeout — tentando carregar do cache local', e.message);
                 // ===== MODO OFFLINE: carregar dados salvos localmente =====
                 const cachedUser = localStorage.getItem('salgados_user');
                 const cachedProducts = localStorage.getItem('salgados_products');
@@ -1546,6 +1550,7 @@ window.onload = async () => {
                     carregarPrivacidade();
                     carregarTemaSalvo();
                     render();
+                    // showToast('📵 Modo offline — dados do cache', 'warning', 4000);
                     return;
                 }
                 // Sem cache de usuário: vai para login
@@ -1556,6 +1561,7 @@ window.onload = async () => {
         _mostrarLogin();
 
     } catch (err) {
+        console.error('[Init] Erro inesperado na inicialização:', err);
         // Tentar cache antes de ir para login
         const cachedUser = localStorage.getItem('salgados_user');
         const cachedProducts = localStorage.getItem('salgados_products');
@@ -1569,6 +1575,7 @@ window.onload = async () => {
             carregarPrivacidade();
             carregarTemaSalvo();
             render();
+            // showToast('📵 Modo offline — dados do cache', 'warning', 4000);
             return;
         }
         clearTimeout(timeoutGlobal);
@@ -1596,13 +1603,13 @@ async function auth() {
     } else {
         // ❌ PRIMEIRO CADASTRO - pedir número
         let partialPhone = document.getElementById('userPhone').value.replace(/\D/g,'');
-
+        
         // Remover código do país se existir (+55, 0055, etc)
         // Se começa com 55, remove (código do Brasil)
         if (partialPhone.startsWith('55')) {
             partialPhone = partialPhone.substring(2);
         }
-
+        
         // Extrair apenas os 8 últimos dígitos
         if (partialPhone.length >= 8) {
             partialPhone = partialPhone.slice(-8); // Pega os últimos 8 dígitos
@@ -1673,12 +1680,10 @@ async function auth() {
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 
+
+
     // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
     mostrarPopupOferta(client, clienteNovo);
-    // Re-registra subscription push se permissão já concedida (garante após update do SW)
-    if ('Notification' in window && Notification.permission === 'granted') {
-        _registrarPushSubscription();
-    }
 }
 
 function mostrarPopupOferta(client, clienteNovo) {
@@ -1753,6 +1758,15 @@ function mostrarPopupInstalacao() {
 }
 
 // ===== Detecta se app foi desinstalado (estava standalone, agora não está) =====
+function verificarDesinstalacao() {
+    const eraStandalone = localStorage.getItem('pwa_era_standalone') === '1';
+    if (eraStandalone && !_isEmStandalone) {
+        localStorage.removeItem('pwa_era_standalone');
+    }
+    if (_isEmStandalone) {
+        localStorage.setItem('pwa_era_standalone', '1');
+    }
+}
 
 function showLoginError(msg) {
     const el = document.getElementById('loginError');
@@ -1842,6 +1856,7 @@ function confirmarLogout() {
         document.getElementById('userPhone').value = '';
         document.getElementById('userName').value = '';
         document.getElementById('nameBox').style.display = 'none';
+        // showToast("Você saiu da conta", 'success');
     }, 350);
 }
 
@@ -1859,6 +1874,7 @@ async function loadProducts() {
         // Sem internet: tenta carregar do cache
         const cached = localStorage.getItem('salgados_products');
         if (cached) { products = JSON.parse(cached); render(); }
+        console.error(error);
         return;
     }
 
@@ -1886,7 +1902,7 @@ function render() {
         if (!g) return;
 
         // Calcular oferta em tempo real — nunca vem do cache
-        temOferta = clienteTemOferta();
+        const temOferta = clienteTemOferta();
 
         g.innerHTML = products.map(p => {
             const hasPromo = !!(p.pricePromo && temOferta);
@@ -1991,15 +2007,10 @@ function atualizarCabecalho() {
 
 // cart {id:qty} → texto pedido + total
 function cartToText() {
-    const ofertaAgora = clienteTemOferta();
     let texto = ''; let total = 0;
     for (let id in cart) {
         const p = products.find(x => x.id == id);
-        if (p) {
-            const preco = (p.pricePromo && ofertaAgora) ? p.pricePromo : p.price;
-            texto += `✅ ${cart[id]}x ${p.name}\n`;
-            total += preco * cart[id];
-        }
+        if (p) { texto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; }
     }
     return { texto, total };
 }
@@ -2040,6 +2051,8 @@ async function saveAsFavorite() {
 
     favorites[user.phone] = { saved_order: texto, saved_order_total: total };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
+
+    // showToast("Favorito salvo! ⭐", 'success');
     checkFavoriteBtn();
 }
 
@@ -2049,17 +2062,17 @@ function openFavoriteModal() {
 
     const total = Number(fav.saved_order_total) || 0;
     const linhas = fav.saved_order.replace(/✅ /g, '').split('\n').filter(Boolean);
-
+    
     // Extrair produtos e suas quantidades
     let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
-
+    
     linhas.forEach(linha => {
         const match = linha.match(/^(\d+)x\s+(.+)$/);
         if (match) {
             const qty = match[1];
             const nomeProduto = match[2].trim();
             const produto = products.find(p => p.name.trim() === nomeProduto);
-
+            
             if (produto) {
                 const imagem = produto.img || 'https://via.placeholder.com/150';
                 html += `
@@ -2071,7 +2084,7 @@ function openFavoriteModal() {
             }
         }
     });
-
+    
     html += '</div>';
     html += `<div style="text-align:center;font-size:16px;font-weight:800;color:white;margin-top:16px;">Total: R$ ${total.toFixed(2).replace('.', ',')}</div>`;
 
@@ -2087,6 +2100,7 @@ function addFavToCart() {
     cart = textToCart(fav.saved_order);
     render();
     document.getElementById('favModal').classList.remove('active');
+    // showToast("Favorito adicionado ao carrinho! 🛒", 'success');
 }
 
 function pedirFavorito() {
@@ -2127,6 +2141,7 @@ function setupCreditOption() {
         updateFinalTotalDisplay();
     }
 }
+
 
 function applyCreditCalculation(availableCredit) {
     // Crédito é aplicado sobre o valor já com desconto do cupom
@@ -2212,6 +2227,7 @@ async function carregarCupons() {
             else updateFinalTotalDisplay();
         }
     } catch(e) {
+        console.warn('Erro inesperado ao carregar cupons:', e);
         box.style.display = 'none';
     }
 }
@@ -2255,85 +2271,6 @@ function closePayModal() { document.getElementById('payModal').classList.remove(
 var _pedidoAnteriorId = null;
 var _resolvePopupPedido = null;
 
-// ===== FUNÇÃO AUXILIAR: Calcular reembolso correto =====
-async function _efetuarReembolsoPedido(pedido) {
-    // Extrai descontos embutidos no items
-    const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-    const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
-
-    // Extrai desconto de cupom
-    const cupomMatch = (pedido.items || '').match(/🏷️ CUPOM:(\d+):/);
-    const cupomPct = cupomMatch ? Number(cupomMatch[1]) : 0;
-    const descontoCupomValor = cupomPct > 0 ? (Number(pedido.total) * cupomPct / 100) : 0;
-
-    // Agora pedido.total é o TOTAL ORIGINAL (antes de descontos)
-    // Na compra: 
-    //   finalTotal = total - creditoUsado - descontoCupomValor
-    //   newDebt = debt + finalTotal + creditoUsado
-    //          = debt + (total - creditoUsado - descontoCupomValor) + creditoUsado
-    //          = debt + total - descontoCupomValor
-    //
-    // Para reverter:
-    //   novoDebt = debt - (total - descontoCupomValor)
-    //           = debt - total + descontoCupomValor
-    
-    // Reembolso COMPLETO (dinheiro + crédito + cupom)
-    const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
-    if (c) {
-        const debtAtual = Number(c.debt || 0);
-        const totalPedido = Number(pedido.total);
-        
-        // Reverte o que foi adicionado ao debt
-        const novoDebt = debtAtual - totalPedido + descontoCupomValor;
-        
-        const { error: updateErr } = await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-        if (updateErr) {
-            console.error('Erro ao atualizar debt:', updateErr);
-        } else {
-            user.debt = novoDebt;
-            atualizarCabecalho();
-        }
-    }
-
-    // Restaura cupom se havia
-    try {
-        const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
-        if (linhasCupom.length > 0) {
-            const parts = linhasCupom[0].split(':');
-            const pct = Number(parts[1]) || 0;
-            if (pct > 0) {
-                await sb.from('premios').insert({
-                    customer_phone: user.phone,
-                    customer_name: user.name,
-                    descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
-                    jogo: 'cupom_estornado',
-                    tickets_usados: 0,
-                    diamantes_usados: 0,
-                    cancelado: false
-                });
-                await carregarCupons();
-            }
-        }
-    } catch(e) { }
-
-    // Notificação mostrando o que foi reembolsado
-    let descNotif = 'Pedido cancelado pelo cliente';
-    if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
-    if (descontoCupomValor > 0) descNotif += ` • Cupom ${cupomPct}% (R$ ${descontoCupomValor.toFixed(2).replace('.',',')}) restaurado`;
-
-    // Valor mostrado na notificação
-    const valorPago = Number(pedido.total) - descontoCupomValor - creditoUsado;
-
-    await sb.from('notificacoes').insert({
-        customer_phone: user.phone,
-        tipo: 'reembolso',
-        valor: valorPago,
-        descricao: descNotif
-    });
-
-    return { creditoUsado, descontoCupomValor };
-}
-
 async function _confirmarCancelarAnterior() {
     document.getElementById('modalPedidoAnterior').style.display = 'none';
     try {
@@ -2343,18 +2280,56 @@ async function _confirmarCancelarAnterior() {
             .maybeSingle();
 
         if (pedido) {
-            // Efetuar reembolso completo
-            await _efetuarReembolsoPedido(pedido);
-
-            // Deleta pedido COMPLETAMENTE
-            const { error: deleteErr } = await sb.from('pedidos').delete().eq('id', _pedidoAnteriorId);
-            if (deleteErr) {
-                console.error('Erro ao deletar pedido anterior:', deleteErr);
+            // Reverte debt (igual ao cancelarPedidoCliente)
+            const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
+            const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+            const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
+            if (c) {
+                const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
+                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+                user.debt = novoDebt;
+                atualizarCabecalho();
             }
+
+            // Restaura cupom se havia
+            try {
+                const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
+                if (linhasCupom.length > 0) {
+                    const parts = linhasCupom[0].split(':');
+                    const pct = Number(parts[1]) || 0;
+                    if (pct > 0) {
+                        await sb.from('premios').insert({
+                            customer_phone: user.phone,
+                            customer_name: user.name,
+                            descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
+                            jogo: 'cupom_estornado',
+                            tickets_usados: 0,
+                            diamantes_usados: 0,
+                            cancelado: false
+                        });
+                        await carregarCupons();
+                    }
+                }
+            } catch(e) { console.warn('Erro ao restaurar cupom no popup:', e); }
+
+            // Deleta pedido
+            await sb.from('pedidos').delete().eq('id', _pedidoAnteriorId);
+
+            // Notificação
+            let descNotif = 'Pedido cancelado pelo cliente';
+            const creditoUsadoFinal = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
+            const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1]) : 0;
+            if (cvf > 0) descNotif += ` • Crédito R$ ${cvf.toFixed(2).replace('.',',')} devolvido`;
+            await sb.from('notificacoes').insert({
+                customer_phone: user.phone,
+                tipo: 'reembolso',
+                valor: Number(pedido.total) + cvf,
+                descricao: descNotif
+            });
 
             setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
         }
-    } catch(e) { console.error('Erro ao cancelar pedido anterior:', e); }
+    } catch(e) { console.warn('Erro ao cancelar pedido anterior no popup:', e); }
 
     if (_resolvePopupPedido) _resolvePopupPedido('cancelar');
 }
@@ -2384,18 +2359,8 @@ async function confirmOrder() {
     if (Object.keys(cart).length === 0) return;
     btn.disabled = true;
 
-    // Recalcular oferta em tempo real (pode ter mudado desde render)
-    const ofertaAgora = clienteTemOferta();
-
     let total = 0; let pedidoTexto = "";
-    for (let id in cart) {
-        const p = products.find(x => x.id == id);
-        if (p) {
-            const preco = (p.pricePromo && ofertaAgora) ? p.pricePromo : p.price;
-            pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`;
-            total += preco * cart[id];
-        }
-    }
+    for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; } }
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = user.debt < 0; // crédito sempre aplicado automaticamente
@@ -2429,8 +2394,6 @@ async function confirmOrder() {
             window.speechSynthesis.speak(u);
         }
         const decisao = await new Promise(res => { _resolvePopupPedido = res; });
-        // Recalcula newDebt pois o reembolso do pedido anterior pode ter alterado user.debt
-        newDebt = user.debt + finalTotal + creditoUsado;
     }
 
     // Mostrar robozinho em modo SALVANDO
@@ -2444,7 +2407,7 @@ async function confirmOrder() {
         const insertTs = new Date().toISOString();
         const { data: pedidoInserido, error: errPedido } = await sb.from("pedidos").insert({
             customer_name: user.name, customer_phone: user.phone,
-            total: total, payment_method: method, items: pedidoTexto,
+            total: finalTotal, payment_method: method, items: pedidoTexto,
             credito_usado: creditoUsado
         }).select('id').single();
         if (errPedido) throw errPedido;
@@ -2461,6 +2424,7 @@ async function confirmOrder() {
                 .eq('id', pedidoInserido.id)
                 .maybeSingle();
             if (checkPedido?.id) { pedidoConfirmado = true; break; }
+            console.warn(`⚠️ Tentativa ${tentativa}: pedido ainda não confirmado no banco`);
         }
         if (!pedidoConfirmado) throw new Error('Pedido não foi confirmado no banco após 3 tentativas');
 
@@ -2562,6 +2526,7 @@ async function confirmOrder() {
                                 fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
                                 raConfig.clientes_fila = fila;
                                 await sb.from('gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
+                                // showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
                             }
                         }
                     }
@@ -2605,6 +2570,7 @@ async function confirmOrder() {
         irParaWhatsApp(finalMsg);
 
     } catch(err) {
+        console.error('Erro ao salvar pedido:', err);
         // ===== ROBOZINHO: NÃO ❌ =====
         roboEstado('nao');
         btn.disabled = false;
@@ -2797,6 +2763,7 @@ async function carregarPedidosAtivos() {
         _atualizarCountdowns();
         window._cancelCountdownInterval = setInterval(_atualizarCountdowns, 1000);
     } catch(e) {
+        console.warn('Erro ao carregar pedidos ativos:', e);
         lista.innerHTML = `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3);">Erro ao carregar pedidos</div>`;
     }
 }
@@ -2823,21 +2790,65 @@ async function cancelarPedidoCliente(pedidoId, totalExibido) {
             .eq('id', pedidoId)
             .maybeSingle();
 
-        if (!pedido) { carregarPedidosAtivos(); return; }
+        if (!pedido) { carregarPedidosAtivos(); return; } // showToast('Pedido não encontrado.', 'warning', 3000);
 
-        // Efetuar reembolso completo (debt + cupom + crédito)
-        await _efetuarReembolsoPedido(pedido);
 
-        // Deleta pedido COMPLETAMENTE (não apenas marca como cancelado)
-        const { error: deleteErr } = await sb.from('pedidos').delete().eq('id', pedidoId);
-        if (deleteErr) {
-            console.error('Erro ao deletar pedido:', deleteErr);
+        // Extrai descontos embutidos no items
+        const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
+        const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+
+        // Reembolso correto: reverte exatamente o que foi somado ao debt na compra
+        // Na compra: newDebt = debt + total - descontoCupom = debt + pedido.total + creditoUsado
+        // Então para reverter: novoDebt = debt - pedido.total - creditoUsado
+        const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
+        if (c) {
+            const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
+            await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
+            user.debt = novoDebt;
+            atualizarCabecalho();
         }
 
+        // Restaura cupom se havia
+        try {
+            const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
+            if (linhasCupom.length > 0) {
+                const parts = linhasCupom[0].split(':');
+                const pct = Number(parts[1]) || 0;
+                if (pct > 0) {
+                    await sb.from('premios').insert({
+                        customer_phone: user.phone,
+                        customer_name: user.name,
+                        descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
+                        jogo: 'cupom_estornado',
+                        tickets_usados: 0,
+                        diamantes_usados: 0,
+                        cancelado: false
+                    });
+                    await carregarCupons();
+                }
+            }
+        } catch(e) { console.warn('Erro ao restaurar cupom:', e); }
+
+        // Deleta pedido (igual ADM)
+        await sb.from('pedidos').delete().eq('id', pedidoId);
+
+        // Notificação mostrando o que foi reembolsado
+        let descNotif = 'Pedido cancelado pelo cliente';
+        if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
+
+        await sb.from('notificacoes').insert({
+            customer_phone: user.phone,
+            tipo: 'reembolso',
+            valor: Number(pedido.total) + creditoUsado,
+            descricao: descNotif
+        });
+
+        // showToast('Pedido cancelado ✅', 'success', 3000);
         setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
 
     } catch(e) {
-        console.error('Erro no cancelamento:', e);
+        console.warn('Erro ao cancelar pedido:', e);
+        // showToast('Erro ao cancelar pedido', 'error', 3000);
         carregarPedidosAtivos();
     }
 }
@@ -2900,11 +2911,12 @@ async function _confirmarInstalar() {
     }
 }
 
+
 async function _registrarPushSubscription() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
     try {
         const reg = await navigator.serviceWorker.ready;
-        const VAPID_PUBLIC = 'BPJzjw_67QZ8dNu4fwye4cs55PwoTgESBQeHl1xTy9fMOgQfsYsLjtBnaTB8TNfRj-ErZ3EfTV5489y-xCqToZ8';
+        const VAPID_PUBLIC = 'BNcG4PooxIYVYAda9KjR2RAXCdRAqMz9vgMaPKLAOpC4JwWaNg_sMxBqAayr_hgmvqb4o259hvrL4eqCwZnzKmQ';
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
             sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC });
@@ -2915,7 +2927,7 @@ async function _registrarPushSubscription() {
             endpoint: subJson.endpoint,
             p256dh: subJson.keys.p256dh,
             auth: subJson.keys.auth
-        }, { onConflict: 'endpoint' });
+        }, { onConflict: 'endpoint', ignoreDuplicates: true });
     } catch(e) { console.warn('Web Push subscription falhou:', e); }
 }
 
@@ -3022,6 +3034,7 @@ async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
     await sb.from("clientes").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
+    // showToast(valor ? "Pedido automático 🤖" : "Pedido manual 🔒", valor ? 'success' : 'warning');
 }
 
 // ===== REALTIME: detecta quando ADM libera tickets ou atualiza debt =====
@@ -3227,7 +3240,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             </div>
 
             <!-- CARD: Jogos 🎮 -->
-            <div onclick="window.open('https://jefferson8564.github.io/Jogos-/', '_blank')"
+            <div onclick="window.open('https://jefferson8564.github.io/Jogos-/', '_blank')" 
                 ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(255,107,107,0.3)'"
                 ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(255,107,107,0.15)'"
                 style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s,box-shadow 0.15s;
@@ -3769,6 +3782,7 @@ function carregarTemaSalvo() {
     alterarTema(temaSalvo);
 }
 
+
 async function limparCacheRedefinir() {
     // Mostrar animação do robozinho limpando PRIMEIRO
     mostrarAnimacaoRoboLimpando();
@@ -3822,12 +3836,15 @@ function mostrarAnimacaoRoboLimpando() {
     `;
 
     document.body.appendChild(overlay);
+    console.log('✅ Animação iniciada');
+
     // Fechar após 2.5s
     setTimeout(() => {
         overlay.style.opacity = '0';
         overlay.style.transition = 'opacity 0.5s ease-out';
         setTimeout(() => {
             overlay.remove();
+            console.log('✅ Animação finalizada');
         }, 500);
     }, 2400);
 }
@@ -3836,10 +3853,10 @@ function atualizarLabelPainel() {
     setTimeout(() => {
         const labelTop = document.getElementById('labelAutoTop');
         if (!labelTop || !user) return;
-
+        
         // Verificar se dias_refazer tem dias ativados
         const ativo = user.dias_refazer && user.dias_refazer.length > 0;
-
+        
         if (ativo) {
             labelTop.style.color = 'rgba(37,211,102,0.9)';
             labelTop.textContent = '● ATIVADO';
@@ -3868,24 +3885,26 @@ function fecharConfigAutomatico() {
 // Carregar dias do Supabase
 async function carregarDiasDoSupabase() {
     if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
         renderDias();
         return;
     }
-
+    
     try {
         const { data } = await sb.from('clientes')
             .select('dias_refazer')
             .eq('phone', user.phone)
             .maybeSingle();
-
+        
         if (data && data.dias_refazer && data.dias_refazer.length > 0) {
             diasSelecionados = new Set(data.dias_refazer);
         } else {
             diasSelecionados = new Set();
         }
-
+        
         renderDias();
     } catch(e) {
+        console.error('Erro ao carregar dias:', e);
         renderDias(); // renderiza com localStorage como fallback
     }
 }
@@ -3935,25 +3954,30 @@ function renderDias() {
 // Salvar dias no Supabase
 async function salvarDiasRefazerSB() {
     if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
         return;
     }
-
+    
     try {
         const diasArray = [...diasSelecionados].sort((a, b) => a - b);
         const { error } = await sb.from('clientes')
             .update({ dias_refazer: diasArray })
             .eq('phone', user.phone);
-
+        
         if (error) {
+            console.error('Erro ao salvar dias:', error);
             return false;
         }
-
+        
         // Atualizar user local
         user.dias_refazer = diasArray;
         localStorage.setItem('salgados_user', JSON.stringify(user));
         atualizarLabelPainel();
+        
+        console.log('✅ Dias de refazer salvos:', diasArray);
         return true;
     } catch(e) {
+        console.error('Erro ao salvar dias no Supabase:', e);
         return false;
     }
 }
@@ -3961,25 +3985,30 @@ async function salvarDiasRefazerSB() {
 // Desativar refazer pedido (salva array vazio)
 async function desativarRefazer() {
     if (!user || !user.phone) {
+        console.warn('Usuário não autenticado');
         return;
     }
-
+    
     try {
         const { error } = await sb.from('clientes')
             .update({ dias_refazer: null })
             .eq('phone', user.phone);
-
+        
         if (error) {
+            console.error('Erro ao desativar:', error);
             return false;
         }
-
+        
         // Atualizar user local
         user.dias_refazer = null;
         localStorage.setItem('salgados_user', JSON.stringify(user));
         atualizarLabelPainel();
+        
+        console.log('✅ Refazer pedido desativado');
         fecharConfigAutomatico();
         return true;
     } catch(e) {
+        console.error('Erro ao desativar:', e);
         alert('❌ Erro ao desativar: ' + e.message);
         return false;
     }
