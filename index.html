@@ -921,6 +921,81 @@
     </div>
 </div>
 
+<!-- ===== POPUP BOAS-VINDAS (só no 1º cadastro) ===== -->
+<div id="modalBoasVindas" style="
+    display:none; position:fixed; inset:0; z-index:5100;
+    background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
+    align-items:center; justify-content:center;
+    padding:24px 16px;
+">
+    <div style="
+        position:relative; overflow:hidden;
+        background:linear-gradient(160deg,#1a0a00,#3a1500,#1a0800);
+        border:1px solid rgba(255,160,30,0.4);
+        border-radius:28px; padding:32px 24px 24px;
+        max-width:360px; width:100%;
+        text-align:center;
+        box-shadow:0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,160,30,0.15), inset 0 1px 0 rgba(255,200,80,0.15);
+        animation: slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    ">
+        <!-- Brilho de fundo -->
+        <div style="
+            position:absolute; top:-80px; left:50%; transform:translateX(-50%);
+            width:280px; height:280px; border-radius:50%;
+            background:radial-gradient(circle, rgba(255,140,0,0.35) 0%, transparent 65%);
+            pointer-events:none;
+        "></div>
+
+        <!-- Emoji dinâmico -->
+        <div id="bvEmoji" style="font-size:64px; margin-bottom:12px; position:relative; filter:drop-shadow(0 4px 16px rgba(255,160,0,0.6));">👑</div>
+
+        <div id="bvTitulo" style="font-size:22px; font-weight:900; color:white; margin-bottom:6px; letter-spacing:-0.5px; position:relative;">
+            Bem-vindo(a) ao Rei!
+        </div>
+        <div id="bvSubtitulo" style="font-size:13px; color:rgba(255,200,100,0.85); font-weight:600; margin-bottom:22px; line-height:1.5; position:relative;">
+            Você ganhou preços especiais de novo cliente 🎉
+        </div>
+
+        <!-- Card da oferta -->
+        <div style="
+            background:linear-gradient(135deg,rgba(255,140,0,0.15),rgba(255,80,0,0.1));
+            border:1.5px solid rgba(255,160,30,0.4);
+            border-radius:18px; padding:16px 18px; margin-bottom:22px;
+            text-align:left; position:relative;
+        ">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <span style="font-size:22px;">⏳</span>
+                <div>
+                    <div id="bvDiasTexto" style="font-size:14px;font-weight:900;color:white;">Oferta válida por <span id="bvDiasRestantes">30</span> dias</div>
+                    <div id="bvDiasDesc" style="font-size:11px;color:rgba(255,200,100,0.7);font-weight:600;margin-top:1px;">A partir da data do seu cadastro</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <span style="font-size:22px;">🏷️</span>
+                <div style="font-size:13px;color:rgba(255,220,120,0.9);font-weight:600;line-height:1.4;">
+                    Produtos com <strong style="color:#ffd700;">OFERTA</strong> têm preço promocional só para você
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:22px;">✅</span>
+                <div style="font-size:13px;color:rgba(255,220,120,0.9);font-weight:600;line-height:1.4;">
+                    O desconto é aplicado automaticamente no carrinho
+                </div>
+            </div>
+        </div>
+
+        <button onclick="_fecharBoasVindas()" style="
+            width:100%; padding:16px;
+            background:linear-gradient(135deg,#e8732a,#c75b24,#a84a1b);
+            border:none; border-radius:16px; color:white;
+            font-size:16px; font-weight:900; cursor:pointer;
+            box-shadow:0 6px 24px rgba(199,91,36,0.5);
+            -webkit-tap-highlight-color:transparent;
+            letter-spacing:0.2px; position:relative;
+        ">🍗 Aproveitar agora!</button>
+    </div>
+</div>
+
 <!-- ===== POPUP INSTALAR APP ===== -->
 <div id="modalInstalarApp" style="
     display:none; position:fixed; inset:0; z-index:5000;
@@ -1312,6 +1387,13 @@ function _mostrarApp() {
     _esconderLoading();
     const app = document.getElementById('app');
     if (app) app.style.display = 'block';
+    // Garante que todos os painéis começam fechados ao carregar o app
+    const painelControle = document.getElementById('painelControle');
+    if (painelControle) painelControle.style.transform = 'translateX(-100%)';
+    const painelPedidos = document.getElementById('painelPedidos');
+    if (painelPedidos) painelPedidos.style.transform = 'translateY(-100%)';
+    const painelSino = document.getElementById('painelSino');
+    if (painelSino) painelSino.style.transform = 'translateY(-100%)';
     // Abre painel sino se veio de clique numa notificação
     const params = new URLSearchParams(window.location.search);
     if (params.get('abrir') === 'notificacoes') {
@@ -1501,6 +1583,10 @@ window.onload = async () => {
     }
 };
 
+// ===== PWA VARS (declaradas cedo para uso em mostrarPopupInstalacao) =====
+let _pwaInstallPrompt = null;
+const _isEmStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
 // ===== AUTH =====
 async function auth() {
     const btn = document.getElementById('btnLogin');
@@ -1544,6 +1630,7 @@ async function auth() {
 
     // Buscar cliente
     let { data: client } = await sb.from("clientes").select("*").eq("phone", phone).maybeSingle();
+    const clienteNovo = !client; // true se não existia no Supabase
 
     if (!client) {
         // Mostrar campo de nome (apenas no primeiro cadastro)
@@ -1566,7 +1653,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, dias_refazer: client.dias_refazer };
+    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -1595,11 +1682,90 @@ async function auth() {
 
 
 
-    // ✅ MOSTRAR POPUP DE INSTALAÇÃO APÓS O LOGIN
-    setTimeout(() => {
+    // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
+    mostrarPopupOferta(client, clienteNovo);
+}
+
+function mostrarPopupOferta(client, clienteNovo) {
+    if (!client.created_at) { mostrarPopupInstalacao(); return; }
+
+    const diasPassados = (Date.now() - new Date(client.created_at).getTime()) / (1000 * 60 * 60 * 24);
+    const dentroDosPrazos = diasPassados <= 30;
+
+    if (!dentroDosPrazos) {
+        // Passou dos 30 dias — sem popup de oferta
         mostrarPopupInstalacao();
-        verificarDesinstalacao();
-    }, 500);
+        return;
+    }
+
+    const diasRestantes = Math.max(1, Math.ceil(30 - diasPassados));
+
+    // Preencher conteúdo dinamicamente
+    const emoji   = document.getElementById('bvEmoji');
+    const titulo  = document.getElementById('bvTitulo');
+    const sub     = document.getElementById('bvSubtitulo');
+    const diasTxt = document.getElementById('bvDiasRestantes');
+    const diasDesc = document.getElementById('bvDiasDesc');
+    const diasLinha = document.getElementById('bvDiasTexto');
+
+    if (clienteNovo) {
+        if (emoji)    emoji.textContent    = '👑';
+        if (titulo)   titulo.textContent   = 'Bem-vindo(a) ao Rei!';
+        if (sub)      sub.textContent      = 'Você ganhou preços especiais de novo cliente 🎉';
+        if (diasDesc) diasDesc.textContent = 'Aproveite nos seus primeiros pedidos';
+    } else {
+        if (emoji)    emoji.textContent    = '🔥';
+        if (titulo)   titulo.textContent   = 'Sua oferta ainda tá ativa!';
+        if (sub)      sub.textContent      = 'Não perca os preços especiais de novo cliente ⚡';
+        if (diasDesc) diasDesc.textContent = 'Depois disso o preço volta ao normal';
+    }
+
+    if (diasTxt) diasTxt.textContent = diasRestantes;
+    if (diasLinha) {
+        diasLinha.innerHTML = diasRestantes === 1
+            ? 'Oferta válida por <span id="bvDiasRestantes">1</span> dia — corre!'
+            : 'Oferta válida por <span id="bvDiasRestantes">' + diasRestantes + '</span> dias';
+    }
+
+    setTimeout(() => {
+        const modal = document.getElementById('modalBoasVindas');
+        if (modal) modal.style.display = 'flex';
+    }, 600);
+}
+
+function _fecharBoasVindas() {
+    const modal = document.getElementById('modalBoasVindas');
+    if (modal) {
+        modal.style.opacity = '0';
+        modal.style.transition = 'opacity 0.3s';
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.style.opacity = '';
+            modal.style.transition = '';
+        }, 300);
+    }
+    // Após fechar boas-vindas, oferece instalação do app
+    setTimeout(() => mostrarPopupInstalacao(), 400);
+}
+
+// ===== PWA: mostrar popup de instalação (se disponível e não instalado) =====
+function mostrarPopupInstalacao() {
+    if (_isEmStandalone) return; // já está instalado como PWA
+    if (_pwaInstallPrompt) {
+        const modal = document.getElementById('modalInstalarApp');
+        if (modal) modal.style.display = 'flex';
+    }
+}
+
+// ===== Detecta se app foi desinstalado (estava standalone, agora não está) =====
+function verificarDesinstalacao() {
+    const eraStandalone = localStorage.getItem('pwa_era_standalone') === '1';
+    if (eraStandalone && !_isEmStandalone) {
+        localStorage.removeItem('pwa_era_standalone');
+    }
+    if (_isEmStandalone) {
+        localStorage.setItem('pwa_era_standalone', '1');
+    }
 }
 
 function showLoginError(msg) {
@@ -1695,6 +1861,13 @@ function confirmarLogout() {
 }
 
 // ===== PRODUTOS =====
+// Retorna true se o cliente ainda está dentro dos 30 dias de oferta
+function clienteTemOferta() {
+    if (!user || !user.created_at) return false;
+    const diffDays = (Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 30;
+}
+
 async function loadProducts() {
     const { data, error } = await sb.from("cardapio").select("*").eq("available", true).order("created_at", { ascending: true });
     if (error) {
@@ -1704,41 +1877,15 @@ async function loadProducts() {
         console.error(error);
         return;
     }
-    
-    // Verificar se cliente é novo (menos de 30 dias)
-    let isNewCustomer = false;
-    if (user && user.created_at) {
-        const createdDate = new Date(user.created_at);
-        const now = new Date();
-        const diffMs = now - createdDate;
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        isNewCustomer = diffDays <= 30;
-    }
-    
-    products = data.map(p => {
-        const basePrice = Number(p.price);
-        const promoPrice = p.price_promo ? Number(p.price_promo) : null;
-        
-        // Determinar qual preço mostrar
-        let priceToShow = basePrice;
-        let hasPromo = false;
-        
-        if (promoPrice && isNewCustomer) {
-            priceToShow = promoPrice;
-            hasPromo = true;
-        }
-        
-        return {
-            id: p.id,
-            name: p.name,
-            price: basePrice,
-            pricePromo: promoPrice,
-            priceToShow: priceToShow,
-            hasPromo: hasPromo,
-            img: p.image_url || ""
-        };
-    });
-    // Salvar cardápio no cache para uso offline
+
+    // Salvar apenas dados brutos no cache (sem hasPromo/priceToShow — calculados sempre na hora)
+    products = data.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        pricePromo: p.price_promo ? Number(p.price_promo) : null,
+        img: p.image_url || ""
+    }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
 }
@@ -1754,17 +1901,23 @@ function render() {
         const g = document.getElementById('grid');
         if (!g) return;
 
-        g.innerHTML = products.map(p => `
+        // Calcular oferta em tempo real — nunca vem do cache
+        const temOferta = clienteTemOferta();
+
+        g.innerHTML = products.map(p => {
+            const hasPromo = !!(p.pricePromo && temOferta);
+            const priceToShow = hasPromo ? p.pricePromo : p.price;
+            return `
             <div class="card">
                 <div class="card-img" style="position: relative;">
                     ${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}
-                    ${p.hasPromo ? `<div style="position: absolute; top: 35px; right: 8px; transform: rotate(45deg); color: #f59e0b; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 6px rgba(0,0,0,0.6), 0 0 2px rgba(245,158,11,0.8); z-index: 10; white-space: nowrap; transform-origin: top right;">OFERTA</div>` : ''}
+                    ${hasPromo ? `<div style="position: absolute; top: 35px; right: 8px; transform: rotate(45deg); color: #f59e0b; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 6px rgba(0,0,0,0.6), 0 0 2px rgba(245,158,11,0.8); z-index: 10; white-space: nowrap; transform-origin: top right;">OFERTA</div>` : ''}
                 </div>
                 <div class="card-body">
                     <div><strong class="card-title">${p.name}</strong><br>
                         <span class="card-price" style="display: flex; gap: 8px; align-items: center;">
-                            ${p.hasPromo ? `<span style="text-decoration: line-through; color: #999; font-size: 12px;">R$ ${p.price.toFixed(2)}</span>` : ''}
-                            <span style="color: white; font-weight: 700; font-size: ${p.hasPromo ? '17px' : '15px'};">R$ ${p.priceToShow.toFixed(2)}</span>
+                            ${hasPromo ? `<span style="text-decoration: line-through; color: #999; font-size: 12px;">R$ ${p.price.toFixed(2)}</span>` : ''}
+                            <span style="color: white; font-weight: 700; font-size: ${hasPromo ? '17px' : '15px'};">R$ ${priceToShow.toFixed(2)}</span>
                         </span>
                     </div>
                     <div class="card-controls">
@@ -1773,14 +1926,18 @@ function render() {
                         <button onclick="qty('${p.id}',1)" class="qty-btn plus">+</button>
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
 
-        // Calcular total otimizado (usa priceToShow - o preço que cliente vê)
+        // Total calculado em tempo real com preço correto por data
         let total = 0;
         const cartIds = Object.keys(cart);
         for (let i = 0; i < cartIds.length; i++) {
             const p = products.find(x => x.id == cartIds[i]);
-            if (p) total += p.priceToShow * cart[cartIds[i]];
+            if (p) {
+                const preco = (p.pricePromo && temOferta) ? p.pricePromo : p.price;
+                total += preco * cart[cartIds[i]];
+            }
         }
 
         currentOrderTotal = total;
@@ -2719,9 +2876,6 @@ function fecharPainelPedidos() {
 }
 
 // ===== PWA INSTALL =====
-let _pwaInstallPrompt = null;
-const _isEmStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _pwaInstallPrompt = e;
