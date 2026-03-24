@@ -1372,6 +1372,7 @@ let cupomDescontoPct = 0;
 let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
+let temOferta = false;
 
 // ===== UTILS DE INIT =====
 function _esconderLoading() {
@@ -1902,7 +1903,7 @@ function render() {
         if (!g) return;
 
         // Calcular oferta em tempo real — nunca vem do cache
-        const temOferta = clienteTemOferta();
+        temOferta = clienteTemOferta();
 
         g.innerHTML = products.map(p => {
             const hasPromo = !!(p.pricePromo && temOferta);
@@ -2007,10 +2008,15 @@ function atualizarCabecalho() {
 
 // cart {id:qty} → texto pedido + total
 function cartToText() {
+    const ofertaAgora = clienteTemOferta();
     let texto = ''; let total = 0;
     for (let id in cart) {
         const p = products.find(x => x.id == id);
-        if (p) { texto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; }
+        if (p) { 
+            const preco = (p.pricePromo && ofertaAgora) ? p.pricePromo : p.price;
+            texto += `✅ ${cart[id]}x ${p.name}\n`; 
+            total += preco * cart[id]; 
+        }
     }
     return { texto, total };
 }
@@ -2359,8 +2365,18 @@ async function confirmOrder() {
     if (Object.keys(cart).length === 0) return;
     btn.disabled = true;
 
+    // Recalcular oferta em tempo real (pode ter mudado desde render)
+    const ofertaAgora = clienteTemOferta();
+    
     let total = 0; let pedidoTexto = "";
-    for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; } }
+    for (let id in cart) { 
+        const p = products.find(x => x.id == id); 
+        if (p) { 
+            const preco = (p.pricePromo && ofertaAgora) ? p.pricePromo : p.price;
+            pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; 
+            total += preco * cart[id]; 
+        } 
+    }
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = user.debt < 0; // crédito sempre aplicado automaticamente
