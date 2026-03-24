@@ -1529,6 +1529,11 @@ window.onload = async () => {
                     carregarTemaSalvo();
                     await loadProducts();
 
+                    // Registra push silenciosamente se já tem permissão
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        _registrarPushSubscription();
+                    }
+
                     // Inicia escuta em tempo real para tickets e debt
                     iniciarRealtimeCliente(savedPhone);
                     // Atualizar contador de notificações
@@ -1679,6 +1684,12 @@ async function auth() {
     carregarTemaSalvo();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
+
+    // Registra push silenciosamente se já tem permissão (evita pedir de novo)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        _registrarPushSubscription();
+    }
+
 
 
 
@@ -2912,14 +2923,26 @@ async function _confirmarInstalar() {
 }
 
 
+// Converte VAPID public key (base64url) para Uint8Array — obrigatório pelo navegador
+function _vapidKeyToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
 async function _registrarPushSubscription() {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!user || !user.phone) return;
     try {
         const reg = await navigator.serviceWorker.ready;
         const VAPID_PUBLIC = 'BNcG4PooxIYVYAda9KjR2RAXCdRAqMz9vgMaPKLAOpC4JwWaNg_sMxBqAayr_hgmvqb4o259hvrL4eqCwZnzKmQ';
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
-            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC });
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _vapidKeyToUint8Array(VAPID_PUBLIC) // ← conversão correta
+            });
         }
         const subJson = sub.toJSON();
         await sb.from('push_subscriptions').upsert({
@@ -2928,6 +2951,7 @@ async function _registrarPushSubscription() {
             p256dh: subJson.keys.p256dh,
             auth: subJson.keys.auth
         }, { onConflict: 'endpoint', ignoreDuplicates: true });
+        console.log('✅ Push subscription registrada para', user.phone);
     } catch(e) { console.warn('Web Push subscription falhou:', e); }
 }
 
