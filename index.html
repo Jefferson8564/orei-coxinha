@@ -1478,7 +1478,7 @@ window.onload = async () => {
                         // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
                         const phoneLocal = localStorage.getItem('salgados_phone');
                         if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
-                            _limparTudoERecarregar();
+                            _limparTudoERecarregar(versaoRemota);
                             return;
                         }
                         // Salva versão local para comparação futura
@@ -3162,9 +3162,12 @@ function iniciarRealtimeCliente(phone) {
 
 
 // ===== LIMPEZA TOTAL: como se fosse a primeira vez =====
-async function _limparTudoERecarregar() {
+async function _limparTudoERecarregar(versaoParaSalvar) {
+    // Salva a versão ANTES de limpar para não entrar em loop no próximo init
+    const _versao = versaoParaSalvar || localStorage.getItem('force_reload_version') || '0';
     localStorage.clear();
     try { sessionStorage.clear(); } catch(e) {}
+    localStorage.setItem('force_reload_version', _versao);
     if ("serviceWorker" in navigator) {
         try {
             const registrations = await navigator.serviceWorker.getRegistrations();
@@ -3196,7 +3199,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             if (user && user.phone === ADMIN_NUM) return;
             if (novaVersao && novaVersao !== versaoAtual) {
                 // ADM mandou limpar: apaga TUDO, inclusive login
-                _limparTudoERecarregar();
+                _limparTudoERecarregar(novaVersao);
             }
         })
         // Escuta limpeza individual (por telefone)
@@ -3213,7 +3216,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 const versaoNova = payload.new?.value;
                 if (versaoNova && versaoNova !== versaoSalva) {
                     // ADM mandou limpar este cliente: apaga TUDO, inclusive login
-                    _limparTudoERecarregar();
+                    _limparTudoERecarregar(versaoNova);
                 }
             }
         })
