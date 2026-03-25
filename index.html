@@ -1412,11 +1412,11 @@ function comTimeout(promise, ms, mensagem) {
 
 // ===== INIT =====
 window.onload = async () => {
-    // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
+    // ── Timeout de segurança global: 8s sem resposta → cai na tela de login ──
     const timeoutGlobal = setTimeout(() => {
         console.warn('[Init] Timeout global atingido — exibindo tela de login');
         _mostrarLogin();
-    }, 12000);
+    }, 8000);
 
     // Listener para o botão voltar do navegador/celular
     window.addEventListener('popstate', (e) => {
@@ -3177,6 +3177,8 @@ async function _limparTudoERecarregar() {
             for (const key of keys) await caches.delete(key);
         } catch(e) {}
     }
+    // Aguarda SW terminar de desregistrar antes de recarregar
+    await new Promise(r => setTimeout(r, 800));
     window.location.reload(true);
 }
 
@@ -3876,10 +3878,10 @@ async function limparCacheRedefinir() {
         localStorage.clear();
         sessionStorage.clear();
 
-        // Aguarda a animação terminar antes de recarregar
-        setTimeout(() => window.location.reload(true), 2800);
+        // Aguarda SW terminar + animação antes de recarregar
+        setTimeout(() => window.location.reload(true), 3200);
     } catch (e) {
-        setTimeout(() => window.location.reload(true), 2800);
+        setTimeout(() => window.location.reload(true), 3200);
     }
 }
 
