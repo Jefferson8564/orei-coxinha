@@ -1529,11 +1529,6 @@ window.onload = async () => {
                     carregarTemaSalvo();
                     await loadProducts();
 
-                    // Registra push silenciosamente se já tem permissão
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        _registrarPushSubscription();
-                    }
-
                     // Inicia escuta em tempo real para tickets e debt
                     iniciarRealtimeCliente(savedPhone);
                     // Atualizar contador de notificações
@@ -1684,12 +1679,6 @@ async function auth() {
     carregarTemaSalvo();
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
-
-    // Registra push silenciosamente se já tem permissão (evita pedir de novo)
-    if ('Notification' in window && Notification.permission === 'granted') {
-        _registrarPushSubscription();
-    }
-
 
 
 
@@ -1922,13 +1911,13 @@ function render() {
             <div class="card">
                 <div class="card-img" style="position: relative;">
                     ${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}
-                    ${hasPromo ? `<div style="position: absolute; top: 35px; right: 8px; transform: rotate(45deg); color: #f59e0b; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 6px rgba(0,0,0,0.6), 0 0 2px rgba(245,158,11,0.8); z-index: 10; white-space: nowrap; transform-origin: top right;">OFERTA</div>` : ''}
+                    ${hasPromo ? `<div style="position: absolute; top: 15px; right: -8px; transform: rotate(45deg) perspective(800px) rotateX(15deg) rotateY(-15deg); color: #FFD700; font-family: 'Arial Black', 'Helvetica Bold', sans-serif; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,165,0,0.6), 3px 3px 8px rgba(0,0,0,0.7), 6px 6px 15px rgba(0,0,0,0.9); z-index: 10; white-space: nowrap; pointer-events: none;">OFERTA</div>` : ''}\n
                 </div>
                 <div class="card-body">
                     <div><strong class="card-title">${p.name}</strong><br>
                         <span class="card-price" style="display: flex; gap: 8px; align-items: center;">
-                            ${hasPromo ? `<span style="text-decoration: line-through; color: #999; font-size: 12px;">R$ ${p.price.toFixed(2)}</span>` : ''}
-                            <span style="color: white; font-weight: 700; font-size: ${hasPromo ? '17px' : '15px'};">R$ ${priceToShow.toFixed(2)}</span>
+                            ${hasPromo ? `<span style="text-decoration: line-through; color: #999; font-size: 12px;">R$ ${p.price.toFixed(2).replace('.',',')}</span>` : ''}
+                            <span style="color: white; font-weight: 700; font-size: ${hasPromo ? '17px' : '15px'};">R$ ${priceToShow.toFixed(2).replace('.',',')}</span>
                         </span>
                     </div>
                     <div class="card-controls">
@@ -1946,7 +1935,8 @@ function render() {
         for (let i = 0; i < cartIds.length; i++) {
             const p = products.find(x => x.id == cartIds[i]);
             if (p) {
-                const preco = (p.pricePromo && temOferta) ? p.pricePromo : p.price;
+                const hasPromo = !!(p.pricePromo && temOferta);
+                const preco = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
                 total += preco * cart[cartIds[i]];
             }
         }
@@ -2019,9 +2009,16 @@ function atualizarCabecalho() {
 // cart {id:qty} → texto pedido + total
 function cartToText() {
     let texto = ''; let total = 0;
+    const temOferta = clienteTemOferta(); // Recalcular oferta em tempo real
     for (let id in cart) {
         const p = products.find(x => x.id == id);
-        if (p) { texto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; }
+        if (p) { 
+            const qty = parseInt(cart[id]) || 0;
+            const hasPromo = !!(p.pricePromo && temOferta);
+            const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
+            texto += `✅ ${qty}x ${p.name}\n`; 
+            total += price * qty;
+        }
     }
     return { texto, total };
 }
@@ -2071,8 +2068,24 @@ function openFavoriteModal() {
     const fav = favorites[user.phone];
     if (!fav || !fav.saved_order) return; // showToast("Nenhum pedido salvo", 'warning');
 
-    const total = Number(fav.saved_order_total) || 0;
     const linhas = fav.saved_order.replace(/✅ /g, '').split('\n').filter(Boolean);
+    
+    // Recalcular total se não existir ou for inválido
+    let total = Number(fav.saved_order_total) || 0;
+    if (isNaN(total) || total === 0) {
+        total = 0;
+        linhas.forEach(linha => {
+            const match = linha.match(/^(\d+)x\s+(.+)$/);
+            if (match) {
+                const qty = parseInt(match[1]);
+                const nomeProduto = match[2].trim();
+                const produto = products.find(p => p.name.trim() === nomeProduto);
+                if (produto) {
+                    total += qty * (parseFloat(produto.price) || 0);
+                }
+            }
+        });
+    }
     
     // Extrair produtos e suas quantidades
     let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
@@ -2371,7 +2384,17 @@ async function confirmOrder() {
     btn.disabled = true;
 
     let total = 0; let pedidoTexto = "";
-    for (let id in cart) { const p = products.find(x => x.id == id); if (p) { pedidoTexto += `✅ ${cart[id]}x ${p.name}\n`; total += p.priceToShow * cart[id]; } }
+    const temOferta = clienteTemOferta(); // Recalcular oferta em tempo real
+    for (let id in cart) { 
+        const p = products.find(x => x.id == id); 
+        if (p) { 
+            const qty = parseInt(cart[id]) || 0;
+            const hasPromo = !!(p.pricePromo && temOferta);
+            const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
+            pedidoTexto += `✅ ${qty}x ${p.name}\n`; 
+            total += price * qty;
+        } 
+    }
     if (total === 0) { btn.disabled = false; return; }
 
     const useCredit = user.debt < 0; // crédito sempre aplicado automaticamente
@@ -2550,10 +2573,14 @@ async function confirmOrder() {
         user.debt = newDebt; atualizarCabecalho();
 
         const pedidoTextoMsg = pedidoTexto.split('\n').filter(l => !l.startsWith('🏷️ CUPOM:') && !l.startsWith('💳 CREDITO:')).join('\n');
+        
+        // Garantir que finalTotal é um número válido
+        const finalTotalSafeValue = isNaN(finalTotal) || finalTotal == null ? 0 : finalTotal;
+        
         let finalMsg = msgTemplate
             .replace('{nome}', user.name.split(' ')[0].toUpperCase())
             .replace('{pedido}', pedidoTextoMsg)
-            .replace('{total}', finalTotal.toFixed(2).replace('.',','))
+            .replace('{total}', finalTotalSafeValue.toFixed(2).replace('.',','))
             .replace('{pagamento}', 'Pagar na Entrega');
 
         if (cupomDescontoPct > 0) finalMsg += `\n🎟️ Cupom ${cupomDescontoPct}% aplicado`;
@@ -2923,26 +2950,14 @@ async function _confirmarInstalar() {
 }
 
 
-// Converte VAPID public key (base64url) para Uint8Array — obrigatório pelo navegador
-function _vapidKeyToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = atob(base64);
-    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-}
-
 async function _registrarPushSubscription() {
-    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if (!user || !user.phone) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
     try {
         const reg = await navigator.serviceWorker.ready;
-        const VAPID_PUBLIC = 'BNcG4PooxIYVYAda9KjR2RAXCdRAqMz9vgMaPKLAOpC4JwWaNg_sMxBqAayr_hgmvqb4o259hvrL4eqCwZnzKmQ';
+        const VAPID_PUBLIC = 'BPJzjw_67QZ8dNu4fwye4cs55PwoTgESBQeHl1xTy9fMOgQfsYsLjtBnaTB8TNfRj-ErZ3EfTV5489y-xCqToZ8';
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
-            sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: _vapidKeyToUint8Array(VAPID_PUBLIC) // ← conversão correta
-            });
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC });
         }
         const subJson = sub.toJSON();
         await sb.from('push_subscriptions').upsert({
@@ -2951,7 +2966,6 @@ async function _registrarPushSubscription() {
             p256dh: subJson.keys.p256dh,
             auth: subJson.keys.auth
         }, { onConflict: 'endpoint', ignoreDuplicates: true });
-        console.log('✅ Push subscription registrada para', user.phone);
     } catch(e) { console.warn('Web Push subscription falhou:', e); }
 }
 
