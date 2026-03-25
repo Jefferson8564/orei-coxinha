@@ -1911,7 +1911,7 @@ function render() {
             <div class="card">
                 <div class="card-img" style="position: relative;">
                     ${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}
-                    ${hasPromo ? `<div style="position: absolute; top: 15px; right: -8px; transform: rotate(45deg) perspective(800px) rotateX(15deg) rotateY(-15deg); color: #FFD700; font-family: 'Arial Black', 'Helvetica Bold', sans-serif; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,165,0,0.6), 3px 3px 8px rgba(0,0,0,0.7), 6px 6px 15px rgba(0,0,0,0.9); z-index: 10; white-space: nowrap; pointer-events: none;">OFERTA</div>` : ''}\n
+                    ${hasPromo ? `<div style="position: absolute; top: 15px; right: -8px; transform: rotate(45deg) perspective(800px) rotateX(15deg) rotateY(-15deg); color: #FFD700; font-family: 'Arial Black', 'Helvetica Bold', sans-serif; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,165,0,0.6), 3px 3px 8px rgba(0,0,0,0.7), 6px 6px 15px rgba(0,0,0,0.9); z-index: 10; white-space: nowrap; pointer-events: none; filter: drop-shadow(-1px -1px 0 rgba(255,215,0,0.3)) drop-shadow(1px 1px 0 rgba(0,0,0,0.5));">OFERTA</div>` : ''}\n
                 </div>
                 <div class="card-body">
                     <div><strong class="card-title">${p.name}</strong><br>
@@ -2305,10 +2305,11 @@ async function _confirmarCancelarAnterior() {
 
         if (pedido) {
             // Reverte debt (igual ao cancelarPedidoCliente)
-            const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-            const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
+            const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.,]+)/);
+            const creditoUsado = creditoMatch ? Number(creditoMatch[1].replace(',', '.')) : (Number(pedido.credito_usado) || 0);
             const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
             if (c) {
+                // Devolver o valor: subtrair do debt (devolver dinheiro = diminuir a dívida)
                 const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
                 await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
                 user.debt = novoDebt;
@@ -2341,8 +2342,8 @@ async function _confirmarCancelarAnterior() {
 
             // Notificação
             let descNotif = 'Pedido cancelado pelo cliente';
-            const creditoUsadoFinal = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-            const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1]) : 0;
+            const creditoUsadoFinal = (pedido.items || '').match(/💳 CREDITO:([\d.,]+)/);
+            const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1].replace(',', '.')) : (Number(pedido.credito_usado) || 0);
             if (cvf > 0) descNotif += ` • Crédito R$ ${cvf.toFixed(2).replace('.',',')} devolvido`;
             await sb.from('notificacoes').insert({
                 customer_phone: user.phone,
@@ -2401,7 +2402,6 @@ async function confirmOrder() {
     const descontoCupomValor = cupomDescontoPct > 0 ? (total * cupomDescontoPct / 100) : 0;
     const creditoUsado = useCredit ? creditDiscount : 0;
     const finalTotal = Math.max(0, total - creditoUsado - descontoCupomValor);
-    let newDebt = user.debt + finalTotal + creditoUsado;
 
     const cupomIdParaExcluir = cupomId;
     const cupomPctParaExcluir = cupomDescontoPct;
@@ -2428,7 +2428,16 @@ async function confirmOrder() {
             window.speechSynthesis.speak(u);
         }
         const decisao = await new Promise(res => { _resolvePopupPedido = res; });
+        
+        // Recarregar debt do Supabase após decisão (se cancelou, debt foi atualizado)
+        const { data: clienteAtualizado } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
+        if (clienteAtualizado) {
+            user.debt = clienteAtualizado.debt;
+        }
     }
+    
+    // Recalcular newDebt com o debt atualizado
+    let newDebt = user.debt + finalTotal + creditoUsado;
 
     // Mostrar robozinho em modo SALVANDO
     closePayModal();
