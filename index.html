@@ -1478,10 +1478,7 @@ window.onload = async () => {
                         // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
                         const phoneLocal = localStorage.getItem('salgados_phone');
                         if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
-                            // ADM mandou limpar: apaga TUDO, inclusive login
-                            localStorage.clear();
-                            localStorage.setItem('force_reload_version', versaoRemota);
-                            window.location.reload();
+                            _limparTudoERecarregar();
                             return;
                         }
                         // Salva versão local para comparação futura
@@ -1646,11 +1643,22 @@ async function auth() {
             btn.disabled = false; btn.textContent = "Entrar";
             return;
         }
-        const { data: newClient } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
+        const { data: newClient, error: errInsert } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
+        if (errInsert || !newClient) {
+            showLoginError("Erro ao criar conta. Tente novamente.");
+            btn.disabled = false; btn.textContent = "Entrar";
+            return;
+        }
         client = newClient;
 
         // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
         localStorage.setItem('salgados_phone', phone);
+    }
+
+    if (!client) {
+        showLoginError("Erro ao carregar conta. Tente novamente.");
+        btn.disabled = false; btn.textContent = "Entrar";
+        return;
     }
 
     user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
@@ -1680,7 +1688,9 @@ async function auth() {
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 
-
+    // Inicia escuta em tempo real para tickets, debt e notificações
+    iniciarRealtimeCliente(phone);
+    setTimeout(() => renderHistoricoSaldo(), 500);
 
     // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
     mostrarPopupOferta(client, clienteNovo);
@@ -3150,6 +3160,26 @@ function iniciarRealtimeCliente(phone) {
         .subscribe();
 }
 
+
+// ===== LIMPEZA TOTAL: como se fosse a primeira vez =====
+async function _limparTudoERecarregar() {
+    localStorage.clear();
+    try { sessionStorage.clear(); } catch(e) {}
+    if ("serviceWorker" in navigator) {
+        try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) await reg.unregister();
+        } catch(e) {}
+    }
+    if ("caches" in window) {
+        try {
+            const keys = await caches.keys();
+            for (const key of keys) await caches.delete(key);
+        } catch(e) {}
+    }
+    window.location.reload(true);
+}
+
 // ===== REALTIME: detecta quando ADM manda limpar cache =====
 function iniciarRealtimeCacheWatch(versaoAtual) {
     sb.channel('force_reload_watch')
@@ -3164,8 +3194,7 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             if (user && user.phone === ADMIN_NUM) return;
             if (novaVersao && novaVersao !== versaoAtual) {
                 // ADM mandou limpar: apaga TUDO, inclusive login
-                localStorage.clear();
-                window.location.reload();
+                _limparTudoERecarregar();
             }
         })
         // Escuta limpeza individual (por telefone)
@@ -3181,10 +3210,8 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 const versaoSalva = localStorage.getItem(chave) || '0';
                 const versaoNova = payload.new?.value;
                 if (versaoNova && versaoNova !== versaoSalva) {
-                    localStorage.removeItem(chave);
                     // ADM mandou limpar este cliente: apaga TUDO, inclusive login
-                    localStorage.clear();
-                    window.location.reload();
+                    _limparTudoERecarregar();
                 }
             }
         })
