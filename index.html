@@ -272,23 +272,46 @@
             background: var(--theme-gradient);
             padding: 14px 17px; color: white;
             display: flex; align-items: center; justify-content: space-between;
-            position: sticky; top: 0; z-index: 100;
+            position: fixed; top: 12px; left: 12px; right: 12px;
+            z-index: 100;
             height: 75px; border-radius: 30px;
-            margin: 12px 12px 0 12px;
             width: calc(100% - 24px);
             box-shadow: var(--theme-shadow), inset 0 2px 6px rgba(255,255,255,0.3);
-            position: relative;
         }
         .header::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 50%;
             background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%);
             border-radius: 30px 30px 0 0;
             pointer-events: none;
+        }
+        /* Barra de categorias */
+        .cat-bar {
+            position: fixed; top: 99px; left: 12px; right: 12px;
+            z-index: 99;
+            display: flex; gap: 8px;
+            padding: 5px 8px;
+            background: rgba(120,50,20,0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        }
+        .cat-btn {
+            flex: 1; padding: 7px 6px;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.75);
+            border-radius: 11px; font-weight: 700; font-size: 13px;
+            cursor: pointer; transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cat-btn.active {
+            background: white; color: #7a3214;
+            border-color: white;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
@@ -304,6 +327,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 4px;
             padding: 4px 4px;
+            padding-top: 160px;
             margin: 0;
             margin-bottom: 80px;
             width: 100%;
@@ -559,6 +583,10 @@
         @keyframes pulseError {
             0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
             50%      { box-shadow: 0 0 0 20px rgba(231,76,60,0.15); }
+        }
+        @keyframes piscarAviso {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.25; }
         }
         .robo-wrap {
             animation: roboEntrar 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
@@ -831,7 +859,7 @@
 
 <!-- ===== APP ===== -->
 <div id="app" style="display:none;">
-    <div class="header" style="display:flex;align-items:center;justify-content:space-between;position:relative;">
+    <div class="header" style="display:flex;align-items:center;justify-content:space-between;position:fixed;">
         <!-- ⚙️ esquerda -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
             <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
@@ -854,6 +882,13 @@
             </button>
         </div>
     </div>
+
+    <!-- Barra de categorias -->
+    <div class="cat-bar">
+        <button class="cat-btn active" onclick="filtrarCategoria('fritos', this)">🔥 Fritos</button>
+        <button class="cat-btn" onclick="filtrarCategoria('crus', this)">🧊 Crus</button>
+    </div>
+
     <div id="grid" class="products-grid"></div>
     <div class="footer">
         <div class="footer-left">
@@ -913,6 +948,18 @@
         </div>
 
         <div id="finalTotalBox" style="display:none;"></div>
+
+        <!-- Aviso mínimo entrega -->
+        <div id="avisoMinimoEntrega" style="
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.5;
+            display: none;
+        "></div>
 
         <div style="display:flex; gap:10px; margin-top:4px;">
             <button onclick="closePayModal()" style="flex:1; padding:14px; background:#f0f2f6; color:#666; border:none; border-radius:14px; font-weight:700; cursor:pointer;">Voltar</button>
@@ -1362,6 +1409,7 @@ function showToast(msg, type = 'success', duration = 2500) {
 }
 
 let products = [];
+let categoriaFiltro = 'fritos';
 let user = null;
 let cart = {};
 let method = "PAGA NA ENTREGA";
@@ -1412,11 +1460,11 @@ function comTimeout(promise, ms, mensagem) {
 
 // ===== INIT =====
 window.onload = async () => {
-    // ── Timeout de segurança global: 8s sem resposta → cai na tela de login ──
+    // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
     const timeoutGlobal = setTimeout(() => {
         console.warn('[Init] Timeout global atingido — exibindo tela de login');
         _mostrarLogin();
-    }, 8000);
+    }, 12000);
 
     // Listener para o botão voltar do navegador/celular
     window.addEventListener('popstate', (e) => {
@@ -1478,7 +1526,10 @@ window.onload = async () => {
                         // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
                         const phoneLocal = localStorage.getItem('salgados_phone');
                         if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
-                            _limparTudoERecarregar(versaoRemota);
+                            // ADM mandou limpar: apaga TUDO, inclusive login
+                            localStorage.clear();
+                            localStorage.setItem('force_reload_version', versaoRemota);
+                            window.location.reload();
                             return;
                         }
                         // Salva versão local para comparação futura
@@ -1643,22 +1694,11 @@ async function auth() {
             btn.disabled = false; btn.textContent = "Entrar";
             return;
         }
-        const { data: newClient, error: errInsert } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
-        if (errInsert || !newClient) {
-            showLoginError("Erro ao criar conta. Tente novamente.");
-            btn.disabled = false; btn.textContent = "Entrar";
-            return;
-        }
+        const { data: newClient } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
         client = newClient;
 
         // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
         localStorage.setItem('salgados_phone', phone);
-    }
-
-    if (!client) {
-        showLoginError("Erro ao carregar conta. Tente novamente.");
-        btn.disabled = false; btn.textContent = "Entrar";
-        return;
     }
 
     user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
@@ -1688,9 +1728,7 @@ async function auth() {
     await loadProducts();
     btn.disabled = false; btn.textContent = "Entrar";
 
-    // Inicia escuta em tempo real para tickets, debt e notificações
-    iniciarRealtimeCliente(phone);
-    setTimeout(() => renderHistoricoSaldo(), 500);
+
 
     // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
     mostrarPopupOferta(client, clienteNovo);
@@ -1894,13 +1932,21 @@ async function loadProducts() {
         name: p.name,
         price: Number(p.price),
         pricePromo: p.price_promo ? Number(p.price_promo) : null,
-        img: p.image_url || ""
+        img: p.image_url || "",
+        categoria: (p.categoria || '').toLowerCase()
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
 }
 
 let renderScheduled = false;
+
+function filtrarCategoria(cat, btn) {
+    categoriaFiltro = cat;
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    render();
+}
 
 function render() {
     // Evitar múltiplos renders simultâneos
@@ -1914,7 +1960,11 @@ function render() {
         // Calcular oferta em tempo real — nunca vem do cache
         const temOferta = clienteTemOferta();
 
-        g.innerHTML = products.map(p => {
+        const produtosFiltrados = categoriaFiltro === 'todos'
+            ? products
+            : products.filter(p => p.categoria === categoriaFiltro);
+
+        g.innerHTML = produtosFiltrados.map(p => {
             const hasPromo = !!(p.pricePromo && temOferta);
             const priceToShow = hasPromo ? p.pricePromo : p.price;
             return `
@@ -2159,6 +2209,29 @@ function showPayModal() {
     if (hf) hf.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
     setupCreditOption();
     carregarCupons();
+    atualizarAvisoMinimo();
+}
+
+function atualizarAvisoMinimo() {
+    const aviso = document.getElementById('avisoMinimoEntrega');
+    if (!aviso) return;
+    const MINIMO_ENTREGA = 10;
+    const totalUnidades = Object.values(cart).reduce((s, q) => s + (parseInt(q) || 0), 0);
+    if (totalUnidades <= 0) { aviso.style.display = 'none'; return; }
+    aviso.style.display = 'block';
+    if (totalUnidades < MINIMO_ENTREGA) {
+        aviso.style.background = 'linear-gradient(135deg, #ffeaea, #ffe0e0)';
+        aviso.style.border = '2px solid #e74c3c';
+        aviso.style.color = '#c0392b';
+        aviso.style.animation = 'piscarAviso 0.8s ease-in-out infinite';
+        aviso.innerHTML = '🛵 Menos de 10 unidades — <strong>apenas retirada no local</strong>';
+    } else {
+        aviso.style.background = 'linear-gradient(135deg, #eafff2, #d4f8e5)';
+        aviso.style.border = '2px solid #27ae60';
+        aviso.style.color = '#1e8449';
+        aviso.style.animation = 'none';
+        aviso.innerHTML = '✅ 10 ou mais unidades — <strong>entrega disponível</strong> 🛵';
+    }
 }
 
 function setupCreditOption() {
@@ -3160,31 +3233,6 @@ function iniciarRealtimeCliente(phone) {
         .subscribe();
 }
 
-
-// ===== LIMPEZA TOTAL: como se fosse a primeira vez =====
-async function _limparTudoERecarregar(versaoParaSalvar) {
-    // Salva a versão ANTES de limpar para não entrar em loop no próximo init
-    const _versao = versaoParaSalvar || localStorage.getItem('force_reload_version') || '0';
-    localStorage.clear();
-    try { sessionStorage.clear(); } catch(e) {}
-    localStorage.setItem('force_reload_version', _versao);
-    if ("serviceWorker" in navigator) {
-        try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const reg of registrations) await reg.unregister();
-        } catch(e) {}
-    }
-    if ("caches" in window) {
-        try {
-            const keys = await caches.keys();
-            for (const key of keys) await caches.delete(key);
-        } catch(e) {}
-    }
-    // Aguarda SW terminar de desregistrar antes de recarregar
-    await new Promise(r => setTimeout(r, 800));
-    window.location.reload(true);
-}
-
 // ===== REALTIME: detecta quando ADM manda limpar cache =====
 function iniciarRealtimeCacheWatch(versaoAtual) {
     sb.channel('force_reload_watch')
@@ -3199,7 +3247,8 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
             if (user && user.phone === ADMIN_NUM) return;
             if (novaVersao && novaVersao !== versaoAtual) {
                 // ADM mandou limpar: apaga TUDO, inclusive login
-                _limparTudoERecarregar(novaVersao);
+                localStorage.clear();
+                window.location.reload();
             }
         })
         // Escuta limpeza individual (por telefone)
@@ -3215,8 +3264,10 @@ function iniciarRealtimeCacheWatch(versaoAtual) {
                 const versaoSalva = localStorage.getItem(chave) || '0';
                 const versaoNova = payload.new?.value;
                 if (versaoNova && versaoNova !== versaoSalva) {
+                    localStorage.removeItem(chave);
                     // ADM mandou limpar este cliente: apaga TUDO, inclusive login
-                    _limparTudoERecarregar(versaoNova);
+                    localStorage.clear();
+                    window.location.reload();
                 }
             }
         })
@@ -3881,10 +3932,10 @@ async function limparCacheRedefinir() {
         localStorage.clear();
         sessionStorage.clear();
 
-        // Aguarda SW terminar + animação antes de recarregar
-        setTimeout(() => window.location.reload(true), 3200);
+        // Aguarda a animação terminar antes de recarregar
+        setTimeout(() => window.location.reload(true), 2800);
     } catch (e) {
-        setTimeout(() => window.location.reload(true), 3200);
+        setTimeout(() => window.location.reload(true), 2800);
     }
 }
 
