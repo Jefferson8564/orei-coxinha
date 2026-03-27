@@ -2068,18 +2068,37 @@ function atualizarCabecalho() {
 
 // cart {id:qty} → texto pedido + total
 function cartToText() {
-    let texto = ''; let total = 0;
+    let textoFritos = '';
+    let textoCrus = '';
+    let total = 0;
     const temOferta = clienteTemOferta(); // Recalcular oferta em tempo real
+    
     for (let id in cart) {
         const p = products.find(x => x.id == id);
         if (p) { 
             const qty = parseInt(cart[id]) || 0;
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
-            texto += `✅ ${qty}x ${p.name}\n`; 
+            
+            const linha = `✅ ${qty}x ${p.name}`;
+            
+            if (p.categoria === 'crus') {
+                textoCrus += linha + '\n';
+            } else {
+                textoFritos += linha + '\n';
+            }
             total += price * qty;
         }
     }
+    
+    let texto = '';
+    if (textoFritos) {
+        texto += '———————🔥fritos🔥———————\n' + textoFritos;
+    }
+    if (textoCrus) {
+        texto += '———————❄️ crus ❄️———————\n' + textoCrus;
+    }
+    
     return { texto, total };
 }
 
@@ -2467,17 +2486,35 @@ async function confirmOrder() {
     if (Object.keys(cart).length === 0) return;
     btn.disabled = true;
 
-    let total = 0; let pedidoTexto = "";
+    let total = 0; 
+    let pedidoTextoFritos = "";
+    let pedidoTextoCrus = "";
     const temOferta = clienteTemOferta(); // Recalcular oferta em tempo real
+    
     for (let id in cart) { 
         const p = products.find(x => x.id == id); 
         if (p) { 
             const qty = parseInt(cart[id]) || 0;
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
-            pedidoTexto += `✅ ${qty}x ${p.name}\n`; 
+            
+            const linha = `✅ ${qty}x ${p.name}`;
+            
+            if (p.categoria === 'crus') {
+                pedidoTextoCrus += linha + '\n';
+            } else {
+                pedidoTextoFritos += linha + '\n';
+            }
             total += price * qty;
         } 
+    }
+    
+    let pedidoTexto = '';
+    if (pedidoTextoFritos) {
+        pedidoTexto += '———————🔥fritos🔥———————\n' + pedidoTextoFritos;
+    }
+    if (pedidoTextoCrus) {
+        pedidoTexto += '———————❄️ crus ❄️———————\n' + pedidoTextoCrus;
     }
     if (total === 0) { btn.disabled = false; return; }
 
