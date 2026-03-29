@@ -932,6 +932,9 @@
             </div>
         </div>
 
+        <!-- Itens do pedido com foto -->
+        <div id="itensResumo" style="margin-bottom:16px;"></div>
+
         <!-- Crédito disponível (sempre aplicado automaticamente) -->
         <div id="creditBox" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#1a3a5c,#1a4a7a); border:1.5px solid rgba(52,152,219,0.5); border-radius:14px; padding:12px 14px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -2217,6 +2220,51 @@ function pedirFavorito() {
 }
 
 // ===== PAGAMENTO =====
+function renderItensResumo() {
+    const el = document.getElementById('itensResumo');
+    if (!el) return;
+
+    const categorias = [
+        { key: 'fritos', label: '🔥 Fritos', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' },
+        { key: 'crus',   label: '🧊 Crus',   cor: '#1565c0', bgCor: '#eef4ff', borderCor: '#3498db' }
+    ];
+
+    let html = '';
+    for (const cat of categorias) {
+        const itens = products.filter(p => {
+            const qty = parseInt(cart[p.id]) || 0;
+            return qty > 0 && (p.categoria || '').toLowerCase() === cat.key;
+        });
+        if (!itens.length) continue;
+
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:800;color:${cat.cor};letter-spacing:0.5px;margin-bottom:8px;padding:4px 10px;background:${cat.bgCor};border-radius:8px;border-left:3px solid ${cat.borderCor};display:inline-block;">${cat.label}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px;">`;
+
+        for (const p of itens) {
+            const qty = parseInt(cart[p.id]) || 0;
+            const subtotal = (p.preco * qty).toFixed(2).replace('.', ',');
+            const imgSrc = p.img || '';
+            const imgTag = imgSrc
+                ? `<img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;border-radius:12px;background:#f0f0f0;">🍗</div>`
+                : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:12px;background:#f0f0f0;">🍗</div>`;
+
+            html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <div style="position:relative;width:72px;height:72px;">
+                    ${imgTag}
+                    <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
+                </div>
+                <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;max-width:80px;">${p.nome}</div>
+                <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
+            </div>`;
+        }
+
+        html += `</div></div>`;
+    }
+
+    el.innerHTML = html;
+}
+
 function showPayModal() {
     lerPedidoVoz();
     document.getElementById('payModal').classList.add('active');
@@ -2226,6 +2274,7 @@ function showPayModal() {
     if (ht) { ht.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ','); ht.style.textDecoration = 'none'; ht.style.color = '#1a1a2e'; }
     const hf = document.getElementById('payHeaderFinal');
     if (hf) hf.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
+    renderItensResumo();
     setupCreditOption();
     carregarCupons();
     atualizarAvisoMinimo();
