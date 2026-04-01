@@ -1270,7 +1270,7 @@ async function calcularValorRealPedido(itemsTexto) {
             const now = new Date();
             const diffMs = now - createdDate;
             const diffDays = diffMs / (1000 * 60 * 60 * 24);
-            isNewCustomer = diffDays <= 30;
+            isNewCustomer = diffDays <= 15;
         }
         
         let total = 0;
@@ -1732,15 +1732,15 @@ function mostrarPopupOferta(client, clienteNovo) {
     if (!client.created_at) { mostrarPopupInstalacao(); return; }
 
     const diasPassados = (Date.now() - new Date(client.created_at).getTime()) / (1000 * 60 * 60 * 24);
-    const dentroDosPrazos = diasPassados <= 30;
+    const dentroDosPrazos = diasPassados <= 15;
 
     if (!dentroDosPrazos) {
-        // Passou dos 30 dias — sem popup de oferta
+        // Passou dos 15 dias — sem popup de oferta
         mostrarPopupInstalacao();
         return;
     }
 
-    const diasRestantes = Math.max(1, Math.ceil(30 - diasPassados));
+    const diasRestantes = Math.max(1, Math.ceil(15 - diasPassados));
 
     // Preencher conteúdo dinamicamente
     const emoji   = document.getElementById('bvEmoji');
@@ -1903,11 +1903,13 @@ function confirmarLogout() {
 }
 
 // ===== PRODUTOS =====
-// Retorna true se o cliente ainda está dentro dos 30 dias de oferta
+// Retorna true se o cliente ainda está dentro dos 15 dias de oferta OU se ADM ativou manualmente
 function clienteTemOferta() {
-    if (!user || !user.created_at) return false;
+    if (!user) return false;
+    if (user.oferta_ativa === true) return true;
+    if (!user.created_at) return false;
     const diffDays = (Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 30;
+    return diffDays <= 15;
 }
 
 async function loadProducts() {
@@ -2668,7 +2670,7 @@ async function confirmOrder() {
 
             // Busca cadastro do cliente para pegar coordenadas
             const { data: cliDados } = await sb.from('clientes')
-                .select('delivery_lat, delivery_lon, delivery_address, name')
+                .select('delivery_lat, delivery_lon, name')
                 .eq('phone', user.phone).maybeSingle();
 
             if (cliDados?.delivery_lat && cliDados?.delivery_lon) {
@@ -2699,7 +2701,7 @@ async function confirmOrder() {
                             (!p._meta && p.cliente_phone === user.phone)
                                 ? { ...p, desativado: false, status: 'pendente',
                                     entregue_em: null, pagamento: null,
-                                    endereco: cliDados.delivery_address || p.endereco,
+                                    endereco: p.endereco || `${cliDados.delivery_lat},${cliDados.delivery_lon}`,
                                     nome: cliDados.name || p.nome }
                                 : p
                         );
@@ -2710,7 +2712,7 @@ async function confirmOrder() {
                         const { coords: _c, ...tmplParada } = estaNoTemplate;
                         const novaParada = {
                             ...tmplParada,
-                            endereco: tmplParada.endereco || cliDados.delivery_address || '',
+                            endereco: tmplParada.endereco || `${cliDados.delivery_lat},${cliDados.delivery_lon}`,
                             nome: tmplParada.nome || cliDados.name || user.name,
                             status: 'pendente',
                             desativado: false
@@ -2746,11 +2748,11 @@ async function confirmOrder() {
                     const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
                     const dias = ['dom','seg','ter','qua','qui','sex','sab'];
                     if (hAtual >= hI*60+mI && hAtual <= hF*60+mF && (raConfig.dias_operacao||[]).includes(dias[brt.getDay()])) {
-                        const { data: cliCoords } = await sb.from('clientes').select('delivery_lat,delivery_lon,delivery_address').eq('phone', user.phone).maybeSingle();
+                        const { data: cliCoords } = await sb.from('clientes').select('delivery_lat,delivery_lon').eq('phone', user.phone).maybeSingle();
                         if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
                             const fila = raConfig.clientes_fila || [];
                             if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
-                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:cliCoords.delivery_address||`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
+                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
                                 raConfig.clientes_fila = fila;
                                 await sb.from('gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
                                 // showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
