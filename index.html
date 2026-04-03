@@ -1550,7 +1550,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
+                    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1688,14 +1688,14 @@ async function auth() {
             btn.disabled = false; btn.textContent = "Entrar";
             return;
         }
-        const { data: newClient } = await sb.from("clientes").insert({ name, phone, fiado: false, debt: 0 }).select().single();
+        const { data: newClient } = await sb.from("clientes").insert({ name, phone, debt: 0 }).select().single();
         client = newClient;
 
         // ✅ SALVAR NÚMERO NA PRIMEIRA VEZ - Próximas vezes não pedirá mais
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, fiado: client.fiado, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
+    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -2467,7 +2467,7 @@ async function _confirmarCancelarAnterior() {
     document.getElementById('modalPedidoAnterior').style.display = 'none';
     try {
         const { data: pedido } = await sb.from('pedidos')
-            .select('id, status, total, items, credito_usado')
+            .select('id, total, items, credito_usado')
             .eq('id', _pedidoAnteriorId)
             .maybeSingle();
 
@@ -2537,7 +2537,6 @@ async function _verificarPedidoRecente() {
         const { data } = await sb.from('pedidos')
             .select('id, created_at')
             .eq('customer_phone', user.phone)
-            .not('status', 'in', '("cancelado","PAGO")')
             .gte('created_at', dez)
             .order('created_at', { ascending: false })
             .limit(1);
@@ -2663,105 +2662,7 @@ async function confirmOrder() {
             if (errCupom) console.warn('Erro ao excluir cupom:', errCupom);
         }
 
-        // ===== REGRA DAS 14H: adicionar cliente nas paradas da rota correta =====
-        try {
-            const horaAtual = parseInt(_partesSP().hour) * 60 + parseInt(_partesSP().minute);
-            const eParaAmanha = horaAtual >= (15 * 60); // regra: 15:00
-
-            // Busca cadastro do cliente para pegar coordenadas
-            const { data: cliDados } = await sb.from('clientes')
-                .select('delivery_lat, delivery_lon, name')
-                .eq('phone', user.phone).maybeSingle();
-
-            if (cliDados?.delivery_lat && cliDados?.delivery_lon) {
-                // Busca todas as rotas não concluídas
-                const { data: rotasComCliente } = await sb.from('rotas')
-                    .select('id, paradas, status')
-                    .in('status', ['criada', 'aguardando']);
-
-                for (const rota of (rotasComCliente || [])) {
-                    const paradasAtuais = rota.paradas || [];
-                    const template = paradasAtuais.filter(p => !p._meta);
-
-                    // Verifica se este cliente está no template da rota
-                    const estaNoTemplate = template.find(p => p.cliente_phone === user.phone);
-                    if (!estaNoTemplate) continue;
-
-                    // Pedido após 15:00 → não mexe nas paradas de hoje
-                    if (eParaAmanha) continue;
-
-                    // ── SISTEMA desativado: parada já existe com desativado:true → só ativa ──
-                    const paradaExistente = paradasAtuais.find(p => !p._meta && p.cliente_phone === user.phone);
-
-                    if (paradaExistente) {
-                        // Parada já existe — só ativa se estiver desativada
-                        if (paradaExistente.desativado === false) continue; // já ativa, nada a fazer
-
-                        const novasParadas = paradasAtuais.map(p =>
-                            (!p._meta && p.cliente_phone === user.phone)
-                                ? { ...p, desativado: false, status: 'pendente',
-                                    entregue_em: null, pagamento: null,
-                                    endereco: p.endereco || `${cliDados.delivery_lat},${cliDados.delivery_lon}`,
-                                    nome: cliDados.name || p.nome }
-                                : p
-                        );
-                        await sb.from('rotas').update({ paradas: novasParadas }).eq('id', rota.id);
-
-                    } else {
-                        // Parada não existe → insere nova (rota sem template completo)
-                        const { coords: _c, ...tmplParada } = estaNoTemplate;
-                        const novaParada = {
-                            ...tmplParada,
-                            endereco: tmplParada.endereco || `${cliDados.delivery_lat},${cliDados.delivery_lon}`,
-                            nome: tmplParada.nome || cliDados.name || user.name,
-                            status: 'pendente',
-                            desativado: false
-                        };
-
-                        const novasParadas = [...paradasAtuais];
-                        const idxTemplate = template.findIndex(p => p.cliente_phone === user.phone);
-                        const posInserir = novasParadas.findIndex(p => {
-                            if (p._meta) return false;
-                            const idxNoTemplate = template.findIndex(t => t.cliente_phone === p.cliente_phone);
-                            return idxNoTemplate > idxTemplate;
-                        });
-                        if (posInserir === -1) novasParadas.push(novaParada);
-                        else novasParadas.splice(posInserir, 0, novaParada);
-                        await sb.from('rotas').update({ paradas: novasParadas }).eq('id', rota.id);
-                    }
-                }
-            }
-        } catch(e) { console.warn('Erro ao adicionar nas paradas:', e); }
-        // ===== FIM REGRA DAS 14H =====
-
         // Tickets e Diamantes liberados pelo ADM ao confirmar pagamento
-
-        // Rota aleatória
-        try {
-            const { data: raData } = await sb.from('gps').select('valor').eq('chave', 'rota_aleatoria').maybeSingle();
-            if (raData?.valor) {
-                let raConfig = JSON.parse(raData.valor);
-                if (raConfig.ativa) {
-                    const brt = horasBRT(new Date());
-                    const hAtual = brt.getHours() * 60 + brt.getMinutes();
-                    const [hI, mI] = (raConfig.hora_inicio || '07:00').split(':').map(Number);
-                    const [hF, mF] = (raConfig.hora_fim || '11:00').split(':').map(Number);
-                    const dias = ['dom','seg','ter','qua','qui','sex','sab'];
-                    if (hAtual >= hI*60+mI && hAtual <= hF*60+mF && (raConfig.dias_operacao||[]).includes(dias[brt.getDay()])) {
-                        const { data: cliCoords } = await sb.from('clientes').select('delivery_lat,delivery_lon').eq('phone', user.phone).maybeSingle();
-                        if (cliCoords?.delivery_lat && cliCoords?.delivery_lon) {
-                            const fila = raConfig.clientes_fila || [];
-                            if (!fila.find(x => x.phone === user.phone && (x.status==='pendente'||x.status==='em_rota'))) {
-                                fila.push({ id:'cliente_'+Date.now(), nome:user.name, phone:user.phone, endereco:`${cliCoords.delivery_lat},${cliCoords.delivery_lon}`, coords:[parseFloat(cliCoords.delivery_lat),parseFloat(cliCoords.delivery_lon)], hora_pedido:agoraISO().substring(11,16), status:'pendente' });
-                                raConfig.clientes_fila = fila;
-                                await sb.from('gps').upsert({chave:'rota_aleatoria',valor:JSON.stringify(raConfig)},{onConflict:'chave'});
-                                // showToast('🎲 Você entrou na fila da Rota Aleatória!','success',3000);
-                            }
-                        }
-                    }
-                }
-            }
-        } catch(e) { console.warn('Rota RA:', e); }
 
         // Atualizar dívida
         await sb.from("clientes").update({ debt: newDebt }).eq("phone", user.phone);
@@ -2885,9 +2786,8 @@ async function carregarPedidosAtivos() {
 
     try {
         const { data: pedidos } = await sb.from('pedidos')
-            .select('id, total, payment_method, items, created_at, status')
+            .select('id, total, payment_method, items, created_at')
             .eq('customer_phone', user.phone)
-            .not('status', 'in', '("PAGO","cancelado")')
             .neq('payment_method', 'PREMIO')
             .not('items', 'ilike', '%🎮%')
             .order('created_at', { ascending: false })
@@ -3019,7 +2919,7 @@ async function cancelarPedidoCliente(pedidoId, totalExibido) {
 
     try {
         const { data: pedido } = await sb.from('pedidos')
-            .select('id, status, total, items, credito_usado')
+            .select('id, total, items, credito_usado')
             .eq('id', pedidoId)
             .maybeSingle();
 
