@@ -500,8 +500,6 @@
             max-height: 92vh; overflow-y: auto;
             animation: slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1);
         }
-        @keyframes slideDown { from { transform: translateY(-100%); opacity:0; } to { transform: translateY(0); opacity:1; } }
-
         /* ===== PAGAMENTO ===== */
 
         .credit-box {
@@ -537,15 +535,6 @@
             text-align: center; border: 1px solid #e9ecef;
         }
 
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.15);
-            }
-        }
-    
         @keyframes roboEntrar {
             0%   { transform: translateY(90px) scale(0.4); opacity:0; }
             60%  { transform: translateY(-20px) scale(1.1); opacity:1; }
@@ -775,6 +764,11 @@
             font-size: 14px;
             color: rgba(255, 255, 255, 0.8);
             font-weight: 600;
+        }
+
+        #modalConfigAutomatico.active {
+            display: flex !important;
+            opacity: 1 !important;
         }
     </style>
 </head>
@@ -1255,63 +1249,6 @@ const ADMIN_NUM = "81996603348";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ===== CALCULA VALOR REAL DO PEDIDO PELOS ITENS =====
-// ===== NOTIFICAÇÕES: função centralizada =====
-async function calcularValorRealPedido(itemsTexto) {
-    if (!itemsTexto) return 0;
-    try {
-        const { data: cardapio } = await sb.from('cardapio').select('name, price, price_promo');
-        if (!cardapio) return 0;
-        
-        // Verificar se cliente é novo
-        let isNewCustomer = false;
-        if (user && user.created_at) {
-            const createdDate = new Date(user.created_at);
-            const now = new Date();
-            const diffMs = now - createdDate;
-            const diffDays = diffMs / (1000 * 60 * 60 * 24);
-            isNewCustomer = diffDays <= 15;
-        }
-        
-        let total = 0;
-        const linhas = itemsTexto.replace(/✅ /g, '').split('\n').filter(Boolean);
-        linhas.forEach(linha => {
-            const match = linha.match(/^(\d+)x\s+(.+)$/);
-            if (!match) return;
-            const qtd  = parseInt(match[1]);
-            const nome = match[2].trim();
-            const prod = cardapio.find(p => p.name.trim() === nome);
-            if (prod) {
-                // Determinar preço a usar
-                const priceToUse = (prod.price_promo && isNewCustomer) ? Number(prod.price_promo) : Number(prod.price);
-                total += qtd * priceToUse;
-            }
-        });
-        return total;
-    } catch(e) {
-        console.warn('Erro ao calcular valor real:', e);
-        return 0;
-    }
-}
-
-async function inserirNotificacao(customer_phone, tipo, valor, descricao) {
-    try {
-        const { error } = await sb.from('notificacoes').insert({
-            customer_phone,
-            tipo,
-            valor: Number(valor) || 0,
-            descricao
-        });
-        if (error) {
-            console.error(`❌ [Notificação] Erro ao inserir (${tipo} para ${customer_phone}):`, error.message, error);
-        } else {
-            console.log(`✅ [Notificação] ${tipo} de R$ ${Number(valor).toFixed(2)} registrada para ${customer_phone}`);
-        }
-    } catch(e) {
-        console.error(`❌ [Notificação] Exceção inesperada (${tipo} para ${customer_phone}):`, e);
-    }
-}
-
 // ===== FUSO HORÁRIO SÃO PAULO (America/Sao_Paulo) =====
 const TZ_SP = 'America/Sao_Paulo';
 
@@ -1332,35 +1269,6 @@ function _getViradaHoraMin(diaSemana) {
 function horasBRT(d) {
   const p = _partesSP(d);
   return new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`);
-}
-
-// Janela de pedido com regra de virada: Domingo 08:00, demais dias 15:00
-function _janelaPedido() {
-  const agora = new Date();
-  const p = _partesSP(agora);
-  const hoje = `${p.year}-${p.month}-${p.day}`;
-  const horaAtual = parseInt(p.hour) * 60 + parseInt(p.minute);
-  const [vh, vm] = _getViradaHoraMin(agora.getDay());
-  const viradaMinutos = vh * 60 + vm;
-
-  let diaInicio, diaFim;
-  if (horaAtual >= viradaMinutos) {
-    // A partir da hora de virada → entra na rota de amanhã
-    diaInicio = hoje;
-    const amanhaDate = new Date(agora.getTime() + 86400000);
-    const pa = _partesSP(amanhaDate);
-    diaFim = `${pa.year}-${pa.month}-${pa.day}`;
-  } else {
-    // Antes da hora de virada → entra na rota de hoje
-    const ontemDate = new Date(agora.getTime() - 86400000);
-    const po = _partesSP(ontemDate);
-    diaInicio = `${po.year}-${po.month}-${po.day}`;
-    diaFim = hoje;
-  }
-  return {
-    inicio: diaInicio + `T${String(vh).padStart(2, '0')}:${String(vm).padStart(2, '0')}:00-03:00`,
-    fim:    diaFim   + `T${String(vh).padStart(2, '0')}:${String(vm - 1).padStart(2, '0')}:59-03:00`
-  };
 }
 
 /** Retorna ISO string com offset correto de SP (ex: "2025-03-01T17:14:00-03:00"). */
@@ -1485,14 +1393,14 @@ window.onload = async () => {
             return;
         }
 
-        // 3. Modal de pagamento
+        // 4. Modal de pagamento
         const payModal = document.getElementById('payModal');
         if (payModal && payModal.classList.contains('active')) {
             payModal.classList.remove('active');
             return;
         }
 
-        // 4. Modal de favoritos
+        // 5. Modal de favoritos
         const favModal = document.getElementById('favModal');
         if (favModal && favModal.classList.contains('active')) {
             favModal.classList.remove('active');
@@ -1550,7 +1458,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
+                    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer, oferta_ativa: client.oferta_ativa };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1592,7 +1500,6 @@ window.onload = async () => {
                     carregarPrivacidade();
                     carregarTemaSalvo();
                     render();
-                    // showToast('📵 Modo offline — dados do cache', 'warning', 4000);
                     return;
                 }
                 // Sem cache de usuário: vai para login
@@ -1617,7 +1524,6 @@ window.onload = async () => {
             carregarPrivacidade();
             carregarTemaSalvo();
             render();
-            // showToast('📵 Modo offline — dados do cache', 'warning', 4000);
             return;
         }
         clearTimeout(timeoutGlobal);
@@ -1695,7 +1601,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer };
+    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer, oferta_ativa: client.oferta_ativa };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -1799,17 +1705,6 @@ function mostrarPopupInstalacao() {
     }
 }
 
-// ===== Detecta se app foi desinstalado (estava standalone, agora não está) =====
-function verificarDesinstalacao() {
-    const eraStandalone = localStorage.getItem('pwa_era_standalone') === '1';
-    if (eraStandalone && !_isEmStandalone) {
-        localStorage.removeItem('pwa_era_standalone');
-    }
-    if (_isEmStandalone) {
-        localStorage.setItem('pwa_era_standalone', '1');
-    }
-}
-
 function showLoginError(msg) {
     const el = document.getElementById('loginError');
     el.textContent = msg;
@@ -1898,7 +1793,6 @@ function confirmarLogout() {
         document.getElementById('userPhone').value = '';
         document.getElementById('userName').value = '';
         document.getElementById('nameBox').style.display = 'none';
-        // showToast("Você saiu da conta", 'success');
     }, 350);
 }
 
@@ -2135,7 +2029,6 @@ async function saveAsFavorite() {
     favorites[user.phone] = { saved_order: texto, saved_order_total: total };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
 
-    // showToast("Favorito salvo! ⭐", 'success');
     checkFavoriteBtn();
 }
 
@@ -2199,7 +2092,6 @@ function addFavToCart() {
     cart = textToCart(fav.saved_order);
     render();
     document.getElementById('favModal').classList.remove('active');
-    // showToast("Favorito adicionado ao carrinho! 🛒", 'success');
 }
 
 function pedirFavorito() {
@@ -2418,10 +2310,6 @@ async function carregarCupons() {
         console.warn('Erro inesperado ao carregar cupons:', e);
         box.style.display = 'none';
     }
-}
-
-function setupCreditOption() {
-    // Crédito agora é gerenciado dentro de carregarCupons
 }
 
 function selecionarCupom(pct, id, el) {
@@ -2976,12 +2864,10 @@ async function cancelarPedidoCliente(pedidoId, totalExibido) {
             descricao: descNotif
         });
 
-        // showToast('Pedido cancelado ✅', 'success', 3000);
         setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
 
     } catch(e) {
         console.warn('Erro ao cancelar pedido:', e);
-        // showToast('Erro ao cancelar pedido', 'error', 3000);
         carregarPedidosAtivos();
     }
 }
@@ -3167,7 +3053,6 @@ async function salvarPrivacidade(valor) {
     atualizarVisualPrivacidade(valor);
     await sb.from("clientes").update({ show_name: valor }).eq("phone", user.phone);
     user.show_name = valor;
-    // showToast(valor ? "Pedido automático 🤖" : "Pedido manual 🔒", valor ? 'success' : 'warning');
 }
 
 // ===== REALTIME: detecta quando ADM libera tickets ou atualiza debt =====
@@ -4209,12 +4094,5 @@ async function desativarRefazer() {
         </div>
     </div>
 </div>
-
-<style>
-    #modalConfigAutomatico.active {
-        display: flex !important;
-        opacity: 1 !important;
-    }
-</style>
 
 </html>
