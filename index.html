@@ -300,18 +300,18 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
         .cat-btn {
-            flex: 1; padding: 7px 6px;
+            flex: 1; padding: 9px 6px;
             border: 1.5px solid rgba(255,255,255,0.25);
             background: rgba(255,255,255,0.1);
-            color: rgba(255,255,255,0.75);
-            border-radius: 11px; font-weight: 700; font-size: 13px;
+            color: rgba(255,255,255,0.9);
+            border-radius: 11px; font-weight: 900; font-size: 16px; letter-spacing: 0.5px; text-shadow: 0 1px 6px rgba(0,0,0,0.4);
             cursor: pointer; transition: all 0.2s;
             -webkit-tap-highlight-color: transparent;
         }
         .cat-btn.active {
             background: white; color: #7a3214;
             border-color: white;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 3px 14px rgba(0,0,0,0.3); font-size: 17px;
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
@@ -1857,8 +1857,8 @@ function render() {
 
         // Agrupa por tipo
         const grupos = [
-            { tipo: 'quente', label: '🔴𝐌𝐚𝐬𝐬𝐚 𝐐𝐮𝐞𝐧𝐭𝐞🔴' },
-            { tipo: 'fria',   label: '🔵𝐌𝐚𝐬𝐬𝐚 𝐅𝐫𝐢𝐚🔵'   },
+            { tipo: 'quente', label: '🍗𝐌𝐚𝐬𝐬𝐚 𝐐𝐮𝐞𝐧𝐭𝐞🍗' },
+            { tipo: 'fria',   label: '🥐𝐌𝐚𝐬𝐬𝐚 𝐅𝐫𝐢𝐚🥐'   },
             { tipo: '',       label: '📦 Outros'        },
         ];
 
@@ -1898,11 +1898,19 @@ function render() {
             ">
                 <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
                 <div style="
-                    font-size: 18px; font-weight: 900;
+                    font-size: 26px; font-weight: 900;
                     color: #ffffff;
                     letter-spacing: 2px; text-transform: uppercase;
                     white-space: nowrap;
-                    text-shadow: 0 0 12px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.6);
+                    text-shadow:
+                        1px 1px 0 #000,
+                        2px 2px 0 #000,
+                        3px 3px 0 #000,
+                        4px 4px 0 #000,
+                        5px 5px 0 rgba(0,0,0,0.5),
+                        6px 6px 12px rgba(0,0,0,0.8);
+                    transform: perspective(300px) rotateX(8deg);
+                    display: inline-block;
                 ">${grupo.label}</div>
                 <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
             </div>`;
@@ -2001,7 +2009,7 @@ function cartToText() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const tipoEmoji = p.tipo === 'quente' ? '🔴' : p.tipo === 'fria' ? '🔵' : '✅';
+            const tipoEmoji = p.tipo === 'quente' ? '🍗' : p.tipo === 'fria' ? '🥐' : '✅';
             const linha = `${tipoEmoji} ${qty}x ${p.name}`;
             
             if (p.categoria === 'crus') {
@@ -2483,7 +2491,7 @@ async function confirmOrder() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const tipoEmoji = p.tipo === 'quente' ? '🔴' : p.tipo === 'fria' ? '🔵' : '✅';
+            const tipoEmoji = p.tipo === 'quente' ? '🍗' : p.tipo === 'fria' ? '🥐' : '✅';
             const linha = `${tipoEmoji} ${qty}x ${p.name}`;
             
             if (p.categoria === 'crus') {
@@ -3060,7 +3068,7 @@ function lerPedidoVoz() {
         const p = products.find(x => x.id == id);
         if (!p || !cart[id]) continue;
         const qtd = cart[id];
-        const nome = p.name.replace(/Cox\.\s*/gi, 'coxinha de ').trim();
+        const nome = p.name.replace(/Cox\.\s*/gi, 'coxinha de ').replace(/P\.\s*/gi, 'pão de ').trim();
         const femininos = ['coxinha','enroladinha','bolinha','empada','esfiha','pizza','pastel','mini'];
         const ehF = femininos.some(f => nome.toLowerCase().includes(f));
         if (qtd === 1) {
@@ -4092,7 +4100,7 @@ async function desativarRefazer() {
             ">×</button>
         </div>
 
-        <div style="color: rgba(255,255,255,0.75); font-size: 13px; line-height: 1.7; margin-bottom: 20px;">
+        <div style="color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.7; margin-bottom: 20px;">
             Ao ativar, seu pedido salvo será feito automaticamente — sem você precisar fazer nada.<br><br>
             <div style="background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.35); border-radius: 12px; padding: 12px 14px; color: rgba(255,220,80,0.9); font-size: 13px; line-height: 1.6;">
                 ⚠️ Se você fizer um novo pedido antes das 3h da manhã do dia agendado, o automático é cancelado e o seu pedido manual prevalece. ⚠️
