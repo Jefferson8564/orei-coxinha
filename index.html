@@ -1823,7 +1823,8 @@ async function loadProducts() {
         price: Number(p.price),
         pricePromo: p.price_promo ? Number(p.price_promo) : null,
         img: p.image_url || "",
-        categoria: (p.categoria || '').toLowerCase()
+        categoria: (p.categoria || '').toLowerCase(),
+        tipo: (p.tipo || '').toLowerCase()
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
@@ -1854,7 +1855,14 @@ function render() {
             ? products
             : products.filter(p => p.categoria === categoriaFiltro);
 
-        g.innerHTML = produtosFiltrados.map(p => {
+        // Agrupa por tipo
+        const grupos = [
+            { tipo: 'quente', label: '🔴𝐌𝐚𝐬𝐬𝐚 𝐐𝐮𝐞𝐧𝐭𝐞🔴' },
+            { tipo: 'fria',   label: '🔵𝐌𝐚𝐬𝐬𝐚 𝐅𝐫𝐢𝐚🔵'   },
+            { tipo: '',       label: '📦 Outros'        },
+        ];
+
+        function cardHtml(p) {
             const hasPromo = !!(p.pricePromo && temOferta);
             const priceToShow = hasPromo ? p.pricePromo : p.price;
             return `
@@ -1877,8 +1885,31 @@ function render() {
                     </div>
                 </div>
             </div>`;
-        }).join('');
+        }
 
+        let html = '';
+        for (const grupo of grupos) {
+            const itens = produtosFiltrados.filter(p => (p.tipo || '') === grupo.tipo);
+            if (itens.length === 0) continue;
+            html += `<div style="
+                grid-column: 1 / -1;
+                display: flex; align-items: center; gap: 10px;
+                margin: 10px 4px 4px;
+            ">
+                <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
+                <div style="
+                    font-size: 18px; font-weight: 900;
+                    color: #ffffff;
+                    letter-spacing: 2px; text-transform: uppercase;
+                    white-space: nowrap;
+                    text-shadow: 0 0 12px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.6);
+                ">${grupo.label}</div>
+                <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
+            </div>`;
+            html += itens.map(p => cardHtml(p)).join('');
+        }
+
+        g.innerHTML = html;
         // Total calculado em tempo real com preço correto por data
         let total = 0;
         const cartIds = Object.keys(cart);
@@ -1970,7 +2001,8 @@ function cartToText() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const linha = `✅ ${qty}x ${p.name}`;
+            const tipoEmoji = p.tipo === 'quente' ? '🔴' : p.tipo === 'fria' ? '🔵' : '✅';
+            const linha = `${tipoEmoji} ${qty}x ${p.name}`;
             
             if (p.categoria === 'crus') {
                 textoCrus += linha + '\n';
@@ -2451,7 +2483,8 @@ async function confirmOrder() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const linha = `✅ ${qty}x ${p.name}`;
+            const tipoEmoji = p.tipo === 'quente' ? '🔴' : p.tipo === 'fria' ? '🔵' : '✅';
+            const linha = `${tipoEmoji} ${qty}x ${p.name}`;
             
             if (p.categoria === 'crus') {
                 pedidoTextoCrus += linha + '\n';
