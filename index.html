@@ -1811,7 +1811,7 @@ async function loadProducts() {
     if (error) {
         // Sem internet: tenta carregar do cache
         const cached = localStorage.getItem('salgados_products');
-        if (cached) { products = JSON.parse(cached); render(); }
+        if (cached) { products = JSON.parse(cached); render(); processarURLParams(); }
         console.error(error);
         return;
     }
@@ -1828,6 +1828,57 @@ async function loadProducts() {
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
+    processarURLParams();
+}
+
+// ===== URL PARAMS: pré-carregar itens no carrinho =====
+// Formato: ?itens=1x_Coxinha_de_Frango,2x_Enroladinho&auto_save=true
+function processarURLParams() {
+    const params = new URLSearchParams(window.location.search);
+    const itensParam = params.get('itens');
+    const autoSave = params.get('auto_save') === 'true';
+
+    if (!itensParam) return;
+
+    let adicionados = 0;
+    const naoEncontrados = [];
+
+    itensParam.split(',').forEach(item => {
+        // Aceita "1x_Coxinha_de_Frango" ou "1x Coxinha de Frango"
+        const match = item.trim().match(/^(\d+)x[_ ](.+)$/i);
+        if (!match) return;
+        const qty = parseInt(match[1]);
+        const nome = match[2].replace(/_/g, ' ').trim();
+        const prod = products.find(p =>
+            p.name.trim().toLowerCase() === nome.toLowerCase()
+        );
+        if (prod && qty > 0) {
+            cart[prod.id] = (cart[prod.id] || 0) + qty;
+            adicionados++;
+        } else {
+            naoEncontrados.push(nome);
+        }
+    });
+
+    if (adicionados > 0) {
+        render();
+        if (autoSave) {
+            // Aguarda o render completar antes de abrir o modal
+            setTimeout(() => showPayModal(), 350);
+        } else {
+            showToast('🛒 ' + adicionados + ' ite' + (adicionados === 1 ? 'm adicionado' : 'ns adicionados') + ' ao carrinho!');
+        }
+    }
+
+    if (naoEncontrados.length > 0) {
+        console.warn('⚠️ Produtos não encontrados na URL:', naoEncontrados);
+    }
+
+    // Limpa os params da URL para não re-processar em reloads
+    try {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+    } catch(e) {}
 }
 
 let renderScheduled = false;
