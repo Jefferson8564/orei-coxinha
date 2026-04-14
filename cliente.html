@@ -1360,55 +1360,8 @@ function comTimeout(promise, ms, mensagem) {
     ]);
 }
 
-// ===== AUTO SAVE via URL (LARA i.A) =====
-async function _verificarAutoSave() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('auto_save') !== 'true') return;
-
-    const itens      = decodeURIComponent(params.get('itens') || '').trim().replace(/_/g, ' ');
-    const clienteNome = decodeURIComponent(params.get('user') || '').trim() || 'Cliente via Zap';
-
-    if (!itens) return;
-
-    // Mostrar overlay de processamento
-    const overlay = document.getElementById('autoSaveOverlay');
-    if (overlay) overlay.style.display = 'flex';
-
-    try {
-        const { error } = await sb.from('pedidos').insert({
-            itens:        itens,
-            cliente_nome: clienteNome,
-            status:       'confirmado',
-            data_pedido:  agoraISO()
-        });
-
-        if (error) throw error;
-
-        // Limpar parâmetros da URL para evitar duplicidade em refresh
-        window.history.replaceState({}, '', window.location.pathname);
-
-        // Esconder overlay e exibir modal de sucesso
-        if (overlay) overlay.style.display = 'none';
-        const modal = document.getElementById('modalPedidoRecebido');
-        if (modal) {
-            modal.style.display = 'flex';
-            requestAnimationFrame(() => { modal.style.opacity = '1'; });
-        }
-
-    } catch (e) {
-        console.error('[AutoSave] Erro ao salvar pedido:', e);
-        if (overlay) overlay.style.display = 'none';
-        // Limpar params mesmo em erro para não retentar no refresh
-        window.history.replaceState({}, '', window.location.pathname);
-        showToast('❌ Erro ao registrar pedido automático', 'error', 4000);
-    }
-}
-
 // ===== INIT =====
 window.onload = async () => {
-    // ── Verificar pedido automático via URL (LARA i.A) ──
-    await _verificarAutoSave();
-
     // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
     const timeoutGlobal = setTimeout(() => {
         console.warn('[Init] Timeout global atingido — exibindo tela de login');
@@ -4121,74 +4074,6 @@ async function desativarRefazer() {
 }
 
 </script>
-
-<!-- ===== OVERLAY: PROCESSANDO AUTO SAVE (LARA i.A) ===== -->
-<div id="autoSaveOverlay" style="
-    display:none; position:fixed; inset:0; z-index:9999;
-    background:linear-gradient(145deg,#c75b24,#a84a1b);
-    flex-direction:column; align-items:center; justify-content:center;
-    gap:20px; color:white; font-family:'Inter',sans-serif;
-">
-    <div style="font-size:58px; animation:pulse 1.2s ease-in-out infinite; filter:drop-shadow(0 4px 20px rgba(0,0,0,0.3));">🍗</div>
-    <div style="font-size:19px; font-weight:800; letter-spacing:0.3px; text-align:center; line-height:1.4;">
-        Processando seu pedido...
-    </div>
-    <div class="spinner"></div>
-</div>
-
-<!-- ===== MODAL: PEDIDO RECEBIDO (AUTO SAVE) ===== -->
-<div id="modalPedidoRecebido" style="
-    display:none; position:fixed; inset:0; z-index:9998;
-    background:rgba(0,0,0,0.78); backdrop-filter:blur(14px);
-    align-items:center; justify-content:center; padding:24px;
-    opacity:0; transition:opacity 0.35s ease;
-    font-family:'Inter',sans-serif;
-">
-    <div style="
-        background:linear-gradient(145deg,#071a07,#0c250c);
-        border:1.5px solid rgba(37,211,102,0.45);
-        border-radius:28px; padding:40px 28px 28px; max-width:360px; width:100%;
-        text-align:center;
-        box-shadow:0 24px 80px rgba(0,0,0,0.75), 0 0 50px rgba(37,211,102,0.12);
-        animation:slideUp 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
-        position:relative; overflow:hidden;
-    ">
-        <!-- Brilho de fundo -->
-        <div style="
-            position:absolute; top:-80px; left:50%; transform:translateX(-50%);
-            width:260px; height:260px; border-radius:50%;
-            background:radial-gradient(circle,rgba(37,211,102,0.3) 0%,transparent 65%);
-            pointer-events:none;
-        "></div>
-
-        <div style="font-size:70px; margin-bottom:18px; position:relative;
-            filter:drop-shadow(0 4px 24px rgba(37,211,102,0.55));">✅</div>
-
-        <div style="font-size:23px; font-weight:900; color:white; margin-bottom:8px;
-            letter-spacing:-0.5px; position:relative;">
-            PEDIDO RECEBIDO!
-        </div>
-
-        <div style="font-size:14px; color:rgba(37,211,102,0.9); font-weight:700;
-            line-height:1.65; margin-bottom:30px; position:relative;">
-            O Rei da Coxinha já está<br>preparando seu pedido 🍗
-        </div>
-
-        <button onclick="
-            const m=document.getElementById('modalPedidoRecebido');
-            m.style.opacity='0';
-            setTimeout(()=>m.style.display='none',350);
-        " style="
-            width:100%; padding:16px;
-            background:linear-gradient(135deg,#25d366,#1aad52);
-            border:none; border-radius:16px; color:white;
-            font-size:15px; font-weight:900; cursor:pointer;
-            box-shadow:0 6px 24px rgba(37,211,102,0.45);
-            -webkit-tap-highlight-color:transparent;
-            position:relative;
-        ">✓ Entendido!</button>
-    </div>
-</div>
 
 <!-- ===== MODAL: CONFIGURAÇÃO PEDIDO AUTOMÁTICO ===== -->
 <div id="modalConfigAutomatico" style="
