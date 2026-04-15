@@ -2247,56 +2247,43 @@ function renderItensResumo() {
     if (!el) return;
 
     const temOferta = clienteTemOferta();
+    const cat = { key: 'fritos', label: '🔥 FRITOS', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' };
 
-    const categorias = [
-        { key: 'fritos', label: '🔥 FRITOS', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' },
-        { key: 'crus',   label: '🧊 CRUS',   cor: '#1565c0', bgCor: '#eef4ff', borderCor: '#3498db' }
-    ];
+    // Todos os itens do carrinho vão para FRITOS, independente da categoria
+    const itens = products.filter(p => (parseInt(cart[p.id]) || 0) > 0);
 
-    function buildColuna(cat) {
-        const itens = products.filter(p => {
-            const qty = parseInt(cart[p.id]) || 0;
-            return qty > 0 && (p.categoria || '').toLowerCase() === cat.key;
-        });
+    let inner = '';
+    for (const p of itens) {
+        const qty = parseInt(cart[p.id]) || 0;
+        const hasPromo = !!(p.pricePromo && temOferta);
+        const priceToUse = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
+        const subtotal = (priceToUse * qty).toFixed(2).replace('.', ',');
+        const imgSrc = p.img || '';
+        const imgTag = imgSrc
+            ? `<img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`
+            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`;
+        const nomeExibido = p.name.includes('.') ? p.name.split('.').slice(1).join('.').trim() : p.name;
 
-        let inner = '';
-        for (const p of itens) {
-            const qty = parseInt(cart[p.id]) || 0;
-            const hasPromo = !!(p.pricePromo && temOferta);
-            const priceToUse = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
-            const subtotal = (priceToUse * qty).toFixed(2).replace('.', ',');
-            const imgSrc = p.img || '';
-            const imgTag = imgSrc
-                ? `<img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`
-                : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`;
-            const nomeExibido = p.name.includes('.') ? p.name.split('.').slice(1).join('.').trim() : p.name;
-
-            inner += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                <div style="position:relative;width:64px;height:64px;">
-                    ${imgTag}
-                    <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
-                </div>
-                <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;">${nomeExibido}</div>
-                <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
-            </div>`;
-        }
-
-        if (!inner) {
-            inner = `<div style="color:#bbb;font-size:12px;text-align:center;padding:16px 0;">—</div>`;
-        }
-
-        return `<div style="flex:1;background:${cat.bgCor};border-radius:14px;padding:10px 8px;border:1px solid ${cat.borderCor}33;">
-            <div style="font-size:11px;font-weight:900;color:${cat.cor};letter-spacing:1px;text-align:center;margin-bottom:10px;">${cat.label}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-                ${inner}
+        inner += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="position:relative;width:64px;height:64px;">
+                ${imgTag}
+                <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
             </div>
+            <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;">${nomeExibido}</div>
+            <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
         </div>`;
     }
 
-    let html = `<div style="display:flex;gap:10px;align-items:flex-start;">`;
-    html += buildColuna(categorias[0]);
-    html += buildColuna(categorias[1]);
-    html += `</div>`;
+    if (!inner) {
+        inner = `<div style="color:#bbb;font-size:12px;text-align:center;padding:16px 0;">—</div>`;
+    }
+
+    const html = `<div style="background:${cat.bgCor};border-radius:14px;padding:10px 8px;border:1px solid ${cat.borderCor}33;">
+        <div style="font-size:11px;font-weight:900;color:${cat.cor};letter-spacing:1px;text-align:center;margin-bottom:10px;">${cat.label}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+            ${inner}
+        </div>
+    </div>`;
 
     el.innerHTML = html;
 }
