@@ -1873,13 +1873,13 @@ function processarURLParams() {
 
     cart = novoCart;
 
-    // Se vier via auto_save, muda a aba para CRUS antes de renderizar
+    // Se vier via auto_save, muda a aba para FRITOS antes de renderizar
     const isAutoSave = params.get('auto_save') === 'true';
     if (isAutoSave) {
-        categoriaFiltro = 'crus';
+        categoriaFiltro = 'fritos';
         document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-        const btnCrus = document.querySelector('.cat-btn[onclick*="crus"]');
-        if (btnCrus) btnCrus.classList.add('active');
+        const btnFritos = document.querySelector('.cat-btn[onclick*="fritos"]');
+        if (btnFritos) btnFritos.classList.add('active');
     }
 
     render();
