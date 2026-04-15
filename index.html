@@ -2177,17 +2177,34 @@ function cartToText() {
 }
 
 // Texto pedido → cart {id:qty}
+// Respeita seções de categoria: ———🔥fritos🔥——— / ———❄️ crus ❄️———
 function textToCart(savedOrderText) {
     const newCart = {};
-    const linhas = (savedOrderText || '').replace(/✅ /g, '').split('\n').filter(Boolean);
+    const linhas = (savedOrderText || '').split('\n').filter(Boolean);
+    let categoriaAtual = null; // 'fritos' | 'crus' | null
+
     linhas.forEach(linha => {
-        const match = linha.match(/^(\d+)x\s+(.+)$/);
-        if (match) {
-            const qty = parseInt(match[1]);
-            const nome = match[2].trim();
-            const prod = products.find(p => p.name.trim() === nome);
-            if (prod) newCart[prod.id] = qty;
+        // Detecta cabeçalho de categoria
+        if (linha.includes('fritos')) { categoriaAtual = 'fritos'; return; }
+        if (linha.includes('crus'))   { categoriaAtual = 'crus';   return; }
+
+        // Remove emojis de tipo no início (🍗 / 🥐 / ✅)
+        const limpa = linha.replace(/^[🍗🥐✅]\s*/, '').replace(/^✅ /, '').trim();
+        const match = limpa.match(/^(\d+)x\s+(.+)$/);
+        if (!match) return;
+
+        const qty  = parseInt(match[1]);
+        const nome = match[2].trim();
+
+        let prod = null;
+        if (categoriaAtual) {
+            // Tenta achar na categoria correta primeiro
+            prod = products.find(p => p.name.trim() === nome && p.categoria === categoriaAtual);
         }
+        // Fallback: qualquer produto com esse nome
+        if (!prod) prod = products.find(p => p.name.trim() === nome);
+
+        if (prod) newCart[prod.id] = qty;
     });
     return newCart;
 }
