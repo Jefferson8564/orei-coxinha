@@ -1807,10 +1807,11 @@ function clienteTemOferta() {
 }
 
 // ===== AUTO-PREENCHER CARRINHO VIA URL =====
-// Suporta três formatos:
+// Suporta quatro formatos:
 //   Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry
 //   Formato 2: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query)
 //   Formato 3: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
+//   Formato 4: ?fritos=10+enroladinho?crus=10+Frango=10+Catupiry  (grupos por categoria, separados por ?)
 function processarURLParams() {
     const search = window.location.search;
     const pathname = window.location.pathname;
@@ -1829,7 +1830,32 @@ function processarURLParams() {
         }
     }
 
-    // --- Formato 2: ?=10+cox.frango=10+cox.catupiry  OU  ?fritos=20+Frango=20+Catupiry ---
+    // --- Formato 4: ?fritos=10+enroladinho?crus=10+Frango=10+Catupiry=10+charque=10+queijo ---
+    // Segmentos separados por '?' com prefixo de categoria (fritos ou crus)
+    if (itens.length === 0 && search && search.length >= 3) {
+        // Junta search + qualquer ?crus= / ?fritos= extra que apareça na href completa
+        const fullHref = decodeURIComponent(window.location.href).replace(/\+/g, ' ');
+        // Divide em segmentos pelo caractere '?'
+        const segmentos = fullHref.split('?').slice(1); // remove tudo antes do primeiro ?
+        let encontrouFormato4 = false;
+        segmentos.forEach(seg => {
+            // seg exemplo: "fritos=10 enroladinho" ou "crus=10 Frango=10 Catupiry"
+            const categoriaMatch = seg.match(/^(fritos|crus)=/i);
+            if (!categoriaMatch) return;
+            encontrouFormato4 = true;
+            const categoria = categoriaMatch[1].toLowerCase(); // 'fritos' ou 'crus'
+            // Extrai pares qty+nome dentro deste segmento
+            const re4 = /(?:[^=]*=)(\d+)\s+([^=]+)/g;
+            let m4;
+            while ((m4 = re4.exec(seg)) !== null) {
+                itens.push({ qty: parseInt(m4[1]), nome: m4[2].trim(), categoria });
+            }
+        });
+        // Se não encontrou o formato 4, zera itens para tentar formato 2
+        if (!encontrouFormato4) itens = [];
+    }
+
+    // --- Formato 2: ?=10+cox.frango=10+cox.catupiry  OU  ?fritos=20+Frango=20+Catupiry (todos na mesma query) ---
     if (itens.length === 0 && search && search.length >= 3) {
         const raw = decodeURIComponent(search).replace(/\+/g, ' ');
         // Captura tanto "=número nome" quanto "chave=número nome" (ex: fritos=20 Frango)
@@ -1862,11 +1888,20 @@ function processarURLParams() {
     }
 
     const novoCart = {};
-    itens.forEach(({ qty, nome }) => {
+    itens.forEach(({ qty, nome, categoria }) => {
         if (qty <= 0) return;
         const n = norm(nome);
+        // Candidatos: se categoria informada, prioriza produtos dessa categoria
+        let candidatos = products;
+        if (categoria) {
+            const porCategoria = products.filter(p => (p.categoria || '').toLowerCase() === categoria);
+            if (porCategoria.length > 0) candidatos = porCategoria;
+        }
         // 1) exact | 2) cardápio contém o parâmetro | 3) parâmetro contém o cardápio
         const prod =
+            candidatos.find(p => norm(p.name) === n) ||
+            candidatos.find(p => norm(p.name).includes(n)) ||
+            candidatos.find(p => n.includes(norm(p.name))) ||
             products.find(p => norm(p.name) === n) ||
             products.find(p => norm(p.name).includes(n)) ||
             products.find(p => n.includes(norm(p.name)));
