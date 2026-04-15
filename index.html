@@ -1872,6 +1872,16 @@ function processarURLParams() {
     if (Object.keys(novoCart).length === 0) return;
 
     cart = novoCart;
+
+    // Se vier via auto_save, muda a aba para CRUS antes de renderizar
+    const isAutoSave = params.get('auto_save') === 'true';
+    if (isAutoSave) {
+        categoriaFiltro = 'crus';
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+        const btnCrus = document.querySelector('.cat-btn[onclick*="crus"]');
+        if (btnCrus) btnCrus.classList.add('active');
+    }
+
     render();
 
     // Limpar URL para não reprocessar em próximas navegações
