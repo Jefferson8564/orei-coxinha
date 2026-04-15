@@ -1412,39 +1412,20 @@ window.onload = async () => {
         // Adicionar histórico inicial
         window.history.pushState({ state: 'home' }, '', window.location.href);
 
-        // Carregar configurações (template + versão de cache)
-        let forceReloadVersao = localStorage.getItem('force_reload_version') || '0';
+        // Carregar configurações (template)
         try {
             const { data: cfgs } = await comTimeout(
-                sb.from("configs").select("key, value").in("key", ["msg_template", "force_reload_version"]),
+                sb.from("configs").select("key, value").eq("key", "msg_template"),
                 6000, 'Timeout ao carregar configurações'
             );
             if (cfgs) {
                 cfgs.forEach(c => {
                     if (c.key === 'msg_template') msgTemplate = c.value;
-                    if (c.key === 'force_reload_version') {
-                        const versaoRemota = c.value;
-                        const versaoLocal = localStorage.getItem('force_reload_version') || '0';
-                        // Se ADM mandou limpar e não somos o ADM → limpa e recarrega
-                        const phoneLocal = localStorage.getItem('salgados_phone');
-                        if (versaoRemota !== versaoLocal && phoneLocal !== ADMIN_NUM) {
-                            // ADM mandou limpar: apaga TUDO, inclusive login
-                            localStorage.clear();
-                            localStorage.setItem('force_reload_version', versaoRemota);
-                            window.location.reload();
-                            return;
-                        }
-                        // Salva versão local para comparação futura
-                        localStorage.setItem('force_reload_version', versaoRemota);
-                        forceReloadVersao = versaoRemota;
-                    }
                 });
             }
         } catch (e) {
             console.warn('[Init] Configurações não carregadas, usando template padrão:', e.message);
         }
-        // Inicia escuta em tempo real para limpeza de cache futura
-        iniciarRealtimeCacheWatch(forceReloadVersao);
 
         // Carregar favoritos da sessão local (fallback offline)
         favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
@@ -1806,136 +1787,6 @@ function clienteTemOferta() {
     return diffDays <= 15;
 }
 
-// ===== AUTO-PREENCHER CARRINHO VIA URL =====
-// Suporta quatro formatos:
-//   Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry
-//   Formato 2: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query)
-//   Formato 3: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
-//   Formato 4: ?fritos=10+enroladinho?crus=10+Frango=10+Catupiry  (grupos por categoria, separados por ?)
-function processarURLParams() {
-    const search = window.location.search;
-    const pathname = window.location.pathname;
-
-    let itens = [];
-
-    // --- Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry ---
-    const params = new URLSearchParams(search);
-    const itensParam = params.get('itens');
-    if (itensParam) {
-        const str = itensParam.trim();
-        const re = /(\d+)\s+(.+?)(?=\s+\d+\s|\s*$)/g;
-        let m;
-        while ((m = re.exec(str)) !== null) {
-            itens.push({ qty: parseInt(m[1]), nome: m[2].trim() });
-        }
-    }
-
-    // --- Formato 4: ?fritos=10+enroladinho?crus=10+Frango=10+Catupiry=10+charque=10+queijo ---
-    // Segmentos separados por '?' com prefixo de categoria (fritos ou crus)
-    if (itens.length === 0 && search && search.length >= 3) {
-        // Junta search + qualquer ?crus= / ?fritos= extra que apareça na href completa
-        const fullHref = decodeURIComponent(window.location.href).replace(/\+/g, ' ');
-        // Divide em segmentos pelo caractere '?'
-        const segmentos = fullHref.split('?').slice(1); // remove tudo antes do primeiro ?
-        let encontrouFormato4 = false;
-        segmentos.forEach(seg => {
-            // seg exemplo: "fritos=10 enroladinho" ou "crus=10 Frango=10 Catupiry"
-            const categoriaMatch = seg.match(/^(fritos|crus)=/i);
-            if (!categoriaMatch) return;
-            encontrouFormato4 = true;
-            const categoria = categoriaMatch[1].toLowerCase(); // 'fritos' ou 'crus'
-            // Extrai pares qty+nome dentro deste segmento
-            const re4 = /(?:[^=]*=)(\d+)\s+([^=]+)/g;
-            let m4;
-            while ((m4 = re4.exec(seg)) !== null) {
-                itens.push({ qty: parseInt(m4[1]), nome: m4[2].trim(), categoria });
-            }
-        });
-        // Se não encontrou o formato 4, zera itens para tentar formato 2
-        if (!encontrouFormato4) itens = [];
-    }
-
-    // --- Formato 2: ?=10+cox.frango=10+cox.catupiry  OU  ?fritos=20+Frango=20+Catupiry (todos na mesma query) ---
-    if (itens.length === 0 && search && search.length >= 3) {
-        const raw = decodeURIComponent(search).replace(/\+/g, ' ');
-        // Captura tanto "=número nome" quanto "chave=número nome" (ex: fritos=20 Frango)
-        const re2 = /(?:[^=&?]*=)(\d+)\s+([^=&]+)/g;
-        let m2;
-        while ((m2 = re2.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim() });
-        }
-    }
-
-    // --- Formato 3: /=5+cox.frango=10+cox.catupiry (pathname) ---
-    if (itens.length === 0 && pathname.includes('=')) {
-        const raw = decodeURIComponent(pathname).replace(/\+/g, ' ');
-        const re3 = /=(\d+)\s+([^=]+)/g;
-        let m3;
-        while ((m3 = re3.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim() });
-        }
-    }
-
-    if (itens.length === 0) return;
-
-    // Normaliza nome: lowercase, sem pontos, sem acentos, espaços simples
-    function norm(n) {
-        return n.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
-            .replace(/\./g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    const novoCart = {};
-    itens.forEach(({ qty, nome, categoria }) => {
-        if (qty <= 0) return;
-        const n = norm(nome);
-        // Candidatos: se categoria informada, prioriza produtos dessa categoria
-        let candidatos = products;
-        if (categoria) {
-            const porCategoria = products.filter(p => (p.categoria || '').toLowerCase() === categoria);
-            if (porCategoria.length > 0) candidatos = porCategoria;
-        }
-        // 1) exact | 2) cardápio contém o parâmetro | 3) parâmetro contém o cardápio
-        const prod =
-            candidatos.find(p => norm(p.name) === n) ||
-            candidatos.find(p => norm(p.name).includes(n)) ||
-            candidatos.find(p => n.includes(norm(p.name))) ||
-            products.find(p => norm(p.name) === n) ||
-            products.find(p => norm(p.name).includes(n)) ||
-            products.find(p => n.includes(norm(p.name)));
-        if (prod) {
-            novoCart[prod.id] = (novoCart[prod.id] || 0) + qty;
-        } else {
-            console.warn('[URLParams] Produto não encontrado:', nome, '→ norm:', n);
-        }
-    });
-
-    if (Object.keys(novoCart).length === 0) return;
-
-    cart = novoCart;
-
-    // Se vier via auto_save, muda a aba para FRITOS antes de renderizar
-    const isAutoSave = params.get('auto_save') === 'true';
-    if (isAutoSave) {
-        categoriaFiltro = 'fritos';
-        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-        const btnFritos = document.querySelector('.cat-btn[onclick*="fritos"]');
-        if (btnFritos) btnFritos.classList.add('active');
-    }
-
-    render();
-
-    // Limpar URL para não reprocessar em próximas navegações
-    const url = new URL(window.location.href);
-    url.searchParams.delete('itens');
-    url.searchParams.delete('auto_save');
-    window.history.replaceState({}, '', url.pathname);
-
-    // Abre modal de finalização automaticamente
-    setTimeout(() => showPayModal(), 450);
-}
 
 async function loadProducts() {
     const { data, error } = await sb.from("cardapio").select("*").eq("available", true).order("created_at", { ascending: true });
@@ -1959,8 +1810,6 @@ async function loadProducts() {
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
-    // Aguarda o requestAnimationFrame de render() concluir antes de processar URL
-    setTimeout(processarURLParams, 80);
 }
 
 let renderScheduled = false;
@@ -3296,45 +3145,7 @@ function iniciarRealtimeCliente(phone) {
 }
 
 // ===== REALTIME: detecta quando ADM manda limpar cache =====
-function iniciarRealtimeCacheWatch(versaoAtual) {
-    sb.channel('force_reload_watch')
-        // Escuta limpeza geral (todos)
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'configs',
-            filter: 'key=eq.force_reload_version'
-        }, (payload) => {
-            const novaVersao = payload.new?.value;
-            if (user && user.phone === ADMIN_NUM) return;
-            if (novaVersao && novaVersao !== versaoAtual) {
-                // ADM mandou limpar: apaga TUDO, inclusive login
-                localStorage.clear();
-                window.location.reload();
-            }
-        })
-        // Escuta limpeza individual (por telefone)
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'configs'
-        }, (payload) => {
-            const chave = payload.new?.key || '';
-            const phone = localStorage.getItem('salgados_phone');
-            if (!phone || !chave.startsWith('force_reload_phone_')) return;
-            if (chave === 'force_reload_phone_' + phone) {
-                const versaoSalva = localStorage.getItem(chave) || '0';
-                const versaoNova = payload.new?.value;
-                if (versaoNova && versaoNova !== versaoSalva) {
-                    localStorage.removeItem(chave);
-                    // ADM mandou limpar este cliente: apaga TUDO, inclusive login
-                    localStorage.clear();
-                    window.location.reload();
-                }
-            }
-        })
-        .subscribe();
-}
+
 </script>
 
 <!-- PAINEL DE ajuda de ia - PÁGINA COMPLETA -->
