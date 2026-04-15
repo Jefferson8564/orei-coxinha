@@ -1844,11 +1844,11 @@ function processarURLParams() {
 
     if (itens.length === 0) return;
 
-    // Normaliza nome para comparação fuzzy
+    // Normaliza nome: lowercase, sem pontos, sem acentos, espaços simples
     function norm(n) {
         return n.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
             .replace(/\./g, '')
-            .replace(/cox\b/g, 'cox')
             .replace(/\s+/g, ' ')
             .trim();
     }
@@ -1857,13 +1857,15 @@ function processarURLParams() {
     itens.forEach(({ qty, nome }) => {
         if (qty <= 0) return;
         const n = norm(nome);
-        // Tenta exact → includes(n) → n.includes
+        // 1) exact | 2) cardápio contém o parâmetro | 3) parâmetro contém o cardápio
         const prod =
             products.find(p => norm(p.name) === n) ||
             products.find(p => norm(p.name).includes(n)) ||
             products.find(p => n.includes(norm(p.name)));
         if (prod) {
             novoCart[prod.id] = (novoCart[prod.id] || 0) + qty;
+        } else {
+            console.warn('[URLParams] Produto não encontrado:', nome, '→ norm:', n);
         }
     });
 
@@ -1904,7 +1906,8 @@ async function loadProducts() {
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
-    processarURLParams();
+    // Aguarda o requestAnimationFrame de render() concluir antes de processar URL
+    setTimeout(processarURLParams, 80);
 }
 
 let renderScheduled = false;
