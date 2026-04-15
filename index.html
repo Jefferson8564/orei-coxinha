@@ -1807,111 +1807,73 @@ function clienteTemOferta() {
 }
 
 // ===== AUTO-PREENCHER CARRINHO VIA URL =====
-// Suporta quatro formatos:
+// Suporta três formatos:
 //   Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry
-//   Formato 2: ?fritos=20+cox.frango=20+cox.catupiry&crus=10+cox.frango (categoria como chave)
-//   Formato 3: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query, sem categoria)
-//   Formato 4: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
+//   Formato 2: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query)
+//   Formato 3: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
 function processarURLParams() {
     const search = window.location.search;
     const pathname = window.location.pathname;
 
-    // Normaliza nome: lowercase, sem pontos, sem acentos, espaços simples
-    function norm(n) {
-        return n.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/\./g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
-
-    // Busca produto respeitando categoria quando informada
-    function buscarProduto(nome, categoria) {
-        const n = norm(nome);
-        const pool = categoria
-            ? products.filter(p => p.categoria === categoria)
-            : products;
-        return (
-            pool.find(p => norm(p.name) === n) ||
-            pool.find(p => norm(p.name).includes(n)) ||
-            pool.find(p => n.includes(norm(p.name)))
-        );
-    }
-
-    // Extrai itens de uma string no formato "20+cox.frango=10+cox.catupiry"
-    function extrairItens(str, categoria) {
-        const result = [];
-        const raw = decodeURIComponent(str).replace(/\+/g, ' ');
-        const re = /(?:^|=)(\d+)\s+([^=]+)/g;
-        let m;
-        while ((m = re.exec(raw)) !== null) {
-            result.push({ qty: parseInt(m[1]), nome: m[2].trim(), categoria });
-        }
-        return result;
-    }
-
     let itens = [];
-    const params = new URLSearchParams(search);
 
     // --- Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry ---
+    const params = new URLSearchParams(search);
     const itensParam = params.get('itens');
     if (itensParam) {
         const str = itensParam.trim();
         const re = /(\d+)\s+(.+?)(?=\s+\d+\s|\s*$)/g;
         let m;
         while ((m = re.exec(str)) !== null) {
-            itens.push({ qty: parseInt(m[1]), nome: m[2].trim(), categoria: null });
+            itens.push({ qty: parseInt(m[1]), nome: m[2].trim() });
         }
     }
 
-    // --- Formato 2: ?fritos=20+cox.frango=...&crus=10+cox.frango=... ---
-    if (itens.length === 0) {
-        // Tenta via URLSearchParams padrão (separador &)
-        ['fritos', 'crus'].forEach(cat => {
-            const val = params.get(cat);
-            if (val) itens = itens.concat(extrairItens(val, cat));
-        });
-
-        // Trata URLs onde ? separa fritos e crus (ex: ?fritos=...?crus=...)
-        if (itens.length === 0 && (search.includes('fritos=') || search.includes('crus='))) {
-            const raw = decodeURIComponent(search).replace(/\+/g, ' ');
-            const blocoFritos = raw.match(/fritos=([\s\S]+?)(?=\?crus=|&crus=|$)/);
-            const blocoCrus   = raw.match(/[?&]?crus=([\s\S]+?)(?=\?fritos=|&fritos=|$)/);
-            if (blocoFritos) itens = itens.concat(extrairItens(blocoFritos[1], 'fritos'));
-            if (blocoCrus)   itens = itens.concat(extrairItens(blocoCrus[1],   'crus'));
-        }
-    }
-
-    // --- Formato 3: ?=10+cox.frango=10+cox.catupiry (sem categoria explícita) ---
+    // --- Formato 2: ?=10+cox.frango=10+cox.catupiry  OU  ?fritos=20+Frango=20+Catupiry ---
     if (itens.length === 0 && search && search.length >= 3) {
         const raw = decodeURIComponent(search).replace(/\+/g, ' ');
-        const re2 = /[=&](\d+)\s+([^=&]+)/g;
+        // Captura tanto "=número nome" quanto "chave=número nome" (ex: fritos=20 Frango)
+        const re2 = /(?:[^=&?]*=)(\d+)\s+([^=&]+)/g;
         let m2;
         while ((m2 = re2.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim(), categoria: null });
+            itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim() });
         }
     }
 
-    // --- Formato 4: /=5+cox.frango=10+cox.catupiry (pathname) ---
+    // --- Formato 3: /=5+cox.frango=10+cox.catupiry (pathname) ---
     if (itens.length === 0 && pathname.includes('=')) {
         const raw = decodeURIComponent(pathname).replace(/\+/g, ' ');
         const re3 = /=(\d+)\s+([^=]+)/g;
         let m3;
         while ((m3 = re3.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim(), categoria: null });
+            itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim() });
         }
     }
 
     if (itens.length === 0) return;
 
+    // Normaliza nome: lowercase, sem pontos, sem acentos, espaços simples
+    function norm(n) {
+        return n.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
+            .replace(/\./g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     const novoCart = {};
-    itens.forEach(({ qty, nome, categoria }) => {
+    itens.forEach(({ qty, nome }) => {
         if (qty <= 0) return;
-        const prod = buscarProduto(nome, categoria);
+        const n = norm(nome);
+        // 1) exact | 2) cardápio contém o parâmetro | 3) parâmetro contém o cardápio
+        const prod =
+            products.find(p => norm(p.name) === n) ||
+            products.find(p => norm(p.name).includes(n)) ||
+            products.find(p => n.includes(norm(p.name)));
         if (prod) {
             novoCart[prod.id] = (novoCart[prod.id] || 0) + qty;
         } else {
-            console.warn('[URLParams] Produto não encontrado:', nome, '→ categoria:', categoria);
+            console.warn('[URLParams] Produto não encontrado:', nome, '→ norm:', n);
         }
     });
 
