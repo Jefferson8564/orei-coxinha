@@ -1807,12 +1807,13 @@ function clienteTemOferta() {
 }
 
 // ===== AUTO-PREENCHER CARRINHO VIA URL =====
-// Suporta dois formatos:
+// Suporta três formatos:
 //   Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry
 //   Formato 2: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query)
+//   Formato 3: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
 function processarURLParams() {
     const search = window.location.search;
-    if (!search || search.length < 3) return;
+    const pathname = window.location.pathname;
 
     let itens = [];
 
@@ -1820,9 +1821,7 @@ function processarURLParams() {
     const params = new URLSearchParams(search);
     const itensParam = params.get('itens');
     if (itensParam) {
-        // URLSearchParams já converte + → espaço
         const str = itensParam.trim();
-        // Regex: encontra "qty NomeProduto" com lookahead para próximo número ou fim
         const re = /(\d+)\s+(.+?)(?=\s+\d+\s|\s*$)/g;
         let m;
         while ((m = re.exec(str)) !== null) {
@@ -1831,14 +1830,22 @@ function processarURLParams() {
     }
 
     // --- Formato 2: ?=10+cox.frango=10+cox.catupiry ---
-    if (itens.length === 0) {
-        // Raw search: ?=10+cox.frango=10+cox.catupiry...
-        // Cada par começa com = seguido de qty+nome
+    if (itens.length === 0 && search && search.length >= 3) {
         const raw = decodeURIComponent(search).replace(/\+/g, ' ');
         const re2 = /[=&](\d+)\s+([^=&]+)/g;
         let m2;
         while ((m2 = re2.exec(raw)) !== null) {
             itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim() });
+        }
+    }
+
+    // --- Formato 3: /=5+cox.frango=10+cox.catupiry (pathname) ---
+    if (itens.length === 0 && pathname.includes('=')) {
+        const raw = decodeURIComponent(pathname).replace(/\+/g, ' ');
+        const re3 = /=(\d+)\s+([^=]+)/g;
+        let m3;
+        while ((m3 = re3.exec(raw)) !== null) {
+            itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim() });
         }
     }
 
