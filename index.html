@@ -1807,68 +1807,113 @@ function clienteTemOferta() {
 }
 
 // ===== AUTO-PREENCHER CARRINHO VIA URL =====
-// Suporta três formatos:
+// Suporta os seguintes formatos:
 //   Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry
 //   Formato 2: ?=10+cox.frango=10+cox.catupiry   (pares =qty+nome na query)
 //   Formato 3: /=5+cox.frango=10+cox.catupiry     (pares =qty+nome no pathname)
+//   Formato 4 (COM CATEGORIA): ?fritos=enroladinho=4+queijo=4&crus=queijo=6+cox.frango=10
+//      → Os parâmetros "fritos" e "crus" contêm pares nome=qty separados por +
 function processarURLParams() {
     const search = window.location.search;
     const pathname = window.location.pathname;
 
-    let itens = [];
-
-    // --- Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry ---
-    const params = new URLSearchParams(search);
-    const itensParam = params.get('itens');
-    if (itensParam) {
-        const str = itensParam.trim();
-        const re = /(\d+)\s+(.+?)(?=\s+\d+\s|\s*$)/g;
-        let m;
-        while ((m = re.exec(str)) !== null) {
-            itens.push({ qty: parseInt(m[1]), nome: m[2].trim() });
-        }
-    }
-
-    // --- Formato 2: ?=10+cox.frango=10+cox.catupiry ---
-    if (itens.length === 0 && search && search.length >= 3) {
-        const raw = decodeURIComponent(search).replace(/\+/g, ' ');
-        const re2 = /[=&](\d+)\s+([^=&]+)/g;
-        let m2;
-        while ((m2 = re2.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim() });
-        }
-    }
-
-    // --- Formato 3: /=5+cox.frango=10+cox.catupiry (pathname) ---
-    if (itens.length === 0 && pathname.includes('=')) {
-        const raw = decodeURIComponent(pathname).replace(/\+/g, ' ');
-        const re3 = /=(\d+)\s+([^=]+)/g;
-        let m3;
-        while ((m3 = re3.exec(raw)) !== null) {
-            itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim() });
-        }
-    }
-
-    if (itens.length === 0) return;
+    let itens = []; // { qty, nome, categoria (opcional) }
 
     // Normaliza nome: lowercase, sem pontos, sem acentos, espaços simples
     function norm(n) {
         return n.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/\./g, '')
             .replace(/\s+/g, ' ')
             .trim();
     }
 
+    const params = new URLSearchParams(search);
+
+    // --- Formato 4: ?fritos=enroladinho=4+queijo=4&crus=queijo=6 ---
+    // Verifica se existe parâmetro "fritos" ou "crus" na URL
+    const categorias = ['fritos', 'crus'];
+    let usouFormatoCat = false;
+    categorias.forEach(cat => {
+        const val = params.get(cat);
+        if (val) {
+            usouFormatoCat = true;
+            // val ex: "enroladinho=4+queijo=4" ou "enroladinho=4 queijo=4"
+            const raw = decodeURIComponent(val).replace(/\+/g, ' ');
+            // Cada par: nome=qty (qty pode estar antes ou depois do nome)
+            // Suporta tanto "enroladinho=4" quanto "4 enroladinho"
+            const rePar = /([a-záàâãéêíóôõúç\s\.]+?)=(\d+)|(\d+)\s+([a-záàâãéêíóôõúç\s\.]+)/gi;
+            let m;
+            while ((m = rePar.exec(raw)) !== null) {
+                if (m[1] && m[2]) {
+                    itens.push({ qty: parseInt(m[2]), nome: m[1].trim(), categoria: cat });
+                } else if (m[3] && m[4]) {
+                    itens.push({ qty: parseInt(m[3]), nome: m[4].trim(), categoria: cat });
+                }
+            }
+        }
+    });
+
+    // --- Formato 1: ?itens=5+Cox.+Frango+5+Cox.+Catupiry ---
+    if (!usouFormatoCat) {
+        const itensParam = params.get('itens');
+        if (itensParam) {
+            const str = itensParam.trim();
+            const re = /(\d+)\s+(.+?)(?=\s+\d+\s|\s*$)/g;
+            let m;
+            while ((m = re.exec(str)) !== null) {
+                itens.push({ qty: parseInt(m[1]), nome: m[2].trim() });
+            }
+        }
+
+        // --- Formato 2: ?=10+cox.frango=10+cox.catupiry ---
+        if (itens.length === 0 && search && search.length >= 3) {
+            const raw = decodeURIComponent(search).replace(/\+/g, ' ');
+            const re2 = /[=&](\d+)\s+([^=&]+)/g;
+            let m2;
+            while ((m2 = re2.exec(raw)) !== null) {
+                itens.push({ qty: parseInt(m2[1]), nome: m2[2].trim() });
+            }
+        }
+
+        // --- Formato 3: /=5+cox.frango=10+cox.catupiry (pathname) ---
+        if (itens.length === 0 && pathname.includes('=')) {
+            const raw = decodeURIComponent(pathname).replace(/\+/g, ' ');
+            const re3 = /=(\d+)\s+([^=]+)/g;
+            let m3;
+            while ((m3 = re3.exec(raw)) !== null) {
+                itens.push({ qty: parseInt(m3[1]), nome: m3[2].trim() });
+            }
+        }
+    }
+
+    if (itens.length === 0) return;
+
     const novoCart = {};
-    itens.forEach(({ qty, nome }) => {
+    itens.forEach(({ qty, nome, categoria }) => {
         if (qty <= 0) return;
         const n = norm(nome);
+
+        let pool = products;
+        // Se categoria foi especificada, filtra por ela primeiro
+        if (categoria) {
+            pool = products.filter(p => (p.categoria || '').toLowerCase() === categoria);
+        }
+
         // 1) exact | 2) cardápio contém o parâmetro | 3) parâmetro contém o cardápio
-        const prod =
-            products.find(p => norm(p.name) === n) ||
-            products.find(p => norm(p.name).includes(n)) ||
-            products.find(p => n.includes(norm(p.name)));
+        let prod =
+            pool.find(p => norm(p.name) === n) ||
+            pool.find(p => norm(p.name).includes(n)) ||
+            pool.find(p => n.includes(norm(p.name)));
+
+        // Se não achou na categoria especificada, tenta em todos
+        if (!prod && categoria) {
+            prod = products.find(p => norm(p.name) === n) ||
+                   products.find(p => norm(p.name).includes(n)) ||
+                   products.find(p => n.includes(norm(p.name)));
+            console.warn('[URLParams] Produto não encontrado na categoria', categoria, '— usando qualquer:', nome);
+        }
+
         if (prod) {
             novoCart[prod.id] = (novoCart[prod.id] || 0) + qty;
         } else {
@@ -1895,6 +1940,8 @@ function processarURLParams() {
     const url = new URL(window.location.href);
     url.searchParams.delete('itens');
     url.searchParams.delete('auto_save');
+    url.searchParams.delete('fritos');
+    url.searchParams.delete('crus');
     window.history.replaceState({}, '', url.pathname);
 
     // Abre modal de finalização automaticamente
@@ -2247,43 +2294,56 @@ function renderItensResumo() {
     if (!el) return;
 
     const temOferta = clienteTemOferta();
-    const cat = { key: 'fritos', label: '🔥 FRITOS', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' };
 
-    // Todos os itens do carrinho vão para FRITOS, independente da categoria
-    const itens = products.filter(p => (parseInt(cart[p.id]) || 0) > 0);
+    const categorias = [
+        { key: 'fritos', label: '🔥 FRITOS', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' },
+        { key: 'crus',   label: '🧊 CRUS',   cor: '#1565c0', bgCor: '#eef4ff', borderCor: '#3498db' }
+    ];
 
-    let inner = '';
-    for (const p of itens) {
-        const qty = parseInt(cart[p.id]) || 0;
-        const hasPromo = !!(p.pricePromo && temOferta);
-        const priceToUse = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
-        const subtotal = (priceToUse * qty).toFixed(2).replace('.', ',');
-        const imgSrc = p.img || '';
-        const imgTag = imgSrc
-            ? `<img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`
-            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`;
-        const nomeExibido = p.name.includes('.') ? p.name.split('.').slice(1).join('.').trim() : p.name;
+    function buildColuna(cat) {
+        const itens = products.filter(p => {
+            const qty = parseInt(cart[p.id]) || 0;
+            return qty > 0 && (p.categoria || '').toLowerCase() === cat.key;
+        });
 
-        inner += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <div style="position:relative;width:64px;height:64px;">
-                ${imgTag}
-                <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
+        let inner = '';
+        for (const p of itens) {
+            const qty = parseInt(cart[p.id]) || 0;
+            const hasPromo = !!(p.pricePromo && temOferta);
+            const priceToUse = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
+            const subtotal = (priceToUse * qty).toFixed(2).replace('.', ',');
+            const imgSrc = p.img || '';
+            const imgTag = imgSrc
+                ? `<img src="${imgSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`
+                : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;border-radius:50%;background:#f0f0f0;">🍗</div>`;
+            const nomeExibido = p.name.includes('.') ? p.name.split('.').slice(1).join('.').trim() : p.name;
+
+            inner += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <div style="position:relative;width:64px;height:64px;">
+                    ${imgTag}
+                    <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
+                </div>
+                <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;">${nomeExibido}</div>
+                <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
+            </div>`;
+        }
+
+        if (!inner) {
+            inner = `<div style="color:#bbb;font-size:12px;text-align:center;padding:16px 0;">—</div>`;
+        }
+
+        return `<div style="flex:1;background:${cat.bgCor};border-radius:14px;padding:10px 8px;border:1px solid ${cat.borderCor}33;">
+            <div style="font-size:11px;font-weight:900;color:${cat.cor};letter-spacing:1px;text-align:center;margin-bottom:10px;">${cat.label}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+                ${inner}
             </div>
-            <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;">${nomeExibido}</div>
-            <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
         </div>`;
     }
 
-    if (!inner) {
-        inner = `<div style="color:#bbb;font-size:12px;text-align:center;padding:16px 0;">—</div>`;
-    }
-
-    const html = `<div style="background:${cat.bgCor};border-radius:14px;padding:10px 8px;border:1px solid ${cat.borderCor}33;">
-        <div style="font-size:11px;font-weight:900;color:${cat.cor};letter-spacing:1px;text-align:center;margin-bottom:10px;">${cat.label}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
-            ${inner}
-        </div>
-    </div>`;
+    let html = `<div style="display:flex;gap:10px;align-items:flex-start;">`;
+    html += buildColuna(categorias[0]);
+    html += buildColuna(categorias[1]);
+    html += `</div>`;
 
     el.innerHTML = html;
 }
