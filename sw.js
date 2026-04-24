@@ -11,18 +11,16 @@
 const VERSAO = 'v3'; // ← MUDE AQUI A CADA ATUALIZAÇÃO
 
 self.addEventListener('install', (event) => {
-    self.skipWaiting(); // Ativa o novo SW na hora, sem esperar
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        // Limpa qualquer cache antigo que possa existir
         caches.keys().then((keys) =>
             Promise.all(keys.map((key) => caches.delete(key)))
         )
         .then(() => self.clients.claim())
         .then(() => {
-            // Avisa todos os celulares abertos para recarregar e pegar a versão nova
             return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
                 .then((lista) => {
                     lista.forEach((client) => {
@@ -33,10 +31,6 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// ============================================================
-//  FETCH — Não intercepta nada, tudo vai direto pra internet
-//  Isso garante que o app sempre carrega a versão mais nova
-// ============================================================
 self.addEventListener('fetch', (event) => {
     // Deixa o navegador buscar normalmente, sem cache
 });
@@ -55,18 +49,14 @@ self.addEventListener('push', (event) => {
 
     const titulo = dados.title || '';
     const opcoes = {
-        body:    dados.body    || '',
-        icon:    dados.icon    || '/icone.png',
-        badge:   dados.badge   || '/icone.png',
+        body:    dados.body  || '',
+        icon:    dados.icon  || '/icone.png',
+        badge:   dados.badge || '/icone.png',
         vibrate: [200, 100, 200],
         requireInteraction: false,
         data: {
-            acao: dados.acao || null,
-            url:  dados.url  || '/'
-        },
-        actions: dados.acao === 'abrir_mapa' ? [
-            { action: 'abrir_mapa', title: '🗺️ Ver no mapa' }
-        ] : []
+            url: 'https://jefferson8564.github.io/hist-rico-de-pedidos/'
+        }
     };
 
     event.waitUntil(
@@ -74,26 +64,19 @@ self.addEventListener('push', (event) => {
     );
 });
 
+// ============================================================
+//  NOTIFICATIONCLICK — Abre o histórico de pedidos
+// ============================================================
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const acao = event.notification.data?.acao || event.action;
-    const urlBase = self.location.origin;
-    const urlDestino = acao === 'abrir_mapa'
-        ? urlBase + '/?abrir=mapa'
-        : urlBase + '/?abrir=notificacoes';
+    const urlDestino = 'https://jefferson8564.github.io/hist-rico-de-pedidos/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
             for (const client of lista) {
-                if (client.url.startsWith(urlBase)) {
-                    client.focus();
-                    if (acao === 'abrir_mapa') {
-                        client.postMessage({ acao: 'abrir_mapa' });
-                    } else {
-                        client.postMessage({ acao: 'abrir_notificacoes' });
-                    }
-                    return;
+                if (client.url.startsWith(urlDestino)) {
+                    return client.focus();
                 }
             }
             return clients.openWindow(urlDestino);

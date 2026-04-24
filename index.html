@@ -17,7 +17,7 @@
                         window.location.reload();
                     }
                     if (e.data?.acao === 'abrir_notificacoes') {
-                        if (typeof abrirPainelSino === 'function') abrirPainelSino();
+                        window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank');
                     }
                 });
             }).catch(() => {});
@@ -1365,7 +1365,7 @@ function _mostrarApp() {
     // Abre painel sino se veio de clique numa notificação
     const params = new URLSearchParams(window.location.search);
     if (params.get('abrir') === 'notificacoes') {
-        setTimeout(() => { if (typeof abrirPainelSino === 'function') abrirPainelSino(); }, 400);
+        setTimeout(() => { window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank'); }, 400);
         window.history.replaceState({}, '', window.location.pathname);
     }
 }
@@ -3055,7 +3055,7 @@ function fecharPainelControle() {
             </div>
 
             <!-- CARD: Notificações -->
-            <div onclick="abrirPainelSino()" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+            <div onclick="window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank')" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
                 background:linear-gradient(145deg,#1a1400,#2a2000);
                 border:1px solid rgba(255,200,50,0.25);border-radius:22px;
                 padding:0;
