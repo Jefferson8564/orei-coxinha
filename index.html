@@ -766,10 +766,6 @@
             font-weight: 600;
         }
 
-        #modalConfigAutomatico.active {
-            display: flex !important;
-            opacity: 1 !important;
-        }
     </style>
 </head>
 <body>
@@ -781,6 +777,29 @@
     <div class="load-emoji">🍗</div>
     <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">O Rei da Coxinha</div>
     <div class="spinner"></div>
+</div>
+
+<!-- ===== ERRO DE CONEXÃO ===== -->
+<div id="erroConexaoOverlay" style="
+    display:none; position:fixed; inset:0;
+    background:linear-gradient(145deg,#1a0a04,#0d0508);
+    z-index:9998; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:16px; text-align:center; padding:32px;
+    color:white;
+">
+    <div style="font-size:64px;animation:pulse 1.5s ease-in-out infinite;">📶</div>
+    <div style="font-size:22px;font-weight:900;">Sem conexão</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.5);font-weight:500;line-height:1.6;max-width:280px;">
+        Verifique sua internet e tente novamente.
+    </div>
+    <button onclick="location.reload()" style="
+        margin-top:8px; padding:15px 36px;
+        background:linear-gradient(135deg,#e8732a,#c75b24);
+        border:none; border-radius:16px;
+        color:white; font-size:16px; font-weight:800;
+        cursor:pointer; box-shadow:0 8px 28px rgba(199,91,36,0.45);
+    ">🔄 Atualizar página</button>
 </div>
 
 <!-- ===== LOGIN ===== -->
@@ -870,10 +889,6 @@
         <!-- 🔔 direita -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
             <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
-            <button class="header-btn" onclick="abrirPainelSino()" title="Notificações" style="position:relative;">
-                🔔
-                <span id="headerDotSino" style="position:absolute;top:-8px;right:-8px;min-width:20px;height:20px;border-radius:50%;background:#25d366;display:none;font-size:10px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 6px rgba(37,211,102,0.6);border:2px solid white;"></span>
-            </button>
         </div>
     </div>
 
@@ -1333,6 +1348,11 @@ function _mostrarLogin() {
     const ls = document.getElementById('loginScreen');
     if (ls) ls.style.display = 'flex';
 }
+function _mostrarErroConexao() {
+    _esconderLoading();
+    const el = document.getElementById('erroConexaoOverlay');
+    if (el) el.style.display = 'flex';
+}
 function _mostrarApp() {
     _esconderLoading();
     const app = document.getElementById('app');
@@ -1340,8 +1360,6 @@ function _mostrarApp() {
     // Garante que todos os painéis começam fechados ao carregar o app
     const painelControle = document.getElementById('painelControle');
     if (painelControle) painelControle.style.transform = 'translateX(-100%)';
-    const painelPedidos = document.getElementById('painelPedidos');
-    if (painelPedidos) painelPedidos.style.transform = 'translateY(-100%)';
     const painelSino = document.getElementById('painelSino');
     if (painelSino) painelSino.style.transform = 'translateY(-100%)';
     // Abre painel sino se veio de clique numa notificação
@@ -1362,10 +1380,10 @@ function comTimeout(promise, ms, mensagem) {
 
 // ===== INIT =====
 window.onload = async () => {
-    // ── Timeout de segurança global: 12s sem resposta → cai na tela de login ──
+    // ── Timeout de segurança global: 12s sem resposta → tela de erro (não de login) ──
     const timeoutGlobal = setTimeout(() => {
-        console.warn('[Init] Timeout global atingido — exibindo tela de login');
-        _mostrarLogin();
+        console.warn('[Init] Timeout global atingido — exibindo tela de erro de conexão');
+        _mostrarErroConexao();
     }, 12000);
 
     // Listener para o botão voltar do navegador/celular
@@ -1379,14 +1397,7 @@ window.onload = async () => {
             return;
         }
 
-        // 2. Painel pedidos 🛍️
-        const painelPedidos = document.getElementById('painelPedidos');
-        if (painelPedidos && painelPedidos.style.transform !== 'translateY(-100%)') {
-            fecharPainelPedidos();
-            return;
-        }
-
-        // 3. Painel sino 🔔
+        // 2. Painel sino 🔔
         const painelSino = document.getElementById('painelSino');
         if (painelSino && painelSino.style.transform !== 'translateY(-100%)') {
             fecharPainelSino();
@@ -1439,7 +1450,7 @@ window.onload = async () => {
                     8000, 'Timeout ao buscar cliente'
                 );
                 if (client) {
-                    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer, oferta_ativa: client.oferta_ativa };
+                    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, oferta_ativa: client.oferta_ativa };
                     // Salvar dados completos para uso offline
                     localStorage.setItem('salgados_user', JSON.stringify(user));
                     // Carregar favorito salvo no Supabase (tem prioridade sobre o localStorage)
@@ -1465,6 +1476,26 @@ window.onload = async () => {
                     // Atualizar contador de notificações
                     setTimeout(() => renderHistoricoSaldo(), 500);
                     return;
+                } else {
+                    // Banco retornou null silencioso — usa cache local se tiver
+                    const cachedUser = localStorage.getItem('salgados_user');
+                    const cachedProducts = localStorage.getItem('salgados_products');
+                    if (cachedUser) {
+                        user = JSON.parse(cachedUser);
+                        products = cachedProducts ? JSON.parse(cachedProducts) : [];
+                        clearTimeout(timeoutGlobal);
+                        _mostrarApp();
+                        atualizarCabecalho();
+                        checkFavoriteBtn();
+                        carregarPrivacidade();
+                        carregarTemaSalvo();
+                        render();
+                        return;
+                    }
+                    // Sem cache → erro de conexão (não joga no login)
+                    clearTimeout(timeoutGlobal);
+                    _mostrarErroConexao();
+                    return;
                 }
             } catch (e) {
                 console.warn('[Init] Sem internet ou timeout — tentando carregar do cache local', e.message);
@@ -1483,16 +1514,20 @@ window.onload = async () => {
                     render();
                     return;
                 }
-                // Sem cache de usuário: vai para login
+                // Sem cache → erro de conexão (não joga no login)
+                clearTimeout(timeoutGlobal);
+                _mostrarErroConexao();
+                return;
             }
         }
 
+        // Sem telefone salvo → aí sim vai para login (cliente novo)
         clearTimeout(timeoutGlobal);
         _mostrarLogin();
 
     } catch (err) {
         console.error('[Init] Erro inesperado na inicialização:', err);
-        // Tentar cache antes de ir para login
+        // Tentar cache antes de mostrar erro
         const cachedUser = localStorage.getItem('salgados_user');
         const cachedProducts = localStorage.getItem('salgados_products');
         if (cachedUser) {
@@ -1508,7 +1543,7 @@ window.onload = async () => {
             return;
         }
         clearTimeout(timeoutGlobal);
-        _mostrarLogin();
+        _mostrarErroConexao();
     }
 };
 
@@ -1582,7 +1617,7 @@ async function auth() {
         localStorage.setItem('salgados_phone', phone);
     }
 
-    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, dias_refazer: client.dias_refazer, oferta_ativa: client.oferta_ativa };
+    user = { name: client.name, phone: client.phone, debt: client.debt, show_name: client.show_name, created_at: client.created_at, oferta_ativa: client.oferta_ativa };
 
     // Carregar favorito salvo no Supabase
     if (client.saved_order && client.saved_order.trim()) {
@@ -2430,7 +2465,7 @@ async function _confirmarCancelarAnterior() {
                 descricao: descNotif
             });
 
-            setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
+            setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 500);
         }
     } catch(e) { console.warn('Erro ao cancelar pedido anterior no popup:', e); }
 
@@ -2689,234 +2724,6 @@ function togglePrivacidadeHeader() {
     salvarPrivacidade(novoValor);
 }
 
-// ===== PEDIDOS ATIVOS NO PAINEL =====
-async function carregarPedidosAtivos() {
-    const lista = document.getElementById('listaPedidosAtivos');
-    const badge = document.getElementById('badgePedidosAtivos');
-    if (!lista || !user) return;
-
-    try {
-        const { data: pedidos } = await sb.from('pedidos')
-            .select('id, total, payment_method, items, created_at')
-            .eq('customer_phone', user.phone)
-            .neq('payment_method', 'PREMIO')
-            .not('items', 'ilike', '%🎮%')
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (!pedidos || pedidos.length === 0) {
-            lista.innerHTML = `<div style="text-align:center;padding:16px 10px;">
-                <div style="font-size:28px;margin-bottom:6px;opacity:0.35;">🛍️</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.3);font-weight:600;">Nenhum pedido pendente</div>
-            </div>`;
-            if (badge) badge.style.display = 'none';
-            return;
-        }
-
-        if (badge) { badge.textContent = pedidos.length + ' pedido' + (pedidos.length > 1 ? 's' : ''); badge.style.display = ''; }
-
-        lista.innerHTML = '';
-        lista.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
-
-        pedidos.forEach(function(p, idx) {
-            var total = Number(p.total || 0);
-            var metodo = (p.payment_method || 'FIADO');
-            var isFiado = metodo === 'FIADO';
-
-            var dtBRT = horasBRT(new Date(p.created_at));
-            var horaStr = String(dtBRT.getHours()).padStart(2,'0') + ':' + String(dtBRT.getMinutes()).padStart(2,'0');
-
-            // Separa linhas de itens e linhas de desconto
-            var todasLinhas = (p.items || '').split('\n').filter(function(l){ return l.trim(); });
-            var cupomLine = todasLinhas.find(function(l){ return l.startsWith('🏷️ CUPOM:'); });
-            var creditoLine = todasLinhas.find(function(l){ return l.startsWith('💳 CREDITO:'); });
-            var cupomPctCard = cupomLine ? Number(cupomLine.split(':')[1]) : 0;
-            var creditoUsadoCard = creditoLine ? Number(creditoLine.split(':')[1]) : 0;
-            var linhasItens = todasLinhas
-                .filter(function(l){ return !l.startsWith('🏷️ CUPOM:') && !l.startsWith('💳 CREDITO:'); })
-                .map(function(l){ return l.replace(/✅ /g, ''); });
-
-            var badgeColor = isFiado ? '#e67e22' : '#25d366';
-            var badgeBg    = isFiado ? 'rgba(230,126,34,0.15)' : 'rgba(37,211,102,0.15)';
-            var badgeBorder= isFiado ? 'rgba(230,126,34,0.4)' : 'rgba(37,211,102,0.4)';
-            var badgeLabel = isFiado ? 'FIADO' : 'ENTREGA';
-
-            // Até 3 itens: coluna única. 4-6: 2 colunas (3+3). Acima de 6: 2 colunas + "+X mais"
-            var col1 = linhasItens.slice(0, 3);
-            var col2 = linhasItens.slice(3, 6);
-            var extra = linhasItens.length > 6 ? linhasItens.length - 6 : 0;
-            var itemStyle = 'font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
-            var col1Html = col1.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
-            var col2Html = col2.map(function(l){ return '<div style="' + itemStyle + '">• ' + l + '</div>'; }).join('');
-            if (extra) col2Html += '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">+' + extra + ' mais</div>';
-            var itensHtml = col2.length > 0
-                ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">' + col1Html + col2Html + '</div>'
-                : col1Html;
-            // Linha de descontos aplicados
-            var descontosHtml = '';
-            if (cupomPctCard > 0) descontosHtml += '<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷️ Cupom ' + cupomPctCard + '% aplicado</div>';
-            if (creditoUsadoCard > 0) descontosHtml += '<div style="font-size:11px;color:#3498db;margin-top:2px;">💳 Crédito R$ ' + creditoUsadoCard.toFixed(2).replace('.',',') + ' aplicado</div>';
-
-            // Cancelamento disponível apenas das 15h às 04:59 (horário BRT)
-            var horaBRT = horasBRT(new Date()).getHours();
-            var podeCancelar = (horaBRT >= 15 || horaBRT < 5);
-            var btnCancelHtml = podeCancelar
-                ? '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
-                    '<span style="font-size:9px;font-weight:700;color:rgba(255,180,100,0.75);letter-spacing:0.3px;text-align:right;">disponível para cancelar</span>' +
-                    '<span class="cancel-countdown" style="font-size:11px;font-weight:700;color:rgba(255,100,100,0.85);letter-spacing:0.5px;">⏱ --:--:--</span>' +
-                    '<button id="btnCancelPedido_' + String(p.id) + '" onclick="cancelarPedidoCliente(\'' + String(p.id) + '\', ' + total + ')"' +
-                      ' style="background:#8b0000;border:none;color:white;padding:7px 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;"' +
-                      ' ontouchstart="this.style.background=\'#a00000\'" ontouchend="this.style.background=\'#8b0000\'">' +
-                      '❌ Cancelar' +
-                    '</button>' +
-                  '</div>'
-                : '<div style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:700;text-align:right;line-height:1.3;">🔒 Cancelamento<br>disponível 15h–05h</div>';
-
-            var card = document.createElement('div');
-            card.id = 'pedidoAtivoCard_' + String(p.id);
-            card.style.cssText = 'background:rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.13);border-radius:22px;padding:12px;animation:fadeSlide 0.3s ease ' + (idx * 0.07) + 's both;box-shadow:0 4px 24px rgba(0,0,0,0.25);display:flex;flex-direction:column;min-height:120px;';
-            card.innerHTML =
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-                    '<div style="font-size:13px;font-weight:800;color:white;">' + horaStr + '</div>' +
-                    '<div style="font-size:10px;font-weight:800;color:' + badgeColor + ';background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';padding:2px 8px;border-radius:20px;">' + badgeLabel + '</div>' +
-                '</div>' +
-                '<div style="min-height:50px;overflow-y:auto;margin-bottom:4px;">' + itensHtml + '</div>' +
-                (descontosHtml ? '<div style="margin-bottom:6px;">' + descontosHtml + '</div>' : '') +
-                '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;">' +
-                    '<div style="font-size:16px;font-weight:900;color:#f39c12;">R$ ' + total.toFixed(2).replace('.',',') + '</div>' +
-                    btnCancelHtml +
-                '</div>';
-            lista.appendChild(card);
-        });
-
-        // Inicia/reinicia countdown regressivo até 05:00 BRT
-        if (window._cancelCountdownInterval) clearInterval(window._cancelCountdownInterval);
-        function _atualizarCountdowns() {
-            var agora = horasBRT(new Date());
-            var target = new Date(agora);
-            target.setHours(5, 0, 0, 0);
-            if (agora >= target) target.setDate(target.getDate() + 1);
-            var diff = Math.floor((target - agora) / 1000);
-            if (diff < 0) diff = 0;
-            var hh = String(Math.floor(diff / 3600)).padStart(2,'0');
-            var mm = String(Math.floor((diff % 3600) / 60)).padStart(2,'0');
-            var ss = String(diff % 60).padStart(2,'0');
-            var label = '⏱ ' + hh + ':' + mm + ':' + ss;
-            document.querySelectorAll('.cancel-countdown').forEach(function(el) { el.textContent = label; });
-        }
-        _atualizarCountdowns();
-        window._cancelCountdownInterval = setInterval(_atualizarCountdowns, 1000);
-    } catch(e) {
-        console.warn('Erro ao carregar pedidos ativos:', e);
-        lista.innerHTML = `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3);">Erro ao carregar pedidos</div>`;
-    }
-}
-
-async function cancelarPedidoCliente(pedidoId, totalExibido) {
-    var horaBRT = horasBRT(new Date()).getHours();
-    if (horaBRT >= 5 && horaBRT < 15) {
-        alert('Cancelamento disponível apenas entre 15h e 05h.');
-        return;
-    }
-    if (!confirm('Cancelar este pedido de R$ ' + Number(totalExibido).toFixed(2).replace('.',',') + '?')) return;
-
-    const card = document.getElementById('pedidoAtivoCard_' + pedidoId);
-    if (card) {
-        card.style.transition = 'opacity 0.25s, transform 0.25s';
-        card.style.opacity = '0';
-        card.style.transform = 'scale(0.95)';
-        setTimeout(() => card.remove(), 250);
-    }
-
-    try {
-        const { data: pedido } = await sb.from('pedidos')
-            .select('id, total, items, credito_usado')
-            .eq('id', pedidoId)
-            .maybeSingle();
-
-        if (!pedido) { carregarPedidosAtivos(); return; } // showToast('Pedido não encontrado.', 'warning', 3000);
-
-
-        // Extrai descontos embutidos no items
-        const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.]+)/);
-        const creditoUsado = creditoMatch ? Number(creditoMatch[1]) : (Number(pedido.credito_usado) || 0);
-
-        // Reembolso correto: reverte exatamente o que foi somado ao debt na compra
-        // Na compra: newDebt = debt + total - descontoCupom = debt + pedido.total + creditoUsado
-        // Então para reverter: novoDebt = debt - pedido.total - creditoUsado
-        const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
-        if (c) {
-            const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
-            await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-            user.debt = novoDebt;
-            atualizarCabecalho();
-        }
-
-        // Restaura cupom se havia
-        try {
-            const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
-            if (linhasCupom.length > 0) {
-                const parts = linhasCupom[0].split(':');
-                const pct = Number(parts[1]) || 0;
-                if (pct > 0) {
-                    await sb.from('premios').insert({
-                        customer_phone: user.phone,
-                        customer_name: user.name,
-                        descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
-                        jogo: 'cupom_estornado',
-                        tickets_usados: 0,
-                        diamantes_usados: 0,
-                        cancelado: false
-                    });
-                    await carregarCupons();
-                }
-            }
-        } catch(e) { console.warn('Erro ao restaurar cupom:', e); }
-
-        // Deleta pedido (igual ADM)
-        await sb.from('pedidos').delete().eq('id', pedidoId);
-
-        // Notificação mostrando o que foi reembolsado
-        let descNotif = 'Pedido cancelado pelo cliente';
-        if (creditoUsado > 0) descNotif += ` • Crédito R$ ${creditoUsado.toFixed(2).replace('.',',')} devolvido`;
-
-        await sb.from('notificacoes').insert({
-            customer_phone: user.phone,
-            tipo: 'reembolso',
-            valor: Number(pedido.total) + creditoUsado,
-            descricao: descNotif
-        });
-
-        setTimeout(() => { carregarPedidosAtivos(); renderHistoricoSaldo(); carregarCupons(); }, 500);
-
-    } catch(e) {
-        console.warn('Erro ao cancelar pedido:', e);
-        carregarPedidosAtivos();
-    }
-}
-
-function abrirPainelControle() {
-    document.getElementById('painelControle').style.transform = 'translateX(0)';
-    atualizarLabelPainel();
-    window.history.pushState({ state: 'painel_aberto' }, '', window.location.href);
-}
-
-function fecharPainelControle() {
-    const p = document.getElementById('painelControle');
-    p.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
-    p.style.transform = 'translateX(-100%)';
-}
-
-function abrirPainelPedidos() {
-    carregarPedidosAtivos();
-    document.getElementById('painelPedidos').style.transform = 'translateY(0)';
-    window.history.pushState({ state: 'pedidos_aberto' }, '', window.location.href);
-}
-
-function fecharPainelPedidos() {
-    document.getElementById('painelPedidos').style.transform = 'translateY(-100%)';
-}
-
 // ===== PWA INSTALL =====
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -3146,6 +2953,14 @@ function iniciarRealtimeCliente(phone) {
 
 // ===== REALTIME: detecta quando ADM manda limpar cache =====
 
+function abrirPainelControle() {
+    document.getElementById('painelControle').style.transform = 'translateX(0)';
+    window.history.pushState({ state: 'config_aberto' }, '', window.location.href);
+}
+function fecharPainelControle() {
+    document.getElementById('painelControle').style.transform = 'translateX(-100%)';
+}
+
 </script>
 
 <!-- PAINEL DE ajuda de ia - PÁGINA COMPLETA -->
@@ -3186,22 +3001,16 @@ function iniciarRealtimeCliente(phone) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
 
             <!-- CARD: Meus Pedidos -->
-            <div onclick="fecharPainelControle(); setTimeout(abrirPainelPedidos, 350);"
+            <div onclick="window.location.href='https://jefferson8564.github.io/hist-rico-de-pedidos/'"
                 ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(243,156,18,0.3)'"
                 ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(243,156,18,0.2)'"
                 style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
                 background:linear-gradient(145deg,#1a1000,#241800);
                 border:1px solid rgba(243,156,18,0.25);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                padding:0;
                 box-shadow:0 6px 24px rgba(243,156,18,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(243,156,18,0.18),transparent 70%);"></div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(243,156,18,0.5));">🛍️</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Meus Pedidos</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Ver pedidos<br>ativos</div>
-                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#f39c12;box-shadow:0 0 6px #f39c12;" id="dotPedidosCard"></div>
-                    <span style="font-size:10px;color:rgba(243,156,18,0.9);font-weight:700;">VER PEDIDOS →</span>
-                </div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(243,156,18,0.5));">🛍️</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Pedidos</div>
             </div>
 
             <!-- CARD: Entrega -->
@@ -3211,35 +3020,25 @@ function iniciarRealtimeCliente(phone) {
                 style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;opacity:0.5;
                 background:linear-gradient(145deg,#0a1520,#111e2e);
                 border:1px solid rgba(255,255,255,0.07);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                padding:0;
                 box-shadow:0 4px 14px rgba(0,0,0,0.4);position:relative;overflow:hidden;aspect-ratio:1;">
                 <div style="position:absolute;top:10px;right:12px;font-size:13px;">🔒</div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4));">🛵</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Entrega</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Rastrear sua<br>entrega em tempo real</div>
-                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#666;"></div>
-                    <span style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:700;">EM BREVE</span>
-                </div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(0,0,0,0.4));opacity:0.7;">🛵</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Entrega</div>
             </div>
 
-            <!-- CARD: Tema -->
-            <div onclick="abrirTemaPopup()"
-                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(0,212,255,0.3)'"
-                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(0,212,255,0.15)'"
-                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
-                background:linear-gradient(145deg,#0a1a1a,#0e2222);
-                border:1px solid rgba(0,212,255,0.2);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
-                box-shadow:0 6px 24px rgba(0,212,255,0.1);position:relative;overflow:hidden;aspect-ratio:1;">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.15),transparent 70%);"></div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,212,255,0.4));">🎨</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Tema</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Azul, Roxo, Verde,<br>Grafite, Rosa, Teal</div>
-                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#00d4ff;box-shadow:0 0 6px #00d4ff;"></div>
-                    <span style="font-size:10px;color:rgba(0,212,255,0.9);font-weight:700;">PERSONALIZAR →</span>
-                </div>
+            <!-- CARD: Lara i.a -->
+            <div onclick=""
+                ontouchstart="this.style.transform='scale(0.95)'"
+                ontouchend="this.style.transform='scale(1)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;opacity:0.5;
+                background:linear-gradient(145deg,#0a1520,#111e2e);
+                border:1px solid rgba(255,255,255,0.07);border-radius:22px;
+                padding:0;
+                box-shadow:0 4px 14px rgba(0,0,0,0.4);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;top:10px;right:12px;font-size:13px;">🔒</div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(0,0,0,0.4));opacity:0.7;">👩🏻‍🦰</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">𝕃𝔸ℝ𝔸 𝕚.𝕒</div>
             </div>
 
             <!-- CARD: Jogos 🎮 -->
@@ -3249,45 +3048,48 @@ function iniciarRealtimeCliente(phone) {
                 style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s,box-shadow 0.15s;
                 background:linear-gradient(145deg,#2a0a0a,#3a1515);
                 border:1px solid rgba(255,107,107,0.25);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                padding:0;
                 box-shadow:0 6px 24px rgba(255,107,107,0.15);position:relative;overflow:hidden;aspect-ratio:1;">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,107,0.2),transparent 70%);"></div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(255,107,107,0.6));">🎮</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Jogos</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Acumule pontos<br>e troque prêmios</div>
-                <div style="margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:5px;">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#ff6b6b;box-shadow:0 0 6px #ff6b6b;"></div>
-                    <span style="font-size:10px;color:rgba(255,107,107,0.9);font-weight:700;">ABRIR JOGOS →</span>
-                </div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(255,107,107,0.6));">🎮</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Jogos</div>
             </div>
 
-            <!-- CARD: Pedido Automático -->
-            <div onclick="abrirConfigAutomatico()" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
-                background:linear-gradient(145deg,#150a25,#1e0f35);
-                border:1px solid rgba(142,68,173,0.25);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
-                box-shadow:0 6px 24px rgba(142,68,173,0.15);position:relative;overflow:hidden;aspect-ratio:1;"
+            <!-- CARD: Notificações -->
+            <div onclick="abrirPainelSino()" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#1a1400,#2a2000);
+                border:1px solid rgba(255,200,50,0.25);border-radius:22px;
+                padding:0;
+                box-shadow:0 6px 24px rgba(255,200,50,0.12);position:relative;overflow:hidden;aspect-ratio:1;"
                 ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(142,68,173,0.2),transparent 70%);"></div>
-                <div id="labelAutoTop" style="position:absolute;top:10px;right:12px;font-size:9px;font-weight:800;color:rgba(37,211,102,0.9);letter-spacing:0.5px;">● ATIVADO</div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(142,68,173,0.6));">🤖</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Automático</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Configura dias de<br>refazer seu pedido</div>
+                <span id="headerDotSino" style="position:absolute;top:10px;right:12px;min-width:20px;height:20px;border-radius:50%;background:#25d366;display:none;font-size:10px;font-weight:800;color:white;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 6px rgba(37,211,102,0.6);"></span>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(255,200,50,0.6));">🔔</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Notificações</div>
             </div>
 
-            <!-- CARD: Leitura do Pedido -->
+            <!-- CARD: Tema -->
+            <div onclick="abrirTemaPopup()"
+                ontouchstart="this.style.transform='scale(0.95)';this.style.boxShadow='0 2px 8px rgba(0,212,255,0.3)'"
+                ontouchend="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(0,212,255,0.15)'"
+                style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+                background:linear-gradient(145deg,#0a1a1a,#0e2222);
+                border:1px solid rgba(0,212,255,0.2);border-radius:22px;
+                padding:0;
+                box-shadow:0 6px 24px rgba(0,212,255,0.1);position:relative;overflow:hidden;aspect-ratio:1;">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(0,212,255,0.4));">🎨</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Temas</div>
+            </div>
+
+            <!-- CARD: Leitura -->
             <div onclick="toggleLeituraPedido()" id="cardLeituraPedido"
                 style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
                 background:linear-gradient(145deg,#0a1f12,#0e2a1a);
                 border:1px solid rgba(0,255,120,0.2);border-radius:22px;
-                padding:20px 16px 18px;display:flex;flex-direction:column;gap:0;
+                padding:0;
                 box-shadow:0 6px 24px rgba(0,255,120,0.1);position:relative;overflow:hidden;aspect-ratio:1;"
                 ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
-                <div style="position:absolute;top:-18px;right:-18px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,120,0.15),transparent 70%);"></div>
                 <div id="labelLeituraTop" style="position:absolute;top:10px;right:12px;font-size:9px;font-weight:800;color:#25d366;letter-spacing:0.5px;">● LIGADO</div>
-                <div style="font-size:38px;margin-bottom:10px;filter:drop-shadow(0 4px 10px rgba(0,255,120,0.5));">🗣️</div>
-                <div style="font-size:15px;font-weight:800;color:white;margin-bottom:4px;">Leitura</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.42);line-height:1.4;">Fala o pedido<br>antes de enviar</div>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:80px;filter:drop-shadow(0 4px 14px rgba(0,255,120,0.5));">🗣️</div>
+                <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:15px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Leitura</div>
             </div>
 
         </div>
@@ -3352,54 +3154,6 @@ function iniciarRealtimeCliente(phone) {
 </div>
 <!-- ===== FIM PAINEL SINO ===== -->
 
-<!-- ===== PAINEL MEUS PEDIDOS 🛍️ ===== -->
-<div id="painelPedidos" style="
-    position: fixed;
-    inset: 0;
-    z-index: 3000;
-    background: linear-gradient(180deg, #0d1a0f 0%, #080f09 100%);
-    transform: translateY(-100%);
-    transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-">
-    <!-- Header -->
-    <div style="padding: 6px 18px 7px; color: white; position: relative; flex-shrink:0; background:#0a1f0c; border-radius:0 0 22px 22px; border-bottom:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 20px rgba(0,0,0,0.4);">
-        <button onclick="fecharPainelPedidos()" style="
-            position: absolute; top: 16px; left: 14px;
-            background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); color: white;
-            width: 34px; height: 34px; border-radius: 11px; font-size: 20px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-            z-index: 10; transition:background 0.2s;
-        " ontouchstart="this.style.background='rgba(255,255,255,0.28)'" ontouchend="this.style.background='rgba(255,255,255,0.12)'">‹</button>
-        <div style="text-align:center;">
-            <div style="font-size: 19px; margin-bottom: 1px; filter: drop-shadow(0 3px 10px rgba(243,156,18,0.7));">🛍️</div>
-            <div style="font-size: 14px; font-weight: 800; color:white; letter-spacing:-0.2px;">meus pedidos</div>
-        </div>
-    </div>
-
-    <!-- Conteúdo rolável -->
-    <div style="flex:1; min-height:0; overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding: 14px 12px 40px; display: flex; flex-direction: column; gap: 0;">
-
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px 10px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-                <div style="width:6px;height:6px;border-radius:50%;background:#f39c12;box-shadow:0 0 6px #f39c12;"></div>
-                <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Pedidos de hoje</span>
-            </div>
-            <span id="badgePedidosAtivos" style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;display:none;"></span>
-        </div>
-
-        <div id="listaPedidosAtivos" style="display:flex;flex-direction:column;gap:8px;"></div>
-
-        <div style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:20px;font-weight:500;letter-spacing:0.3px;">
-            O Rei da Coxinha 🍗 · Painel v1.0
-        </div>
-
-    </div>
-</div>
-<!-- ===== FIM PAINEL PEDIDOS ===== -->
 
 <script>
 // ===== HISTÓRICO DE PAGAMENTOS & FIADO (Supabase) =====
@@ -3852,232 +3606,6 @@ function mostrarAnimacaoRoboLimpando() {
     }, 2400);
 }
 
-function atualizarLabelPainel() {
-    setTimeout(() => {
-        const labelTop = document.getElementById('labelAutoTop');
-        if (!labelTop || !user) return;
-        
-        // Verificar se dias_refazer tem dias ativados
-        const ativo = user.dias_refazer && user.dias_refazer.length > 0;
-        
-        if (ativo) {
-            labelTop.style.color = 'rgba(37,211,102,0.9)';
-            labelTop.textContent = '● ATIVADO';
-        } else {
-            labelTop.style.color = 'rgba(255,255,255,0.35)';
-            labelTop.textContent = '● DESATIVADO';
-        }
-        initLeituraToggle();
-    }, 300);
-}
-
-// ===== MODAL CONFIGURAÇÃO PEDIDO AUTOMÁTICO =====
-function abrirConfigAutomatico() {
-    const modal = document.getElementById('modalConfigAutomatico');
-    if (modal) {
-        carregarDiasDoSupabase();
-        modal.classList.add('active');
-    }
-}
-
-function fecharConfigAutomatico() {
-    const modal = document.getElementById('modalConfigAutomatico');
-    if (modal) modal.classList.remove('active');
-}
-
-// Carregar dias do Supabase
-async function carregarDiasDoSupabase() {
-    if (!user || !user.phone) {
-        console.warn('Usuário não autenticado');
-        renderDias();
-        return;
-    }
-    
-    try {
-        const { data } = await sb.from('clientes')
-            .select('dias_refazer')
-            .eq('phone', user.phone)
-            .maybeSingle();
-        
-        if (data && data.dias_refazer && data.dias_refazer.length > 0) {
-            diasSelecionados = new Set(data.dias_refazer);
-        } else {
-            diasSelecionados = new Set();
-        }
-        
-        renderDias();
-    } catch(e) {
-        console.error('Erro ao carregar dias:', e);
-        renderDias(); // renderiza com localStorage como fallback
-    }
-}
-
-const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-let diasSelecionados = new Set(JSON.parse(localStorage.getItem('diasAutomatico') || '[]'));
-
-function toggleDia(indice) {
-    if (diasSelecionados.has(indice)) {
-        diasSelecionados.delete(indice);
-    } else {
-        diasSelecionados.add(indice);
-    }
-    localStorage.setItem('diasAutomatico', JSON.stringify([...diasSelecionados]));
-    renderDias();
-}
-
-function renderDias() {
-    const container = document.getElementById('diasContainer');
-    if (!container) return;
-
-    const btn = (dia, idx) => {
-        const sel = diasSelecionados.has(idx);
-        const last = idx === diasSemana.length - 1;
-        return `<button onclick="toggleDia(${idx})"
-            ontouchstart="this.style.opacity='0.7'" ontouchend="this.style.opacity='1'"
-            style="
-                padding: 14px 8px;
-                border: 2px solid ${sel ? '#8e44ad' : 'rgba(255,255,255,0.2)'};
-                background: ${sel ? 'rgba(142,68,173,0.3)' : 'rgba(255,255,255,0.05)'};
-                color: ${sel ? '#b388ff' : 'rgba(255,255,255,0.6)'};
-                border-radius: 14px; font-weight: 700; cursor: pointer;
-                transition: all 0.2s; width: 100%; font-size: 15px;
-                -webkit-tap-highlight-color: transparent;
-                display: flex; align-items: center; justify-content: center; gap: 6px;
-                ${last ? 'grid-column: 1 / -1;' : ''}
-            ">
-            ${sel ? '✓' : '○'} ${dia}
-        </button>`;
-    };
-
-    container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${diasSemana.map((dia, idx) => btn(dia, idx)).join('')}
-    </div>`;
-}
-
-// Salvar dias no Supabase
-async function salvarDiasRefazerSB() {
-    if (!user || !user.phone) {
-        console.warn('Usuário não autenticado');
-        return;
-    }
-    
-    try {
-        const diasArray = [...diasSelecionados].sort((a, b) => a - b);
-        const { error } = await sb.from('clientes')
-            .update({ dias_refazer: diasArray })
-            .eq('phone', user.phone);
-        
-        if (error) {
-            console.error('Erro ao salvar dias:', error);
-            return false;
-        }
-        
-        // Atualizar user local
-        user.dias_refazer = diasArray;
-        localStorage.setItem('salgados_user', JSON.stringify(user));
-        atualizarLabelPainel();
-        
-        console.log('✅ Dias de refazer salvos:', diasArray);
-        return true;
-    } catch(e) {
-        console.error('Erro ao salvar dias no Supabase:', e);
-        return false;
-    }
-}
-
-// Desativar refazer pedido (salva array vazio)
-async function desativarRefazer() {
-    if (!user || !user.phone) {
-        console.warn('Usuário não autenticado');
-        return;
-    }
-    
-    try {
-        const { error } = await sb.from('clientes')
-            .update({ dias_refazer: null })
-            .eq('phone', user.phone);
-        
-        if (error) {
-            console.error('Erro ao desativar:', error);
-            return false;
-        }
-        
-        // Atualizar user local
-        user.dias_refazer = null;
-        localStorage.setItem('salgados_user', JSON.stringify(user));
-        atualizarLabelPainel();
-        
-        console.log('✅ Refazer pedido desativado');
-        fecharConfigAutomatico();
-        return true;
-    } catch(e) {
-        console.error('Erro ao desativar:', e);
-        alert('❌ Erro ao desativar: ' + e.message);
-        return false;
-    }
-}
-
 </script>
-
-<!-- ===== MODAL: CONFIGURAÇÃO PEDIDO AUTOMÁTICO ===== -->
-<div id="modalConfigAutomatico" style="
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    z-index: 4000; display: none; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.3s;
-    padding: 20px;
-    font-family: 'Inter', sans-serif;
-" onclick="if(event.target === this) fecharConfigAutomatico();">
-    <div style="
-        background: linear-gradient(145deg, #1a0f2e, #250f3e);
-        border-radius: 28px; padding: 24px; max-width: 400px;
-        width: 100%; max-height: 90vh; overflow-y: auto;
-        border: 1px solid rgba(142,68,173,0.3);
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    ">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="font-size: 24px; font-weight: 900; color: white;">🤖 Pedido Automático</div>
-            <button onclick="fecharConfigAutomatico()" style="
-                background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-                color: white; width: 36px; height: 36px; border-radius: 10px;
-                font-size: 18px; cursor: pointer;
-                -webkit-tap-highlight-color: transparent;
-            ">×</button>
-        </div>
-
-        <div style="color: rgba(255,255,255,0.9); font-size: 13px; line-height: 1.7; margin-bottom: 20px;">
-            Ao ativar, seu pedido salvo será feito automaticamente — sem você precisar fazer nada.<br><br>
-            <div style="background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.35); border-radius: 12px; padding: 12px 14px; color: rgba(255,220,80,0.9); font-size: 13px; line-height: 1.6;">
-                ⚠️ Se você fizer um novo pedido antes das 3h da manhã do dia agendado, o automático é cancelado e o seu pedido manual prevalece. ⚠️
-            </div>
-        </div>
-
-        <div id="diasContainer" style="margin-bottom: 20px;">
-            <!-- Renderizado por JavaScript -->
-        </div>
-
-        <div style="display: flex; gap: 10px;">
-            <button onclick="desativarRefazer()" style="
-                flex: 1; padding: 14px;
-                background: linear-gradient(135deg, #e74c3c, #c0392b);
-                color: white; border: none; border-radius: 14px;
-                font-weight: 700; font-size: 15px;
-                cursor: pointer; transition: all 0.2s;
-                -webkit-tap-highlight-color: transparent;
-            " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
-                Desligar
-            </button>
-            <button onclick="salvarDiasRefazerSB(); fecharConfigAutomatico();" style="
-                flex: 1; padding: 14px;
-                background: linear-gradient(135deg, #8e44ad, #6c2fa8);
-                color: white; border: none; border-radius: 14px;
-                font-weight: 700; font-size: 15px;
-                cursor: pointer; transition: all 0.2s;
-                -webkit-tap-highlight-color: transparent;
-            " ontouchstart="this.style.opacity='0.8'" ontouchend="this.style.opacity='1'">
-                ✓ Salvar e Ligar
-            </button>
-        </div>
-    </div>
-</div>
 
 </html>
