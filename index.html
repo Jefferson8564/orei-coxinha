@@ -17,7 +17,7 @@
                         window.location.reload();
                     }
                     if (e.data?.acao === 'abrir_notificacoes') {
-                        window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank');
+                        if (typeof abrirPainelSino === 'function') abrirPainelSino();
                     }
                 });
             }).catch(() => {});
@@ -1365,7 +1365,7 @@ function _mostrarApp() {
     // Abre painel sino se veio de clique numa notificação
     const params = new URLSearchParams(window.location.search);
     if (params.get('abrir') === 'notificacoes') {
-        setTimeout(() => { window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank'); }, 400);
+        setTimeout(() => { if (typeof abrirPainelSino === 'function') abrirPainelSino(); }, 400);
         window.history.replaceState({}, '', window.location.pathname);
     }
 }
@@ -3055,7 +3055,7 @@ function fecharPainelControle() {
             </div>
 
             <!-- CARD: Notificações -->
-            <div onclick="window.open('https://jefferson8564.github.io/hist-rico-de-pedidos/', '_blank')" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
+            <div onclick="abrirPainelSino()" style="cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform 0.15s;
                 background:linear-gradient(145deg,#1a1400,#2a2000);
                 border:1px solid rgba(255,200,50,0.25);border-radius:22px;
                 padding:0;
@@ -3183,11 +3183,15 @@ async function renderHistoricoSaldo() {
 
     // Busca notificações da tabela dedicada
     const { data: notifs, error: errNotifs } = await sb.from("notificacoes")
-        .select("id, tipo, valor, descricao, created_at")
+        .select("id, tipo, valor, created_at")
         .eq("customer_phone", user.phone)
         .order("created_at", { ascending: false })
         .limit(20);
-    if (errNotifs) { console.warn('[Notificações] ERRO:', errNotifs.message); return; }
+    if (errNotifs) {
+        console.warn('[Notificações] ERRO:', errNotifs.message);
+        lista.innerHTML = `<div style="text-align:center;padding:40px 10px;"><div style="font-size:42px;margin-bottom:10px;opacity:0.4;">⚠️</div><div style="font-size:13px;color:rgba(255,255,255,0.35);font-weight:600;">Erro ao carregar notificações</div><div style="font-size:11px;color:rgba(255,100,100,0.5);margin-top:6px;">${errNotifs.message}</div></div>`;
+        return;
+    }
 
     // Atualizar contador no badge do header
     const headerDotSino = document.getElementById('headerDotSino');
