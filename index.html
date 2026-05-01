@@ -1114,85 +1114,7 @@
 </div>
 
 <!-- ===== POPUP PERMISSÃO NOTIFICAÇÃO ===== -->
-<div id="modalPermissaoNotif" style="
-    display:none; position:fixed; inset:0; z-index:5000;
-    background:rgba(0,0,0,0.8); backdrop-filter:blur(14px);
-    align-items:flex-end; justify-content:center;
-    padding-bottom:24px;
-">
-    <div style="
-        background:linear-gradient(160deg,#1a0a2e,#0d1b3e);
-        border:1px solid rgba(255,255,255,0.1);
-        border-radius:28px; padding:32px 24px 24px;
-        margin:0 16px; max-width:400px; width:100%;
-        text-align:center;
-        box-shadow:0 -8px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
-        animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
-    ">
-        <!-- Ícone animado -->
-        <div style="
-            width:72px; height:72px; border-radius:22px;
-            background:linear-gradient(135deg,#7c3aed,#a855f7);
-            display:flex; align-items:center; justify-content:center;
-            margin:0 auto 18px;
-            box-shadow:0 8px 32px rgba(168,85,247,0.45);
-            font-size:34px;
-        ">🔔</div>
 
-        <div style="font-size:20px; font-weight:900; color:white; margin-bottom:8px; letter-spacing:-0.3px;">
-            Ativar notificações
-        </div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.55); font-weight:500; line-height:1.6; margin-bottom:26px;">
-            Receba avisos de pagamentos e reembolsos<br>
-            diretamente no seu celular 📲
-        </div>
-
-        <!-- Bullets informativos -->
-        <div style="
-            background:rgba(255,255,255,0.05); border-radius:16px;
-            padding:14px 16px; margin-bottom:22px; text-align:left;
-        ">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                <span style="font-size:18px;">✅</span>
-                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Pagamento confirmado</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                <span style="font-size:18px;">♻️</span>
-                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Reembolso recebido</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:18px;">🔕</span>
-                <span style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;">Sem spam — só o que importa</span>
-            </div>
-        </div>
-
-        <button onclick="_aceitarPermissaoNotif()" style="
-            width:100%; padding:16px;
-            background:linear-gradient(135deg,#7c3aed,#a855f7);
-            border:none; border-radius:16px; color:white;
-            font-size:15px; font-weight:900; cursor:pointer;
-            box-shadow:0 6px 24px rgba(168,85,247,0.4);
-            margin-bottom:10px;
-            -webkit-tap-highlight-color:transparent;
-            letter-spacing:0.2px;
-        ">🔔 Ativar notificações</button>
-
-        <button onclick="_recusarPermissaoNotif()" style="
-            width:100%; padding:13px;
-            background:transparent; border:none;
-            color:rgba(255,255,255,0.35);
-            font-size:13px; font-weight:600; cursor:pointer;
-            -webkit-tap-highlight-color:transparent;
-        ">Agora não</button>
-    </div>
-</div>
-
-<style>
-@keyframes slideUp {
-    from { opacity:0; transform:translateY(60px) scale(0.97); }
-    to   { opacity:1; transform:translateY(0) scale(1); }
-}
-</style>
 
 
 <div id="modalPedidoAnterior" style="
@@ -1334,7 +1256,7 @@ let currentOrderTotal = 0;
 let creditDiscount = 0;
 let cupomId = null;
 let cupomDescontoPct = 0;
-let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}\nTotal: R$ {total}\nPagamento: {pagamento}";
+let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}━━━━━━━━━━━━━━━\n\n*Total: R$ {total}*";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
 
@@ -1424,6 +1346,7 @@ window.onload = async () => {
         window.history.pushState({ state: 'home' }, '', window.location.href);
 
         // Carregar configurações (template)
+        const TEMPLATE_CORRETO = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}━━━━━━━━━━━━━━━\n\n*Total: R$ {total}*";
         try {
             const { data: cfgs } = await comTimeout(
                 sb.from("configs").select("key, value").eq("key", "msg_template"),
@@ -1433,6 +1356,12 @@ window.onload = async () => {
                 cfgs.forEach(c => {
                     if (c.key === 'msg_template') msgTemplate = c.value;
                 });
+            }
+            // Corrigir template no banco se estiver diferente do esperado
+            if (msgTemplate !== TEMPLATE_CORRETO) {
+                await sb.from("configs").upsert({ key: "msg_template", value: TEMPLATE_CORRETO }, { onConflict: "key" });
+                msgTemplate = TEMPLATE_CORRETO;
+                console.log('[Init] Template da mensagem corrigido no banco ✅');
             }
         } catch (e) {
             console.warn('[Init] Configurações não carregadas, usando template padrão:', e.message);
@@ -1840,8 +1769,7 @@ async function loadProducts() {
         price: Number(p.price),
         pricePromo: p.price_promo ? Number(p.price_promo) : null,
         img: p.image_url || "",
-        categoria: (p.categoria || '').toLowerCase(),
-        tipo: (p.tipo || '').toLowerCase()
+        categoria: (p.categoria || '').toLowerCase()
     }));
     localStorage.setItem('salgados_products', JSON.stringify(products));
     render();
@@ -1872,12 +1800,6 @@ function render() {
             ? products
             : products.filter(p => p.categoria === categoriaFiltro);
 
-        // Agrupa por tipo
-        const grupos = [
-            { tipo: 'quente', label: '🍗𝐌𝐚𝐬𝐬𝐚 𝐐𝐮𝐞𝐧𝐭𝐞🍗' },
-            { tipo: 'fria',   label: '🥐𝐌𝐚𝐬𝐬𝐚 𝐅𝐫𝐢𝐚🥐'   },
-            { tipo: '',       label: '📦 Outros'        },
-        ];
 
         function cardHtml(p) {
             const hasPromo = !!(p.pricePromo && temOferta);
@@ -1886,7 +1808,7 @@ function render() {
             <div class="card">
                 <div class="card-img" style="position: relative;">
                     ${p.img ? `<img src="${p.img}" loading="lazy" decoding="async">` : '🥟'}
-                    ${hasPromo ? `<div style="position: absolute; top: 15px; right: -8px; transform: rotate(45deg) perspective(800px) rotateX(15deg) rotateY(-15deg); color: #FFD700; font-family: 'Arial Black', 'Helvetica Bold', sans-serif; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,165,0,0.6), 3px 3px 8px rgba(0,0,0,0.7), 6px 6px 15px rgba(0,0,0,0.9); z-index: 10; white-space: nowrap; pointer-events: none; filter: drop-shadow(-1px -1px 0 rgba(255,215,0,0.3)) drop-shadow(1px 1px 0 rgba(0,0,0,0.5));">OFERTA</div>` : ''}\n
+                    ${hasPromo ? `<div style="position: absolute; top: 15px; right: -8px; transform: rotate(45deg) perspective(800px) rotateX(15deg) rotateY(-15deg); color: #FFD700; font-family: 'Arial Black', 'Helvetica Bold', sans-serif; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,165,0,0.6), 3px 3px 8px rgba(0,0,0,0.7), 6px 6px 15px rgba(0,0,0,0.9); z-index: 10; white-space: nowrap; pointer-events: none; filter: drop-shadow(-1px -1px 0 rgba(255,215,0,0.3)) drop-shadow(1px 1px 0 rgba(0,0,0,0.5));">OFERTA</div>` : ''}
                 </div>
                 <div class="card-body">
                     <div><strong class="card-title">${p.name}</strong><br>
@@ -1904,37 +1826,7 @@ function render() {
             </div>`;
         }
 
-        let html = '';
-        for (const grupo of grupos) {
-            const itens = produtosFiltrados.filter(p => (p.tipo || '') === grupo.tipo);
-            if (itens.length === 0) continue;
-            html += `<div style="
-                grid-column: 1 / -1;
-                display: flex; align-items: center; gap: 10px;
-                margin: 10px 4px 4px;
-            ">
-                <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
-                <div style="
-                    font-size: 26px; font-weight: 900;
-                    color: #ffffff;
-                    letter-spacing: 2px; text-transform: uppercase;
-                    white-space: nowrap;
-                    text-shadow:
-                        1px 1px 0 #000,
-                        2px 2px 0 #000,
-                        3px 3px 0 #000,
-                        4px 4px 0 #000,
-                        5px 5px 0 rgba(0,0,0,0.5),
-                        6px 6px 12px rgba(0,0,0,0.8);
-                    transform: perspective(300px) rotateX(8deg);
-                    display: inline-block;
-                ">${grupo.label}</div>
-                <div style="flex:1; height:2px; background:rgba(255,255,255,0.15); border-radius:2px;"></div>
-            </div>`;
-            html += itens.map(p => cardHtml(p)).join('');
-        }
-
-        g.innerHTML = html;
+        g.innerHTML = produtosFiltrados.map(p => cardHtml(p)).join('');
         // Total calculado em tempo real com preço correto por data
         let total = 0;
         const cartIds = Object.keys(cart);
@@ -1956,7 +1848,7 @@ function render() {
             const hasItems = total > 0;
             btnMain.className = hasItems ? "btn-pedir active" : "btn-pedir";
             const btnSaveFav = document.getElementById('btnSaveFav');
-            if (btnSaveFav) btnSaveFav.style.display = hasItems ? "block" : "none";
+            if (btnSaveFav) btnSaveFav.style.display = hasItems ? "inline-flex" : "none";
         }
 
         renderScheduled = false;
@@ -2026,10 +1918,10 @@ function cartToText() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const tipoEmoji = p.tipo === 'quente' ? '🍗' : p.tipo === 'fria' ? '🥐' : '✅';
-            const linha = `${tipoEmoji} ${qty}x ${p.name}`;
-            
-            if (p.categoria === 'crus') {
+
+            const linha = `✅ ${qty}x ${p.name}`;
+            const cat = (p.categoria || '').toLowerCase().trim();
+            if (cat === 'crus') {
                 textoCrus += linha + '\n';
             } else {
                 textoFritos += linha + '\n';
@@ -2040,10 +1932,10 @@ function cartToText() {
     
     let texto = '';
     if (textoFritos) {
-        texto += '———————🔥fritos🔥———————\n' + textoFritos;
+        texto += '━━━━━🔥fritos🔥━━━━━\n' + textoFritos;
     }
     if (textoCrus) {
-        texto += '———————❄️ crus ❄️———————\n' + textoCrus;
+        texto += '━━━━━❄️ crus ❄️━━━━━\n' + textoCrus;
     }
     
     return { texto, total };
@@ -2053,40 +1945,50 @@ function cartToText() {
 function textToCart(savedOrderText) {
     const newCart = {};
     const linhas = (savedOrderText || '').replace(/✅ /g, '').split('\n').filter(Boolean);
+    let catAtual = null; // null = sem cabeçalho ainda (texto legado)
     linhas.forEach(linha => {
+        if (linha.includes('fritos')) { catAtual = 'fritos'; return; }
+        if (linha.includes('crus'))   { catAtual = 'crus';   return; }
         const match = linha.match(/^(\d+)x\s+(.+)$/);
-        if (match) {
-            const qty = parseInt(match[1]);
-            const nome = match[2].trim();
-            const prod = products.find(p => p.name.trim() === nome);
-            if (prod) newCart[prod.id] = qty;
+        if (!match) return;
+        const qty  = parseInt(match[1]);
+        const nome = match[2].trim();
+        let prod;
+        if (catAtual) {
+            // Busca pelo nome E pela categoria correta
+            prod = products.find(p => p.name.trim() === nome && (p.categoria || '').toLowerCase().trim() === catAtual);
         }
+        // Fallback: sem cabeçalho ou não achou com categoria, pega o primeiro pelo nome
+        if (!prod) prod = products.find(p => p.name.trim() === nome);
+        if (prod) newCart[prod.id] = (newCart[prod.id] || 0) + qty;
     });
     return newCart;
 }
 
 function checkFavoriteBtn() {
+    if (!user || !user.phone) return;
     const fav = favorites[user.phone];
     const btn = document.getElementById('favBtnHeader');
-    btn.style.display = (fav && fav.saved_order) ? 'inline-flex' : 'none';
+    if (!btn) return;
+    btn.style.display = (fav && fav.saved_order && fav.saved_order.trim()) ? 'inline-flex' : 'none';
 }
 
 async function saveAsFavorite() {
-    if (Object.keys(cart).length === 0) return; // showToast("Adicione itens ao carrinho!", 'warning');
+    if (Object.keys(cart).length === 0) return;
 
     const { texto, total } = cartToText();
 
-    // Salvar no Supabase
     const { error } = await sb.from("clientes").update({
         saved_order: texto,
         saved_order_total: total
     }).eq("phone", user.phone);
-    if (error) console.warn('Erro ao salvar favorito:', error);
+    if (error) { console.warn('Erro ao salvar favorito:', error); showToast('❌ Erro ao salvar favorito', 'error'); return; }
 
     favorites[user.phone] = { saved_order: texto, saved_order_total: total };
     localStorage.setItem('salgados_favs', JSON.stringify(favorites));
 
     checkFavoriteBtn();
+    showToast('⭐ Pedido favorito salvo!', 'success', 2500);
 }
 
 function openFavoriteModal() {
@@ -2094,7 +1996,7 @@ function openFavoriteModal() {
     if (!fav || !fav.saved_order) return; // showToast("Nenhum pedido salvo", 'warning');
 
     const linhas = fav.saved_order.replace(/✅ /g, '').split('\n').filter(Boolean);
-    
+
     // Recalcular total se não existir ou for inválido
     let total = Number(fav.saved_order_total) || 0;
     if (isNaN(total) || total === 0) {
@@ -2105,37 +2007,52 @@ function openFavoriteModal() {
                 const qty = parseInt(match[1]);
                 const nomeProduto = match[2].trim();
                 const produto = products.find(p => p.name.trim() === nomeProduto);
-                if (produto) {
-                    total += qty * (parseFloat(produto.price) || 0);
-                }
+                if (produto) total += qty * (parseFloat(produto.price) || 0);
             }
         });
     }
-    
-    // Extrair produtos e suas quantidades
-    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
-    
+
+    // Separar itens pelo cabeçalho da seção + categoria real do produto
+    const itensFritos = [];
+    const itensCrus = [];
+    let secaoAtual = null;
     linhas.forEach(linha => {
+        if (linha.includes('fritos')) { secaoAtual = 'fritos'; return; }
+        if (linha.includes('crus'))   { secaoAtual = 'crus';   return; }
         const match = linha.match(/^(\d+)x\s+(.+)$/);
-        if (match) {
-            const qty = match[1];
-            const nomeProduto = match[2].trim();
-            const produto = products.find(p => p.name.trim() === nomeProduto);
-            
-            if (produto) {
-                const imagem = produto.img || 'https://via.placeholder.com/150';
-                html += `
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;background:rgba(255,255,255,0.07);border-radius:14px;border:1px solid rgba(255,255,255,0.1);">
-                        <img src="${imagem}" style="width:90px;height:90px;object-fit:cover;border-radius:10px;background:#eee;">
-                        <div style="text-align:center;font-size:13px;font-weight:600;color:rgba(255,255,255,0.9);">${qty}x ${nomeProduto}</div>
-                    </div>
-                `;
-            }
-        }
+        if (!match) return;
+        const qty = match[1];
+        const nomeProduto = match[2].trim();
+        // Busca produto pelo nome e pela seção (para distinguir fritos/crus de mesmo nome)
+        let produto = secaoAtual
+            ? products.find(p => p.name.trim() === nomeProduto && (p.categoria || '').toLowerCase().trim() === secaoAtual)
+            : null;
+        if (!produto) produto = products.find(p => p.name.trim() === nomeProduto);
+        if (!produto) return;
+        const cat = secaoAtual || (produto.categoria || 'fritos').toLowerCase().trim();
+        const imagem = produto.img || '';
+        const imgTag = imagem
+            ? `<img src="${imagem}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;">`
+            : `<div style="width:72px;height:72px;border-radius:10px;background:#333;display:flex;align-items:center;justify-content:center;font-size:28px;">🍗</div>`;
+        const card = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:rgba(255,255,255,0.06);border-radius:12px;border:1px solid rgba(255,255,255,0.1);">
+            ${imgTag}
+            <div style="text-align:center;font-size:12px;font-weight:700;color:rgba(255,255,255,0.9);">${qty}x ${nomeProduto}</div>
+        </div>`;
+        if (cat === 'crus') itensCrus.push(card);
+        else itensFritos.push(card);
     });
-    
-    html += '</div>';
-    html += `<div style="text-align:center;font-size:16px;font-weight:800;color:white;margin-top:16px;">Total: R$ ${total.toFixed(2).replace('.', ',')}</div>`;
+
+    function buildSecao(label, cor, itens) {
+        if (!itens.length) return '';
+        return `<div style="margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:900;color:${cor};letter-spacing:1px;margin-bottom:8px;">${label}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${itens.join('')}</div>
+        </div>`;
+    }
+
+    let html = buildSecao('🔥 FRITOS', '#e74c3c', itensFritos);
+    html    += buildSecao('🧊 CRUS',   '#3498db', itensCrus);
+    html    += `<div style="text-align:center;font-size:16px;font-weight:800;color:white;margin-top:8px;">Total: R$ ${total.toFixed(2).replace('.', ',')}</div>`;
 
     document.getElementById('favDetails').innerHTML = html;
     document.getElementById('favModal').classList.add('active');
@@ -2176,7 +2093,8 @@ function renderItensResumo() {
     function buildColuna(cat) {
         const itens = products.filter(p => {
             const qty = parseInt(cart[p.id]) || 0;
-            return qty > 0 && (p.categoria || '').toLowerCase() === cat.key;
+            const catProd = (p.categoria || 'fritos').toLowerCase().trim();
+            return qty > 0 && catProd === cat.key;
         });
 
         let inner = '';
@@ -2459,10 +2377,9 @@ async function _confirmarCancelarAnterior() {
             const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1].replace(',', '.')) : (Number(pedido.credito_usado) || 0);
             if (cvf > 0) descNotif += ` • Crédito R$ ${cvf.toFixed(2).replace('.',',')} devolvido`;
             await sb.from('notificacoes').insert({
-                customer_phone: user.phone,
+                customer_phone: String(user.phone || '').trim(),
                 tipo: 'reembolso',
-                valor: Number(pedido.total) + cvf,
-                descricao: descNotif
+                valor: Number(pedido.total) + cvf
             });
 
             setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 500);
@@ -2496,6 +2413,10 @@ async function confirmOrder() {
     if (Object.keys(cart).length === 0) return;
     btn.disabled = true;
 
+    // Criar AudioContext aqui — ainda dentro do gesto do usuário (clique no botão)
+    let _audioCtx = null;
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+
     let total = 0; 
     let pedidoTextoFritos = "";
     let pedidoTextoCrus = "";
@@ -2508,10 +2429,10 @@ async function confirmOrder() {
             const hasPromo = !!(p.pricePromo && temOferta);
             const price = hasPromo ? parseFloat(p.pricePromo) : parseFloat(p.price) || 0;
             
-            const tipoEmoji = p.tipo === 'quente' ? '🍗' : p.tipo === 'fria' ? '🥐' : '✅';
-            const linha = `${tipoEmoji} ${qty}x ${p.name}`;
-            
-            if (p.categoria === 'crus') {
+
+            const linha = `✅ ${qty}x ${p.name}`;
+            const cat = (p.categoria || '').toLowerCase().trim();
+            if (cat === 'crus') {
                 pedidoTextoCrus += linha + '\n';
             } else {
                 pedidoTextoFritos += linha + '\n';
@@ -2522,10 +2443,10 @@ async function confirmOrder() {
     
     let pedidoTexto = '';
     if (pedidoTextoFritos) {
-        pedidoTexto += '———————🔥fritos🔥———————\n' + pedidoTextoFritos;
+        pedidoTexto += '━━━━━🔥fritos🔥━━━━━\n' + pedidoTextoFritos;
     }
     if (pedidoTextoCrus) {
-        pedidoTexto += '———————❄️ crus ❄️———————\n' + pedidoTextoCrus;
+        pedidoTexto += '━━━━━❄️ crus ❄️━━━━━\n' + pedidoTextoCrus;
     }
     if (total === 0) { btn.disabled = false; return; }
 
@@ -2622,10 +2543,31 @@ async function confirmOrder() {
         let finalMsg = msgTemplate
             .replace('{nome}', user.name.split(' ')[0].toUpperCase())
             .replace('{pedido}', pedidoTextoMsg)
-            .replace('{total}', finalTotalSafeValue.toFixed(2).replace('.',','))
-            .replace('{pagamento}', 'Pagar na Entrega');
+            .replace('{total}', finalTotalSafeValue.toFixed(2).replace('.',','));
 
         if (cupomPctParaExcluir > 0) finalMsg += `\n🎟️ Cupom ${cupomPctParaExcluir}% aplicado`;
+
+        // ===== SOM + TOAST DE CONFIRMAÇÃO =====
+        try {
+            if (_audioCtx) {
+                const tocar = (freq, inicio, dur) => {
+                    const osc = _audioCtx.createOscillator();
+                    const gain = _audioCtx.createGain();
+                    osc.connect(gain); gain.connect(_audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, _audioCtx.currentTime + inicio);
+                    gain.gain.setValueAtTime(0.28, _audioCtx.currentTime + inicio);
+                    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + inicio + dur);
+                    osc.start(_audioCtx.currentTime + inicio);
+                    osc.stop(_audioCtx.currentTime + inicio + dur);
+                };
+                tocar(523, 0,    0.12); // C5
+                tocar(659, 0.1,  0.12); // E5
+                tocar(784, 0.2,  0.18); // G5
+                tocar(1047,0.35, 0.28); // C6
+            }
+        } catch(e) {}
+        showToast('✅ Pedido salvo com sucesso!', 'success', 3500);
 
         // ===== ROBOZINHO: SIM ✅ =====
         roboEstado('sim');
@@ -2780,21 +2722,7 @@ async function _registrarPushSubscription() {
     } catch(e) { console.warn('Web Push subscription falhou:', e); }
 }
 
-function _aceitarPermissaoNotif() {
-    document.getElementById('modalPermissaoNotif').style.display = 'none';
-    Notification.requestPermission().then(perm => {
-        if (perm === 'granted') _registrarPushSubscription();
-    });
-}
-function _recusarPermissaoNotif() {
-    document.getElementById('modalPermissaoNotif').style.display = 'none';
-}
-
 function abrirPainelSino() {
-    // Mostra popup personalizado se permissão ainda não concedida
-    if ('Notification' in window && Notification.permission !== 'granted') {
-        document.getElementById('modalPermissaoNotif').style.display = 'flex';
-    }
     document.getElementById('painelSino').style.transform = 'translateY(0)';
     renderHistoricoSaldo();
     window.history.pushState({ state: 'sino_aberto' }, '', window.location.href);
@@ -2920,33 +2848,6 @@ function iniciarRealtimeCliente(phone) {
 
             const valorFmt = Number(novo.valor || 0).toFixed(2).replace('.', ',');
             setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 600);
-
-            // ===== NOTIFICAÇÃO NATIVA DO CELULAR =====
-            const isReembolso = novo.tipo === 'reembolso';
-            const titulo = isReembolso ? '♻️ Reembolso recebido' : '✅ Pagamento recebido';
-            const corpo  = isReembolso
-                ? `Pedido cancelado\nR$ ${valorFmt} devolvido`
-                : `R$ ${valorFmt} confirmado`;
-
-            function _dispararNotifNativa() {
-                try {
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification(titulo, { body: corpo, icon: '/icone.png', badge: '/icone.png', vibrate: [200, 100, 200] });
-                        });
-                    } else {
-                        new Notification(titulo, { body: corpo, icon: '/icone.png' });
-                    }
-                } catch(e) { console.warn('Notificação nativa falhou:', e); }
-            }
-
-            if ('Notification' in window) {
-                if (Notification.permission === 'granted') {
-                    _dispararNotifNativa();
-                } else if (Notification.permission === 'default') {
-                    Notification.requestPermission().then(p => { if (p === 'granted') _dispararNotifNativa(); });
-                }
-            }
         })
         .subscribe();
 }
@@ -3182,14 +3083,20 @@ async function renderHistoricoSaldo() {
     </div>`;
 
     // Busca notificações da tabela dedicada
+    const _phoneNormalizado = String(user.phone || '').trim();
+    console.log('[Notificações] Buscando para phone:', JSON.stringify(_phoneNormalizado));
     const { data: notifs, error: errNotifs } = await sb.from("notificacoes")
         .select("id, tipo, valor, created_at")
-        .eq("customer_phone", user.phone)
+        .eq("customer_phone", _phoneNormalizado)
         .order("created_at", { ascending: false })
         .limit(20);
+    console.log('[Notificações] Resultado:', notifs, 'Erro:', errNotifs);
     if (errNotifs) {
         console.warn('[Notificações] ERRO:', errNotifs.message);
-        lista.innerHTML = `<div style="text-align:center;padding:40px 10px;"><div style="font-size:42px;margin-bottom:10px;opacity:0.4;">⚠️</div><div style="font-size:13px;color:rgba(255,255,255,0.35);font-weight:600;">Erro ao carregar notificações</div><div style="font-size:11px;color:rgba(255,100,100,0.5);margin-top:6px;">${errNotifs.message}</div></div>`;
+        lista.innerHTML = `<div style="text-align:center;padding:40px 10px;">
+            <div style="font-size:42px;margin-bottom:10px;opacity:0.4;">⚠️</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.35);font-weight:600;">Erro ao carregar notificações</div>
+        </div>`;
         return;
     }
 
