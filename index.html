@@ -1730,6 +1730,7 @@ function confirmarLogout() {
     fecharLogoutPopup();
     setTimeout(() => {
         localStorage.removeItem('salgados_phone');
+        localStorage.removeItem('salgados_user');
         cart = {};
         user = null;
         favorites = {};
