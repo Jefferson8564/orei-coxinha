@@ -2503,7 +2503,7 @@ async function confirmOrder() {
         const insertTs = new Date().toISOString();
         const { data: pedidoInserido, error: errPedido } = await sb.from("pedidos").insert({
             customer_name: user.name, customer_phone: user.phone,
-            total: finalTotal, payment_method: method, items: pedidoTexto,
+            total: finalTotal, emissor: 'CLIENTE', items: pedidoTexto,
             credito_usado: creditoUsado
         }).select('id').single();
         if (errPedido) throw errPedido;
