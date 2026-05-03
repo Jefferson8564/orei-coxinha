@@ -9,20 +9,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#934224">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-                navigator.serviceWorker.addEventListener('message', e => {
-                    if (e.data?.acao === 'nova_versao') {
-                        window.location.reload();
-                    }
-                    if (e.data?.acao === 'abrir_notificacoes') {
-                        if (typeof abrirPainelSino === 'function') abrirPainelSino();
-                    }
-                });
-            }).catch(() => {});
-        }
-    </script>
+
 
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1095,10 +1082,6 @@
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                 <span style="font-size:18px;">⚡</span>
                 <span style="font-size:12px;color:rgba(200,180,255,0.9);font-weight:600;text-shadow:0 1px 6px rgba(0,0,60,0.8);">Abre instantaneamente</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:18px;">🔔</span>
-                <span style="font-size:12px;color:rgba(200,180,255,0.9);font-weight:600;text-shadow:0 1px 6px rgba(0,0,60,0.8);">Recebe notificações</span>
             </div>
         </div>
 
@@ -2504,7 +2487,8 @@ async function confirmOrder() {
         const { data: pedidoInserido, error: errPedido } = await sb.from("pedidos").insert({
             customer_name: user.name, customer_phone: user.phone,
             total: finalTotal, emissor: 'CLIENTE', items: pedidoTexto,
-            credito_usado: creditoUsado
+            credito_usado: creditoUsado,
+            status: 'Em produção'
         }).select('id').single();
         if (errPedido) throw errPedido;
 
@@ -2704,24 +2688,7 @@ async function _confirmarInstalar() {
 }
 
 
-async function _registrarPushSubscription() {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-    try {
-        const reg = await navigator.serviceWorker.ready;
-        const VAPID_PUBLIC = 'BPJzjw_67QZ8dNu4fwye4cs55PwoTgESBQeHl1xTy9fMOgQfsYsLjtBnaTB8TNfRj-ErZ3EfTV5489y-xCqToZ8';
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC });
-        }
-        const subJson = sub.toJSON();
-        await sb.from('push_subscriptions').upsert({
-            customer_phone: user.phone,
-            endpoint: subJson.endpoint,
-            p256dh: subJson.keys.p256dh,
-            auth: subJson.keys.auth
-        }, { onConflict: 'endpoint', ignoreDuplicates: true });
-    } catch(e) { console.warn('Web Push subscription falhou:', e); }
-}
+
 
 function abrirPainelSino() {
     document.getElementById('painelSino').style.transform = 'translateY(0)';
