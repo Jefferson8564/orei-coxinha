@@ -1100,44 +1100,6 @@
 
 
 
-<div id="modalPedidoAnterior" style="
-    display:none; position:fixed; inset:0; z-index:4000;
-    background:rgba(0,0,0,0.72); backdrop-filter:blur(10px);
-    align-items:center; justify-content:center;
-">
-    <div style="
-        background:#1c2340; border:1px solid rgba(255,255,255,0.12);
-        border-radius:24px; padding:28px 24px; margin:20px;
-        max-width:360px; width:100%; text-align:center;
-        box-shadow:0 20px 60px rgba(0,0,0,0.5);
-        animation: fadeSlide 0.25s ease both;
-    ">
-        <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
-        <div style="font-size:19px; font-weight:900; color:white; margin-bottom:10px;">Pedido anterior encontrado!</div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.65); font-weight:500; line-height:1.5; margin-bottom:22px;">
-            Você já fez um pedido há <span id="tempoUltimoPedido" style="color:#f39c12; font-weight:800;">-- min</span>.<br>
-            Deseja cancelar o pedido anterior?
-        </div>
-        <div style="display:flex; gap:10px;">
-            <button onclick="_confirmarManterAmbos()" style="
-                flex:1; padding:15px;
-                background:linear-gradient(135deg,#1aad52,#25d366);
-                border:none; border-radius:14px; color:white;
-                font-size:15px; font-weight:800; cursor:pointer;
-                box-shadow:0 4px 16px rgba(37,211,102,0.35);
-                -webkit-tap-highlight-color:transparent;
-            ">✅ Manter os 2 pedidos</button>
-            <button onclick="_confirmarCancelarAnterior()" style="
-                flex:1; padding:15px;
-                background:linear-gradient(135deg,#c0392b,#e74c3c);
-                border:none; border-radius:14px; color:white;
-                font-size:15px; font-weight:800; cursor:pointer;
-                box-shadow:0 4px 16px rgba(231,76,60,0.35);
-                -webkit-tap-highlight-color:transparent;
-            ">❌ Cancelar</button>
-        </div>
-    </div>
-</div>
 
 <!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
 <div id="modalRoboConfirm" style="
@@ -1239,7 +1201,6 @@ let currentOrderTotal = 0;
 let creditDiscount = 0;
 let cupomId = null;
 let cupomDescontoPct = 0;
-let msgTemplate = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}━━━━━━━━━━━━━━━\n\n*Total: R$ {total}*";
 let favorites = {};
 let temaSelecionado = localStorage.getItem('temaSelecionado') || 'azul';
 
@@ -1327,28 +1288,6 @@ window.onload = async () => {
     try {
         // Adicionar histórico inicial
         window.history.pushState({ state: 'home' }, '', window.location.href);
-
-        // Carregar configurações (template)
-        const TEMPLATE_CORRETO = "*NOVO PEDIDO*\nCliente: {nome}\n\n{pedido}━━━━━━━━━━━━━━━\n\n*Total: R$ {total}*";
-        try {
-            const { data: cfgs } = await comTimeout(
-                sb.from("configs").select("key, value").eq("key", "msg_template"),
-                6000, 'Timeout ao carregar configurações'
-            );
-            if (cfgs) {
-                cfgs.forEach(c => {
-                    if (c.key === 'msg_template') msgTemplate = c.value;
-                });
-            }
-            // Corrigir template no banco se estiver diferente do esperado
-            if (msgTemplate !== TEMPLATE_CORRETO) {
-                await sb.from("configs").upsert({ key: "msg_template", value: TEMPLATE_CORRETO }, { onConflict: "key" });
-                msgTemplate = TEMPLATE_CORRETO;
-                console.log('[Init] Template da mensagem corrigido no banco ✅');
-            }
-        } catch (e) {
-            console.warn('[Init] Configurações não carregadas, usando template padrão:', e.message);
-        }
 
         // Carregar favoritos da sessão local (fallback offline)
         favorites = JSON.parse(localStorage.getItem('salgados_favs')) || {};
@@ -2306,90 +2245,6 @@ function selecionarCupom(pct, id, el) {
 
 function closePayModal() { document.getElementById('payModal').classList.remove('active'); cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; creditDiscount = 0; }
 
-// ===== POPUP PEDIDO ANTERIOR =====
-var _pedidoAnteriorId = null;
-var _resolvePopupPedido = null;
-
-async function _confirmarCancelarAnterior() {
-    document.getElementById('modalPedidoAnterior').style.display = 'none';
-    try {
-        const { data: pedido } = await sb.from('pedidos')
-            .select('id, total, items, credito_usado')
-            .eq('id', _pedidoAnteriorId)
-            .maybeSingle();
-
-        if (pedido) {
-            // Reverte debt (igual ao cancelarPedidoCliente)
-            const creditoMatch = (pedido.items || '').match(/💳 CREDITO:([\d.,]+)/);
-            const creditoUsado = creditoMatch ? Number(creditoMatch[1].replace(',', '.')) : (Number(pedido.credito_usado) || 0);
-            const { data: c } = await sb.from('clientes').select('debt').eq('phone', user.phone).single();
-            if (c) {
-                // Devolver o valor: subtrair do debt (devolver dinheiro = diminuir a dívida)
-                const novoDebt = (c.debt || 0) - Number(pedido.total) - creditoUsado;
-                await sb.from('clientes').update({ debt: novoDebt }).eq('phone', user.phone);
-                user.debt = novoDebt;
-                atualizarCabecalho();
-            }
-
-            // Restaura cupom se havia
-            try {
-                const linhasCupom = (pedido.items || '').split('\n').filter(l => l.includes('CUPOM:'));
-                if (linhasCupom.length > 0) {
-                    const parts = linhasCupom[0].split(':');
-                    const pct = Number(parts[1]) || 0;
-                    if (pct > 0) {
-                        await sb.from('premios').insert({
-                            customer_phone: user.phone,
-                            customer_name: user.name,
-                            descricao: `🏷️ ${pct}% OFF — ${pct}% de desconto`,
-                            jogo: 'cupom_estornado',
-                            tickets_usados: 0,
-                            diamantes_usados: 0,
-                            cancelado: false
-                        });
-                        await carregarCupons();
-                    }
-                }
-            } catch(e) { console.warn('Erro ao restaurar cupom no popup:', e); }
-
-            // Deleta pedido
-            await sb.from('pedidos').delete().eq('id', _pedidoAnteriorId);
-
-            // Notificação
-            let descNotif = 'Pedido cancelado pelo cliente';
-            const creditoUsadoFinal = (pedido.items || '').match(/💳 CREDITO:([\d.,]+)/);
-            const cvf = creditoUsadoFinal ? Number(creditoUsadoFinal[1].replace(',', '.')) : (Number(pedido.credito_usado) || 0);
-            if (cvf > 0) descNotif += ` • Crédito R$ ${cvf.toFixed(2).replace('.',',')} devolvido`;
-            await sb.from('notificacoes').insert({
-                customer_phone: String(user.phone || '').trim(),
-                tipo: 'reembolso',
-                valor: Number(pedido.total) + cvf
-            });
-
-            setTimeout(() => { renderHistoricoSaldo(); carregarCupons(); }, 500);
-        }
-    } catch(e) { console.warn('Erro ao cancelar pedido anterior no popup:', e); }
-
-    if (_resolvePopupPedido) _resolvePopupPedido('cancelar');
-}
-function _confirmarManterAmbos() {
-    document.getElementById('modalPedidoAnterior').style.display = 'none';
-    if (_resolvePopupPedido) _resolvePopupPedido('manter');
-}
-
-async function _verificarPedidoRecente() {
-    try {
-        const dez = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-        const { data } = await sb.from('pedidos')
-            .select('id, created_at')
-            .eq('customer_phone', user.phone)
-            .gte('created_at', dez)
-            .order('created_at', { ascending: false })
-            .limit(1);
-        if (data && data.length > 0) return data[0];
-        return null;
-    } catch(e) { return null; }
-}
 
 async function confirmOrder() {
     const btn = document.getElementById('btnConfirm');
@@ -2449,30 +2304,7 @@ async function confirmOrder() {
         pedidoTexto += `💳 CREDITO:${creditoUsado.toFixed(2)}\n`;
     }
 
-    // ===== VERIFICAR PEDIDO ANTERIOR (últimos 10 min) =====
-    const pedidoRecente = await _verificarPedidoRecente();
-    if (pedidoRecente) {
-        const minAtras = Math.max(1, Math.round((Date.now() - new Date(pedidoRecente.created_at).getTime()) / 60000));
-        document.getElementById('tempoUltimoPedido').textContent = minAtras + ' min';
-        _pedidoAnteriorId = pedidoRecente.id;
-        document.getElementById('modalPedidoAnterior').style.display = 'flex';
-        // TTS lê o popup
-        if (leituraPedidoAtiva && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(`Atenção! Você já tem um pedido feito há ${minAtras} minuto${minAtras > 1 ? 's' : ''}. Deseja cancelar o pedido anterior? Para manter os dois pedidos aperte no verde, para cancelar aperte no vermelho.`);
-            u.lang = 'pt-BR';
-            window.speechSynthesis.speak(u);
-        }
-        const decisao = await new Promise(res => { _resolvePopupPedido = res; });
-        
-        // Recarregar debt do Supabase após decisão (se cancelou, debt foi atualizado)
-        const { data: clienteAtualizado } = await sb.from('clientes').select('debt').eq('phone', user.phone).maybeSingle();
-        if (clienteAtualizado) {
-            user.debt = clienteAtualizado.debt;
-        }
-    }
-    
-    // Recalcular newDebt com o debt atualizado
+    // Recalcular newDebt
     let newDebt = user.debt + finalTotal + creditoUsado;
 
     // Mostrar robozinho em modo SALVANDO
@@ -2520,18 +2352,6 @@ async function confirmOrder() {
         await sb.from("clientes").update({ debt: newDebt }).eq("phone", user.phone);
         user.debt = newDebt; atualizarCabecalho();
 
-        const pedidoTextoMsg = pedidoTexto.split('\n').filter(l => !l.startsWith('🏷️ CUPOM:') && !l.startsWith('💳 CREDITO:')).join('\n');
-        
-        // Garantir que finalTotal é um número válido
-        const finalTotalSafeValue = isNaN(finalTotal) || finalTotal == null ? 0 : finalTotal;
-        
-        let finalMsg = msgTemplate
-            .replace('{nome}', user.name.split(' ')[0].toUpperCase())
-            .replace('{pedido}', pedidoTextoMsg)
-            .replace('{total}', finalTotalSafeValue.toFixed(2).replace('.',','));
-
-        if (cupomPctParaExcluir > 0) finalMsg += `\n🎟️ Cupom ${cupomPctParaExcluir}% aplicado`;
-
         // ===== SOM + TOAST DE CONFIRMAÇÃO =====
         try {
             if (_audioCtx) {
@@ -2574,7 +2394,9 @@ async function confirmOrder() {
         cart = {}; creditDiscount = 0; cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; render();
         btn.disabled = false;
 
-        irParaWhatsApp(finalMsg);
+        setTimeout(() => {
+            window.location.href = 'https://jefferson8564.github.io/itens/';
+        }, 1800);
 
     } catch(err) {
         console.error('Erro ao salvar pedido:', err);
@@ -2583,10 +2405,6 @@ async function confirmOrder() {
         btn.disabled = false;
         setTimeout(() => { modal.style.display = 'none'; }, 3000);
     }
-}
-
-function irParaWhatsApp(msg) {
-    window.location.href = `https://api.whatsapp.com/send?phone=55${ADMIN_NUM}&text=${encodeURIComponent(msg)}`;
 }
 
 function roboEstado(estado) {
@@ -2604,7 +2422,7 @@ function roboEstado(estado) {
         badge.style.display = 'block';
         badge.textContent = '✅';
         titulo.textContent = 'Pedido confirmado!';
-        sub.textContent = 'Abrindo WhatsApp... 📲';
+        sub.textContent = 'Redirecionando... 🚀';
         sub.style.color = 'rgba(255,255,255,0.75)';
     } else if (estado === 'nao') {
         badge.style.display = 'block';
@@ -2615,7 +2433,7 @@ function roboEstado(estado) {
     }
 }
 
-// Reseta botão e modal ao voltar do WhatsApp
+// Reseta botão e modal ao voltar para a página
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
         const btn = document.getElementById('btnConfirm');
