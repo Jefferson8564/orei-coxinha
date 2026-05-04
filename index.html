@@ -2,9 +2,6 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>O Rei da Coxinha 🍗</title>
     <link rel="icon" href="icone.png">
@@ -1132,6 +1129,10 @@ const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ";
 const ADMIN_NUM = "81996603348";
 
+// ===== WEB PUSH — VAPID =====
+// ⚠️ Substitua pela sua chave pública VAPID real
+const VAPID_PUBLIC_KEY = 'BHz14H_rt9dRH7qr0KHoyP0xTbOMztpGXeGbcULrLuDiB1QblCqIbZ6So4TG7UgWXAJCoVVoFyj8LJ57fVhjhBM';
+
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===== FUSO HORÁRIO SÃO PAULO (America/Sao_Paulo) =====
@@ -1502,6 +1503,9 @@ async function auth() {
 
     // ✅ POPUP DE OFERTA — aparece todo login, baseado no created_at do Supabase
     mostrarPopupOferta(client, clienteNovo);
+
+    // ✅ REGISTRAR PUSH NATIVO DO CLIENTE
+    registrarPushCliente(phone);
 }
 
 function mostrarPopupOferta(client, clienteNovo) {
@@ -3304,6 +3308,50 @@ function mostrarAnimacaoRoboLimpando() {
             console.log('✅ Animação finalizada');
         }, 500);
     }, 2400);
+}
+
+
+// ===== WEB PUSH CLIENTE =====
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function registrarPushCliente(phone) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!phone) return;
+
+    try {
+        // Registrar o service worker do cliente
+        const reg = await navigator.serviceWorker.register('./sw-cliente.js');
+        await navigator.serviceWorker.ready;
+
+        // Pedir permissão
+        const permissao = await Notification.requestPermission();
+        if (permissao !== 'granted') return;
+
+        // Criar subscription
+        const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+
+        const sub = subscription.toJSON();
+
+        // Salvar no Supabase — upsert pelo endpoint
+        await sb.from('push_subscriptions_clientes').upsert({
+            phone,
+            endpoint: sub.endpoint,
+            p256dh: sub.keys.p256dh,
+            auth: sub.keys.auth
+        }, { onConflict: 'endpoint' });
+
+        console.log('[Push] Subscription do cliente salva!');
+    } catch (err) {
+        console.warn('[Push] Erro ao registrar push do cliente:', err);
+    }
 }
 
 </script>
