@@ -1,5 +1,5 @@
 // sw-cliente.js — Service Worker do app do cliente com Web Push
-const CACHE_NAME = 'rei-coxinha-cliente-v1';
+const CACHE_NAME = 'rei-coxinha-cliente-v5';
 const CLIENTE_URL = 'https://orei-coxinha.vercel.app/';
 
 self.addEventListener('install', e => {
