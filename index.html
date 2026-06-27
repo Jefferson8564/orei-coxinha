@@ -7,12 +7,12 @@
     <link rel="icon" href="icone.png">
     <link rel="apple-touch-icon" href="icone.png">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#934224">
+    <meta name="theme-color" content="#0c0b0a">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --success: #25d366;
@@ -35,7 +35,7 @@
         }
 
         html {
-            background-color: #934224;
+            background-color: #0c0b0a;
             min-height: 100vh;
             margin: 0;
             padding: 0;
@@ -43,7 +43,7 @@
         }
 
         body {
-            background-color: #934224;
+            background-color: #0c0b0a;
             min-height: 100vh;
             margin: 0;
             padding: 0;
@@ -57,7 +57,7 @@
         /* ===== LOADING ===== */
         #loadingOverlay {
             position: fixed; inset: 0;
-            background: linear-gradient(145deg, #c75b24, #a84a1b);
+            background: linear-gradient(145deg, #1a1816, #0c0b0a);
             z-index: 9999; display: flex; flex-direction: column;
             align-items: center; justify-content: center; color: white; gap: 18px;
         }
@@ -93,138 +93,164 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeSlide { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 
-        /* ===== LOGIN PREMIUM ===== */
-        @keyframes loginFloat {
-            0%,100% { transform: translateY(0px) rotate(-2deg); }
-            50%      { transform: translateY(-14px) rotate(2deg); }
+        /* ===== LOGIN v3 (luz dramática / Syne) ===== */
+        @keyframes loginBreathe {
+            0%,100% { opacity:.8; transform: translateX(-50%) scale(1); }
+            50%      { opacity:1; transform: translateX(-50%) scale(1.06); }
         }
-        @keyframes loginCardIn {
-            0%   { opacity:0; transform: translateY(40px) scale(0.95); }
-            100% { opacity:1; transform: translateY(0) scale(1); }
+        @keyframes loginAuraBreath {
+            0%,100% { transform: translateX(-50%) scale(1); opacity:.8; }
+            50%      { transform: translateX(-50%) scale(1.1); opacity:1; }
+        }
+        @keyframes loginProductHover {
+            0%,100% { transform: translateY(0) rotate(-1deg); }
+            50%      { transform: translateY(-12px) rotate(1deg); }
         }
         @keyframes loginShimmer {
             0%   { background-position: -200% center; }
             100% { background-position: 200% center; }
         }
-        @keyframes loginPulseBtn {
-            0%,100% { box-shadow: 0 8px 32px rgba(199,91,36,0.5); }
-            50%      { box-shadow: 0 14px 50px rgba(199,91,36,0.85); }
-        }
-        @keyframes loginOrb1 {
-            0%,100% { transform: translate(0,0) scale(1); }
-            33%      { transform: translate(30px,-20px) scale(1.1); }
-            66%      { transform: translate(-20px,15px) scale(0.95); }
-        }
-        @keyframes loginOrb2 {
-            0%,100% { transform: translate(0,0) scale(1); }
-            33%      { transform: translate(-25px,20px) scale(1.05); }
-            66%      { transform: translate(20px,-15px) scale(1.1); }
-        }
-        @keyframes loginSparkle {
-            0%,100% { opacity:0; transform:scale(0) rotate(0deg); }
-            50%      { opacity:1; transform:scale(1) rotate(180deg); }
+        @keyframes loginSweep { 0% { left:-120%; } 55%,100% { left:160%; } }
+        @keyframes loginCardIn {
+            0%   { opacity:0; transform: translateY(40px) scale(0.97); }
+            100% { opacity:1; transform: translateY(0) scale(1); }
         }
 
         #loginScreen {
             position: fixed; inset: 0;
-            background: #0d0508;
-            z-index: 5000; display: flex;
-            align-items: center; justify-content: center; padding: 20px;
-            overflow: hidden;
+            background: #0c0b0a;
+            z-index: 5000; display: flex; flex-direction: column;
+            overflow: hidden; padding: 0;
         }
-        #loginScreen .ls-orb1 {
-            position: absolute; width: 380px; height: 380px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(199,91,36,0.5) 0%, transparent 70%);
-            top: -100px; left: -100px;
-            animation: loginOrb1 8s ease-in-out infinite;
+        #loginScreen::before {
+            content: ''; position: absolute; inset: 0;
+            opacity: .035; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 200px 200px;
+        }
+        #loginScreen .ls-light-top {
+            position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(255,200,120,0.06) 0%, transparent 70%);
             pointer-events: none;
         }
-        #loginScreen .ls-orb2 {
-            position: absolute; width: 320px; height: 320px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(241,196,15,0.3) 0%, transparent 70%);
-            bottom: -60px; right: -60px;
-            animation: loginOrb2 10s ease-in-out infinite;
+        #loginScreen .ls-light-cone {
+            position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%);
+            width: 500px; height: 500px;
+            background: radial-gradient(ellipse at 50% 80%, rgba(255,110,30,0.18) 0%, rgba(200,60,0,0.10) 30%, transparent 70%);
             pointer-events: none;
-        }
-        #loginScreen .ls-orb3 {
-            position: absolute; width: 180px; height: 180px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(168,74,27,0.4) 0%, transparent 70%);
-            top: 45%; right: 8%;
-            animation: loginOrb1 12s ease-in-out infinite reverse;
-            pointer-events: none;
-        }
-        #loginScreen .ls-spark {
-            position: absolute; font-size: 16px; pointer-events: none;
-            animation: loginSparkle ease-in-out infinite;
+            animation: loginBreathe 6s ease-in-out infinite;
         }
 
         .login-container {
             position: relative; z-index: 2;
-            width: 100%; max-width: 360px;
-            animation: loginCardIn 0.7s cubic-bezier(0.34,1.2,0.64,1) both;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
         }
-        .ls-hero { text-align: center; margin-bottom: 24px; }
+
+        .ls-hero {
+            flex: 1; min-height: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end;
+            text-align: center;
+            padding: 24px 20px 28px;
+            position: relative;
+        }
+        .ls-hero .ls-product-aura {
+            position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+            width: 260px; height: 260px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,100,20,0.22) 0%, rgba(200,60,0,0.10) 40%, transparent 70%);
+            animation: loginAuraBreath 4s ease-in-out infinite;
+            pointer-events: none;
+        }
         .ls-emoji {
             display: block;
-            width: 120px; height: 120px;
+            width: 110px; height: 110px;
             object-fit: contain;
-            filter: drop-shadow(0 0 28px rgba(255,160,60,0.8)) drop-shadow(0 0 50px rgba(255,100,20,0.4));
-            animation: loginFloat 3.5s ease-in-out infinite;
-            margin: 0 auto 12px;
+            filter: drop-shadow(0 0 32px rgba(255,100,20,0.7)) drop-shadow(0 14px 40px rgba(0,0,0,0.7));
+            animation: loginProductHover 5s ease-in-out infinite;
+            margin: 0 auto 14px; position: relative; z-index: 2;
+        }
+        .ls-eyebrow {
+            font-size: 10px; font-weight: 600; letter-spacing: 5px;
+            color: rgba(255,140,60,0.5); text-transform: uppercase;
+            margin-bottom: 8px; display: block; position: relative; z-index: 2;
         }
         .ls-brand {
-            font-family: 'Playfair Display', 'Georgia', serif;
-            font-size: 28px; font-weight: 900;
-            color: #fff; letter-spacing: -0.5px; line-height: 1.1;
-            text-shadow: 0 2px 20px rgba(255,140,50,0.5);
+            font-family: 'Syne', 'Inter', sans-serif;
+            font-size: 32px; font-weight: 800;
+            color: #fff; letter-spacing: -0.5px; line-height: 1.15;
+            text-shadow: 0 4px 40px rgba(0,0,0,0.9);
+            position: relative; z-index: 2;
         }
         .ls-brand span {
-            background: linear-gradient(135deg, #ffd700 0%, #ff9500 50%, #ff6b00 100%);
+            background: linear-gradient(135deg, #FFD166 0%, #FF8C00 60%, #FF4500 100%);
             background-size: 200% auto;
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-size: 42px;
             animation: loginShimmer 3s linear infinite;
         }
-        .ls-tagline { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 6px; font-weight: 500; letter-spacing: 0.5px; }
+        .ls-tagline {
+            font-size: 12px; font-weight: 500; letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.28); text-transform: uppercase;
+            margin-top: 10px; display: block; position: relative; z-index: 2;
+        }
 
         .ls-card {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: 28px; padding: 28px 24px 24px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
+            background: rgba(14,12,10,0.92);
+            border-top: 1px solid rgba(255,255,255,0.07);
+            border-radius: 32px 32px 0 0;
+            padding: 26px 22px 28px;
+            position: relative; z-index: 2;
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+            max-height: 70vh; overflow-y: auto;
+            padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+        }
+        .ls-card::before {
+            content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,140,60,0.4), transparent);
+        }
+        .ls-drag-pill {
+            width: 40px; height: 4px;
+            background: rgba(255,255,255,0.12); border-radius: 2px;
+            margin: 0 auto 20px;
         }
         .ls-label {
-            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4);
-            text-transform: uppercase; letter-spacing: 1.5px;
+            font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.25);
+            text-transform: uppercase; letter-spacing: 2.5px;
             margin-bottom: 8px; display: block; text-align: left;
         }
         .ls-benefits {
             display: flex; gap: 8px; justify-content: center;
-            margin-top: 18px; flex-wrap: wrap;
+            margin-top: 16px; flex-wrap: wrap;
         }
         .ls-benefit {
             display: flex; align-items: center; gap: 5px;
-            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
             border-radius: 20px; padding: 5px 10px;
-            font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5);
+            font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.45);
         }
 
         #btnLogin {
-            width: 100%; padding: 16px;
-            background: linear-gradient(135deg, #e8732a 0%, #c75b24 50%, #a84a1b 100%);
-            color: white; border: none; border-radius: 18px;
-            font-size: 16px; font-weight: 800; cursor: pointer;
+            width: 100%; height: 54px;
+            background: linear-gradient(135deg, #FF8C00 0%, #FF4500 100%);
+            color: white; border: none; border-radius: 16px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
             letter-spacing: 0.3px; position: relative; overflow: hidden;
-            animation: loginPulseBtn 2s ease-in-out infinite;
-            transition: transform 0.15s; margin-bottom: 0;
+            box-shadow: 0 6px 32px rgba(255,80,0,0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+            margin-bottom: 0;
+            font-family: 'Inter', sans-serif;
         }
-        #btnLogin::before {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-            animation: loginShimmer 2.5s linear infinite;
+        #btnLogin::after {
+            content: ''; position: absolute; top: 0; left: -120%; width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+            animation: loginSweep 3.5s ease-in-out infinite;
         }
-        #btnLogin:active { transform: scale(0.97); }
+        #btnLogin:active { transform: scale(0.98); box-shadow: 0 3px 16px rgba(255,80,0,0.25); }
         #loginError {
             background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3);
             border-radius: 12px; padding: 10px 14px;
@@ -233,26 +259,64 @@
         }
 
 .input-text {
-            width: 100%; padding: 15px 18px;
-            background: rgba(255,255,255,0.07);
-            border: 1.5px solid rgba(255,255,255,0.12);
-            border-radius: 16px; margin-bottom: 14px;
-            text-align: left; font-size: 16px; font-weight: 500;
+            width: 100%; height: 52px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 14px; margin-bottom: 14px;
+            text-align: left; font-size: 16px; font-weight: 600;
             color: white; outline: none; -webkit-appearance: none;
-            transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+            padding: 0 16px;
+            letter-spacing: 0.3px;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.25s, box-shadow 0.25s;
         }
-        .input-text::placeholder { color: rgba(255,255,255,0.28); }
+        .input-text::placeholder { color: rgba(255,255,255,0.18); font-weight: 400; }
         .input-text:focus {
-            border-color: rgba(255,160,50,0.7);
-            background: rgba(255,255,255,0.1);
-            box-shadow: 0 0 0 3px rgba(199,91,36,0.2);
+            border-color: rgba(255,140,60,0.5);
+            box-shadow: 0 0 0 3px rgba(255,100,20,0.1);
         }
-        .input-prefix-container { position: relative; display: flex; align-items: center; margin-bottom: 14px; }
+        .input-prefix-container {
+            position: relative; display: flex; align-items: center;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 14px; margin-bottom: 14px;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .input-prefix-container:focus-within {
+            border-color: rgba(255,140,60,0.5);
+            box-shadow: 0 0 0 3px rgba(255,100,20,0.1);
+        }
         .input-prefix-container .ls-prefix {
-            position: absolute; left: 18px;
-            font-weight: 700; color: rgba(255,160,50,0.9); font-size: 15px; pointer-events: none;
+            padding: 0 12px 0 16px;
+            font-size: 13px; font-weight: 700;
+            color: rgba(255,140,60,0.7);
+            white-space: nowrap;
+            position: static;
         }
-        .input-prefix-container input { padding-left: 72px !important; margin-bottom: 0; }
+        .input-prefix-container input {
+            flex: 1;
+            background: transparent; border: none;
+            padding-left: 4px !important; margin-bottom: 0;
+            height: 52px;
+        }
+        .input-prefix-container input:focus { box-shadow: none; }
+
+        /* Destaque extra no campo de WhatsApp (campo principal do login) */
+        .ls-phone-highlight {
+            background: rgba(255,140,60,0.07) !important;
+            border: 1.5px solid rgba(255,140,60,0.4) !important;
+            height: 58px !important;
+            box-shadow: 0 0 0 4px rgba(255,100,20,0.08), 0 8px 24px rgba(255,80,0,0.12);
+        }
+        .ls-phone-highlight:focus-within {
+            border-color: rgba(255,150,70,0.75) !important;
+            box-shadow: 0 0 0 4px rgba(255,100,20,0.18), 0 8px 28px rgba(255,80,0,0.2);
+        }
+        .ls-phone-highlight input {
+            height: 58px !important;
+            font-size: 17px !important;
+        }
+        .ls-phone-highlight .ls-prefix { font-size: 14px; }
 
         /* ===== HEADER ===== */
         .header {
@@ -264,6 +328,12 @@
             height: 75px; border-radius: 30px;
             width: calc(100% - 24px);
             box-shadow: var(--theme-shadow), inset 0 2px 6px rgba(255,255,255,0.3);
+            transition: transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+        }
+        .header.hidden {
+            transform: translateY(-110px);
+            opacity: 0;
+            pointer-events: none;
         }
         .header::before {
             content: '';
@@ -276,29 +346,41 @@
         }
         /* Barra de categorias */
         .cat-bar {
-            position: fixed; top: 99px; left: 12px; right: 12px;
-            z-index: 99;
+            position: relative;
+            left: auto; right: auto;
+            z-index: 10;
             display: flex; gap: 8px;
-            padding: 5px 8px;
-            background: rgba(120,50,20,0.92);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            padding: 6px 8px;
+            margin: 0 12px 8px;
+            background: var(--theme-header-bg, #001a33);
+            border: 1px solid var(--theme-header-border, rgba(0,153,255,0.2));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 18px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.45);
         }
         .cat-btn {
-            flex: 1; padding: 9px 6px;
-            border: 1.5px solid rgba(255,255,255,0.25);
-            background: rgba(255,255,255,0.1);
-            color: rgba(255,255,255,0.9);
-            border-radius: 11px; font-weight: 900; font-size: 16px; letter-spacing: 0.5px; text-shadow: 0 1px 6px rgba(0,0,0,0.4);
-            cursor: pointer; transition: all 0.2s;
+            flex: 1; padding: 10px 6px;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.55);
+            border-radius: 13px;
+            font-weight: 800; font-size: 13px;
+            letter-spacing: 1px; text-transform: uppercase;
+            text-shadow: none;
+            cursor: pointer; transition: all 0.22s cubic-bezier(0.34,1.2,0.64,1);
             -webkit-tap-highlight-color: transparent;
         }
+        .cat-btn:active { transform: scale(0.94); }
         .cat-btn.active {
-            background: white; color: #7a3214;
-            border-color: white;
-            box-shadow: 0 3px 14px rgba(0,0,0,0.3); font-size: 17px;
+            background: var(--theme-gradient);
+            color: white;
+            border-color: transparent;
+            font-size: 13.5px;
+            letter-spacing: 1.2px;
+            text-shadow: 0 1px 8px rgba(0,0,0,0.35);
+            box-shadow: var(--theme-shadow);
+            transform: scale(1.03);
         }
         .header-btn {
             background: rgba(255,255,255,0.18); border: none;
@@ -314,7 +396,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 4px;
             padding: 4px 4px;
-            padding-top: 160px;
+            padding-top: 4px;
             margin: 0;
             margin-bottom: 80px;
             width: 100%;
@@ -528,86 +610,216 @@
             80%  { transform: translateY(8px) scale(0.96); }
             100% { transform: translateY(0) scale(1); opacity:1; }
         }
-        @keyframes roboSalvando {
-            0%,100% { transform: translateY(0) rotate(-3deg); }
-            50%      { transform: translateY(-12px) rotate(3deg); }
+        /* ===== NOVA ANIMAÇÃO PEDIDO CONFIRMADO ===== */
+        @keyframes ticketEntrar {
+            0%   { opacity:0; transform: translateY(60px) scale(0.85) rotate(-2deg); }
+            60%  { transform: translateY(-10px) scale(1.02) rotate(0.5deg); }
+            100% { opacity:1; transform: translateY(0) scale(1) rotate(0deg); }
         }
-        @keyframes roboSim {
-            0%,100% { transform: rotate(-12deg) scale(1.08); }
-            50%      { transform: rotate(12deg) scale(1.08); }
+        @keyframes ticketSair {
+            0%   { opacity:1; transform: translateY(0) scale(1); }
+            100% { opacity:0; transform: translateY(-80px) scale(0.9); }
         }
+        @keyframes checkDraw {
+            0%   { stroke-dashoffset: 100; }
+            100% { stroke-dashoffset: 0; }
+        }
+        @keyframes circuloPulse {
+            0%   { transform: scale(0); opacity:0; }
+            50%  { transform: scale(1.15); opacity:1; }
+            100% { transform: scale(1); opacity:1; }
+        }
+        @keyframes itemAparecer {
+            0%   { opacity:0; transform: translateX(-16px); }
+            100% { opacity:1; transform: translateX(0); }
+        }
+        @keyframes coxinhaCair {
+            0%   { transform: translateY(-30px) rotate(0deg) scale(1); opacity:1; }
+            100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity:0; }
+        }
+        @keyframes overlayEntrar {
+            0%   { opacity:0; }
+            100% { opacity:1; }
+        }
+        @keyframes salvandoPulse {
+            0%,100% { opacity:1; transform:scale(1); }
+            50%      { opacity:0.6; transform:scale(0.97); }
+        }
+        @keyframes barraCarregar {
+            0%   { width: 0%; }
+            80%  { width: 85%; }
+            100% { width: 100%; }
+        }
+
+        #modalRoboConfirm { background: rgba(0,0,0,0.75); }
+        #modalRoboConfirm.estado-sim { background: rgba(0,15,5,0.82); }
+        #modalRoboConfirm.estado-nao { background: rgba(20,0,0,0.82); }
+
+        .ticket-card {
+            background: #0c0b0a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            width: calc(100% - 48px);
+            max-width: 340px;
+            overflow: hidden;
+            animation: ticketEntrar 0.55s cubic-bezier(0.34,1.3,0.64,1) both;
+            position: relative;
+        }
+        .ticket-topo {
+            padding: 28px 24px 20px;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            background: linear-gradient(180deg, rgba(37,211,102,0.08) 0%, transparent 100%);
+        }
+        .ticket-circulo {
+            width: 72px; height: 72px;
+            background: rgba(37,211,102,0.12);
+            border: 2px solid rgba(37,211,102,0.4);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            animation: circuloPulse 0.5s cubic-bezier(0.34,1.4,0.64,1) 0.3s both;
+        }
+        .ticket-circulo svg {
+            width: 36px; height: 36px;
+        }
+        .ticket-circulo svg path {
+            stroke: #25d366;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: checkDraw 0.4s ease-out 0.55s forwards;
+        }
+        .ticket-titulo {
+            font-size: 22px; font-weight: 900; color: white;
+            letter-spacing: -0.5px; text-align: center;
+            animation: itemAparecer 0.4s ease 0.7s both;
+        }
+        .ticket-sub {
+            font-size: 13px; color: rgba(255,255,255,0.45);
+            font-weight: 600; text-align: center;
+            animation: itemAparecer 0.4s ease 0.85s both;
+        }
+        .ticket-divider {
+            display: flex; align-items: center; gap: 0;
+            margin: 0 -1px;
+        }
+        .ticket-divider::before, .ticket-divider::after {
+            content: '';
+            flex: 1; height: 1px;
+            background: rgba(255,255,255,0.08);
+        }
+        .ticket-buraco {
+            width: 20px; height: 20px; border-radius: 50%;
+            background: rgba(0,0,0,0.75);
+            border: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+            margin: 0 -10px;
+        }
+        .ticket-corpo {
+            padding: 18px 24px 24px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .ticket-linha {
+            display: flex; justify-content: space-between; align-items: center;
+            animation: itemAparecer 0.35s ease both;
+        }
+        .ticket-linha-label {
+            font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 0.5px;
+        }
+        .ticket-linha-valor {
+            font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 700;
+        }
+        .ticket-total-linha {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 6px; padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            animation: itemAparecer 0.35s ease 1.1s both;
+        }
+        .ticket-total-label {
+            font-size: 13px; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .ticket-total-valor {
+            font-size: 22px; font-weight: 900; color: #25d366; letter-spacing: -0.5px;
+        }
+        .ticket-btn-ver {
+            display: block; width: 100%;
+            margin-top: 16px;
+            padding: 14px;
+            background: linear-gradient(135deg, #25d366, #1aad52);
+            color: white; border: none; border-radius: 14px;
+            font-size: 15px; font-weight: 800; letter-spacing: 0.3px;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(37,211,102,0.35);
+            animation: itemAparecer 0.4s ease 1.3s both;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .ticket-btn-ver:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(37,211,102,0.25); }
+        .ticket-btn-fechar {
+            display: block; width: 100%;
+            margin-top: 8px;
+            padding: 11px;
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+            font-size: 13px; font-weight: 700;
+            cursor: pointer;
+            animation: itemAparecer 0.4s ease 1.45s both;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Estado salvando */
+        .salvando-wrap {
+            padding: 40px 24px;
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+        .salvando-emoji {
+            font-size: 64px;
+            animation: salvandoPulse 0.9s ease-in-out infinite;
+        }
+        .salvando-texto {
+            font-size: 18px; font-weight: 800; color: white; text-align: center;
+        }
+        .salvando-sub {
+            font-size: 13px; color: rgba(255,255,255,0.45); font-weight: 600; text-align: center;
+            margin-top: -10px;
+        }
+        .salvando-barra-bg {
+            width: 100%; height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px; overflow: hidden;
+        }
+        .salvando-barra {
+            height: 100%; background: var(--theme-gradient);
+            border-radius: 2px;
+            animation: barraCarregar 2.5s ease forwards;
+        }
+
+        /* Erro */
+        .erro-wrap {
+            padding: 40px 24px;
+            display: flex; flex-direction: column; align-items: center; gap: 16px;
+        }
+        .erro-emoji { font-size: 64px; animation: roboNao 0.5s ease-in-out 3; }
+        .erro-titulo { font-size: 20px; font-weight: 900; color: white; text-align: center; }
+        .erro-sub { font-size: 13px; color: rgba(255,120,120,0.85); font-weight: 600; text-align: center; }
+
         @keyframes roboNao {
-            0%,100% { transform: translateX(0) rotate(0deg); }
+            0%,100% { transform: translateX(0); }
             20%      { transform: translateX(-14px) rotate(-6deg); }
             40%      { transform: translateX(14px) rotate(6deg); }
             60%      { transform: translateX(-10px) rotate(-4deg); }
             80%      { transform: translateX(10px) rotate(4deg); }
         }
-        @keyframes badgeAppear {
-            0%   { transform: scale(0) rotate(-30deg); opacity:0; }
-            70%  { transform: scale(1.3) rotate(5deg); opacity:1; }
-            100% { transform: scale(1) rotate(0deg); opacity:1; }
-        }
-        @keyframes textoSubir {
-            0%   { opacity:0; transform:translateY(20px); }
-            100% { opacity:1; transform:translateY(0); }
-        }
-        @keyframes particula {
-            0%   { transform: translate(0,0) scale(1); opacity:1; }
-            100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity:0; }
-        }
-        @keyframes pulseError {
-            0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
-            50%      { box-shadow: 0 0 0 20px rgba(231,76,60,0.15); }
-        }
-        @keyframes piscarAviso {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.25; }
-        }
-        .robo-wrap {
-            animation: roboEntrar 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            padding: 10px;
-        }
-        .robo-emoji {
-            font-size: 110px;
-            display: block;
-        }
-        .robo-badge {
-            position:absolute; bottom:-10px; right:-10px;
-            font-size:44px;
-            animation: badgeAppear 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.5s both;
-        }
-        .robo-texto {
-            animation: textoSubir 0.5s ease 0.6s both;
-            text-align:center;
-            margin-top: 32px;
-            padding: 0 24px;
-        }
-        .robo-particula {
-            position:absolute;
-            font-size:22px;
-            animation: particula 0.8s ease-out forwards;
-        }
-        /* Estados */
-        .robo-state-salvando .robo-emoji {
-            filter: drop-shadow(0 0 20px rgba(241,196,15,0.8));
-            animation: roboSalvando 0.7s ease-in-out infinite;
-        }
-        .robo-state-sim .robo-emoji {
-            filter: drop-shadow(0 0 30px rgba(37,211,102,0.9));
-            animation: roboSim 0.45s ease-in-out infinite;
-        }
-        .robo-state-nao .robo-emoji {
-            filter: drop-shadow(0 0 30px rgba(231,76,60,0.9));
-            animation: roboNao 0.5s ease-in-out 3;
-        }
-        .robo-state-nao .robo-wrap {
-            animation: pulseError 1s ease-in-out infinite;
+
+        /* Coxinhas caindo */
+        .coxinha-particle {
+            position: fixed;
+            font-size: 28px;
+            pointer-events: none;
+            z-index: 3100;
+            animation: coxinhaCair linear forwards;
         }
 
         /* ===== ANIMAÇÃO LIMPEZA DE CACHE MELHORADA ===== */
@@ -791,31 +1003,28 @@
 
 <!-- ===== LOGIN ===== -->
 <div id="loginScreen" style="display:none;">
-    <!-- Orbs de fundo -->
-    <div class="ls-orb1"></div>
-    <div class="ls-orb2"></div>
-    <div class="ls-orb3"></div>
-    <!-- Partículas -->
-    <span class="ls-spark" style="top:12%;left:8%;animation-duration:2.8s;animation-delay:0s;">✨</span>
-    <span class="ls-spark" style="top:20%;right:12%;animation-duration:3.2s;animation-delay:0.7s;">⭐</span>
-    <span class="ls-spark" style="bottom:25%;left:6%;animation-duration:2.5s;animation-delay:1.2s;">🌟</span>
-    <span class="ls-spark" style="bottom:18%;right:8%;animation-duration:3.6s;animation-delay:0.4s;">✨</span>
-    <span class="ls-spark" style="top:55%;left:15%;animation-duration:2.9s;animation-delay:1.8s;">⭐</span>
+    <!-- Luz dramática de fundo -->
+    <div class="ls-light-top"></div>
+    <div class="ls-light-cone"></div>
 
     <div class="login-container">
         <!-- Hero -->
         <div class="ls-hero">
+            <div class="ls-product-aura"></div>
             <img class="ls-emoji" src="data:image/png;base64,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" alt="Coxinha" />
-            <div class="ls-brand">O Rei da <span>Coxinha</span></div>
-            <div class="ls-tagline">O melhor salgado da região 👑</div>
+            <span class="ls-eyebrow">Pernambuco · Desde 2020</span>
+            <div class="ls-brand">O<br>Rei da<br><span>Coxinha</span></div>
+            <span class="ls-tagline">O melhor salgado da região 👑</span>
         </div>
 
         <!-- Card do formulário -->
         <div class="ls-card">
+            <div class="ls-drag-pill"></div>
+
             <div id="loginError"></div>
 
-            <label class="ls-label" style="display:flex;align-items:center;gap:7px;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 175.216 175.552" style="width:16px;height:16px;flex-shrink:0;">
+            <label class="ls-label" style="display:flex;align-items:center;gap:7px;color:rgba(255,255,255,0.55);font-size:11px;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 175.216 175.552" style="width:17px;height:17px;flex-shrink:0;">
                     <defs><linearGradient id="wag" x1="85.915" x2="86.077" y1="32.567" y2="137.772" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#57d163"/><stop offset="1" stop-color="#23b33a"/></linearGradient></defs>
                     <path fill="#b3b3b3" d="M87.184 25.227c-33.733 0-61.166 27.423-61.178 61.13a60.99 60.99 0 0 0 9.349 32.535L26 147.925l30.111-7.893a61.211 61.211 0 0 0 31.061 8.432h.026c33.733 0 61.166-27.423 61.178-61.13 0-16.318-6.349-31.64-17.872-43.155-11.522-11.514-26.845-17.847-43.32-17.952z"/>
                     <path fill="url(#wag)" d="M87.184 32.568c-29.829 0-54.139 24.297-54.151 54.098a53.886 53.886 0 0 0 8.272 28.517l1.287 2.043-5.464 19.963 20.507-5.376 1.975 1.171a54.04 54.04 0 0 0 27.543 7.516h.023c29.83 0 54.139-24.297 54.151-54.098a53.793 53.793 0 0 0-15.828-38.203 53.872 53.872 0 0 0-38.315-15.631z"/>
@@ -823,9 +1032,9 @@
                 </svg>
                 Seu WhatsApp
             </label>
-            <div class="input-prefix-container">
+            <div class="input-prefix-container ls-phone-highlight">
                 <span class="ls-prefix"></span>
-                <input type="tel" id="userPhone" class="input-text" placeholder="+55 81 99660-3348" maxlength="25" inputmode="tel" style="font-size: 16px; padding: 16px 14px; letter-spacing: 0.3px;">
+                <input type="tel" id="userPhone" class="input-text" placeholder="+55 81 99660-3348" maxlength="25" inputmode="tel">
             </div>
 
             <div id="nameBox" style="display:none;">
@@ -842,9 +1051,9 @@
             </div>
 
             <!-- Mensagem de dificuldade de acesso -->
-            <div style="text-align:center;margin-top:20px;padding:16px;color:rgba(255,255,255,0.7);font-size:12px;line-height:1.6;">
+            <div style="text-align:center;margin-top:20px;padding:16px;color:rgba(255,255,255,0.35);font-size:12px;line-height:1.6;">
                 Não está conseguindo acessar?
-                <div style="color:#3498db;font-weight:700;cursor:pointer;transition:all 0.2s;margin-top:8px;" onclick="limparCacheRedefinir()" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                <div style="color:rgba(255,140,60,0.8);font-weight:700;cursor:pointer;transition:all 0.2s;margin-top:8px;" onclick="limparCacheRedefinir()" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                     🧹 Clique aqui
                 </div>
             </div>
@@ -867,7 +1076,7 @@
     <div class="header" style="display:flex;align-items:center;justify-content:space-between;position:fixed;">
         <!-- ⚙️ esquerda -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-            <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;">
+            <button class="header-btn" onclick="abrirPainelControle()" style="position:relative;background:rgba(20,90,40,0.85);border:1px solid rgba(37,211,102,0.25);box-shadow:0 3px 12px rgba(0,0,0,0.3);">
                 ⚙️
                 <span id="headerDot" style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#e74c3c;"></span>
             </button>
@@ -880,10 +1089,12 @@
         </div>
         <!-- 🔔 direita -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;">⭐</button>
+            <button id="favBtnHeader" class="header-btn" onclick="openFavoriteModal()" style="display:none;width:48px;height:48px;align-items:center;justify-content:center;font-size:21px;background:rgba(20,90,40,0.85);border:1px solid rgba(37,211,102,0.25);box-shadow:0 3px 12px rgba(0,0,0,0.3);">⭐</button>
         </div>
     </div>
 
+    <!-- Conteúdo rolável: cat-bar + grid -->
+    <div style="padding-top: 103px;">
     <!-- Barra de categorias -->
     <div class="cat-bar">
         <button class="cat-btn active" onclick="filtrarCategoria('fritos', this)">🔥 Fritos</button>
@@ -891,6 +1102,7 @@
     </div>
 
     <div id="grid" class="products-grid"></div>
+    </div>
     <div class="footer">
         <div class="footer-left">
             <span class="footer-label">Total</span>
@@ -919,17 +1131,17 @@
 
 <!-- Modal Pagamento -->
 <div id="payModal" class="modal">
-    <div class="modal-content" style="padding-top:16px;">
+    <div class="modal-content" style="padding-top:16px;background:#0c0b0a;border-top:1px solid rgba(255,255,255,0.08);">
 
         <!-- Header: total simplificado -->
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; min-height:48px;">
             <div>
-                <div style="font-size:11px; color:#999; font-weight:600; margin-bottom:2px;">🤝 Total do pedido</div>
-                <div id="payHeaderTotal" style="font-size:26px; font-weight:900; color:#1a1a2e; letter-spacing:-0.5px;">R$ 0,00</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.45); font-weight:600; margin-bottom:2px;">🤝 Total do pedido</div>
+                <div id="payHeaderTotal" style="font-size:26px; font-weight:900; color:white; letter-spacing:-0.5px;">R$ 0,00</div>
             </div>
             <div style="text-align:right;">
-                <div style="font-size:11px; font-weight:600; margin-bottom:2px; color:#1a1a2e;">a pagar</div>
-                <div id="payHeaderFinal" style="font-size:26px; font-weight:900; color:#1a1a2e; letter-spacing:-0.5px;">R$ 0,00</div>
+                <div style="font-size:11px; font-weight:600; margin-bottom:2px; color:rgba(255,255,255,0.45);">a pagar</div>
+                <div id="payHeaderFinal" style="font-size:26px; font-weight:900; color:white; letter-spacing:-0.5px;">R$ 0,00</div>
             </div>
         </div>
 
@@ -937,8 +1149,8 @@
         <div id="itensResumo" style="margin-bottom:16px;"></div>
 
         <!-- Cupons de desconto + Crédito -->
-        <div id="cupomBox" style="display:none; margin-bottom:14px; background:#fffbea; border:1.5px solid #f1c40f; border-radius:14px; padding:14px;">
-            <div style="font-weight:800; color:#b8860b; margin-bottom:10px;">🎟️ Cupons e créditos</div>
+        <div id="cupomBox" style="display:none; margin-bottom:14px; background:rgba(241,196,15,0.08); border:1.5px solid rgba(241,196,15,0.3); border-radius:14px; padding:14px;">
+            <div style="font-weight:800; color:#f1c40f; margin-bottom:10px;">🎟️ Cupons e créditos</div>
             <div id="cupomLista"></div>
         </div>
 
@@ -957,7 +1169,7 @@
         "></div>
 
         <div style="display:flex; gap:10px; margin-top:4px;">
-            <button onclick="closePayModal()" style="flex:1; padding:14px; background:#f0f2f6; color:#666; border:none; border-radius:14px; font-weight:700; cursor:pointer;">Voltar</button>
+            <button onclick="closePayModal()" style="flex:1; padding:14px; background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:14px; font-weight:700; cursor:pointer;">Voltar</button>
             <button onclick="confirmOrder()" id="btnConfirm" style="flex:2; padding:14px; background:linear-gradient(135deg,#25d366,#1aad52); color:white; border:none; border-radius:14px; font-weight:800; cursor:pointer; box-shadow:0 5px 16px rgba(37,211,102,0.35);">Confirmar Pedido</button>
         </div>
     </div>
@@ -1109,22 +1321,71 @@
 <!-- ===== ANIMAÇÃO ROBOZINHO CONFIRMANDO ===== -->
 <div id="modalRoboConfirm" style="
     position:fixed; inset:0;
-    backdrop-filter:blur(8px);
+    backdrop-filter:blur(10px);
     display:none; align-items:center;
     justify-content:center; z-index:3000;
-    flex-direction:column; gap:0;
-    transition: background 0.4s;
+    flex-direction:column;
+    animation: overlayEntrar 0.3s ease both;
 ">
-    
-
-    <div id="roboInner" class="robo-state-salvando">
-        <div class="robo-wrap" id="roboWrap">
-            <span class="robo-emoji">🤖</span>
-            <span class="robo-badge" id="roboBadge" style="display:none;"></span>
+    <!-- Estado: Salvando -->
+    <div id="estadoSalvando" class="ticket-card">
+        <div class="salvando-wrap">
+            <div class="salvando-emoji">🍗</div>
+            <div class="salvando-texto">Enviando pedido...</div>
+            <div class="salvando-sub">☁️ Aguarde um segundo!</div>
+            <div class="salvando-barra-bg">
+                <div class="salvando-barra" id="salvanBarra"></div>
+            </div>
         </div>
-        <div class="robo-texto" id="roboTexto">
-            <div id="roboTitulo" style="font-size:26px; font-weight:900; color:white; letter-spacing:-0.5px; margin-bottom:8px;">Salvando pedido...</div>
-            <div id="roboSub" style="font-size:15px; color:rgba(255,255,255,0.75); font-weight:600;">☁️ Aguarde um segundo!</div>
+    </div>
+
+    <!-- Estado: Sucesso -->
+    <div id="estadoSim" class="ticket-card" style="display:none;">
+        <div class="ticket-topo">
+            <div class="ticket-circulo">
+                <svg viewBox="0 0 36 36">
+                    <path d="M6 18 L14 26 L30 10"/>
+                </svg>
+            </div>
+            <div class="ticket-titulo">Pedido confirmado!</div>
+            <div class="ticket-sub" id="ticketSub">Obrigado pela preferência! Seu pedido está sendo preparado 🍗❤️</div>
+        </div>
+        <div class="ticket-divider">
+            <div class="ticket-buraco"></div>
+            <div class="ticket-buraco"></div>
+        </div>
+        <div class="ticket-corpo">
+            <div class="ticket-linha" style="animation-delay:0.9s">
+                <span class="ticket-linha-label">CLIENTE</span>
+                <span class="ticket-linha-valor" id="ticketCliente">—</span>
+            </div>
+            <div class="ticket-linha" style="animation-delay:1.0s">
+                <span class="ticket-linha-label">HORÁRIO</span>
+                <span class="ticket-linha-valor" id="ticketHora">—</span>
+            </div>
+            <div class="ticket-linha" style="animation-delay:1.05s">
+                <span class="ticket-linha-label">ITENS</span>
+                <span class="ticket-linha-valor" id="ticketItens">—</span>
+            </div>
+            <div class="ticket-total-linha">
+                <span class="ticket-total-label">Total</span>
+                <span class="ticket-total-valor" id="ticketTotal">R$ 0,00</span>
+            </div>
+            <button class="ticket-btn-ver" onclick="window.location.href='https://jefferson8564.github.io/itens/'">
+                🍗 Ver meu pedido
+            </button>
+            <button class="ticket-btn-fechar" onclick="document.getElementById('modalRoboConfirm').style.display='none'">
+                Fechar
+            </button>
+        </div>
+    </div>
+
+    <!-- Estado: Erro -->
+    <div id="estadoNao" class="ticket-card" style="display:none;">
+        <div class="erro-wrap">
+            <div class="erro-emoji">😵</div>
+            <div class="erro-titulo">Não consegui salvar!</div>
+            <div class="erro-sub">Verifique sua internet e tente de novo.</div>
         </div>
     </div>
 </div>
@@ -2075,8 +2336,8 @@ function renderItensResumo() {
     const temOferta = clienteTemOferta();
 
     const categorias = [
-        { key: 'fritos', label: '🔥 FRITOS', cor: '#c0392b', bgCor: '#fff0ee', borderCor: '#e74c3c' },
-        { key: 'crus',   label: '🧊 CRUS',   cor: '#1565c0', bgCor: '#eef4ff', borderCor: '#3498db' }
+        { key: 'fritos', label: '🔥 FRITOS', cor: '#ff6b6b', bgCor: 'rgba(231,76,60,0.12)', borderCor: '#e74c3c' },
+        { key: 'crus',   label: '🧊 CRUS',   cor: '#74b9ff', bgCor: 'rgba(52,152,219,0.12)', borderCor: '#3498db' }
     ];
 
     function buildColuna(cat) {
@@ -2101,9 +2362,9 @@ function renderItensResumo() {
             inner += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
                 <div style="position:relative;width:64px;height:64px;">
                     ${imgTag}
-                    <div style="position:absolute;top:-6px;right:-6px;background:#1a1a2e;color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${qty}</div>
+                    <div style="position:absolute;top:-6px;right:-6px;background:var(--theme-gradient);color:white;font-size:12px;font-weight:900;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #0c0b0a;">${qty}</div>
                 </div>
-                <div style="font-size:11px;font-weight:700;color:#1a1a2e;text-align:center;line-height:1.2;">${nomeExibido}</div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-align:center;line-height:1.2;">${nomeExibido}</div>
                 <div style="font-size:12px;font-weight:800;color:${cat.cor};">R$ ${subtotal}</div>
             </div>`;
         }
@@ -2134,7 +2395,7 @@ function showPayModal() {
     window.history.pushState({ state: 'pay_modal_aberto' }, '', window.location.href);
     method = 'PAGA NA ENTREGA';
     const ht = document.getElementById('payHeaderTotal');
-    if (ht) { ht.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ','); ht.style.textDecoration = 'none'; ht.style.color = '#1a1a2e'; }
+    if (ht) { ht.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ','); ht.style.textDecoration = 'none'; ht.style.color = 'white'; }
     const hf = document.getElementById('payHeaderFinal');
     if (hf) hf.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
     renderItensResumo();
@@ -2184,7 +2445,7 @@ function updateFinalTotalDisplay() {
     if (elTotal) {
         elTotal.innerText = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
         elTotal.style.textDecoration = temDesconto ? 'line-through' : 'none';
-        elTotal.style.color = temDesconto ? '#aaa' : '#1a1a2e';
+        elTotal.style.color = temDesconto ? 'rgba(255,255,255,0.4)' : 'white';
     }
 
     if (elFinal) {
@@ -2440,29 +2701,11 @@ async function confirmOrder() {
         } catch(e) {}
         showToast('✅ Pedido salvo com sucesso!', 'success', 3500);
 
-        // ===== ROBOZINHO: SIM ✅ =====
+        // ===== TICKET: SIM ✅ =====
         roboEstado('sim');
-        const wrap = document.getElementById('roboWrap');
-        ['🎉','⭐','✨','🎊','💚','🎉','⭐','✨'].forEach((emoji, i) => {
-            const p = document.createElement('span');
-            p.className = 'robo-particula';
-            p.textContent = emoji;
-            const angle = (i / 8) * 360;
-            const dist = 90 + Math.random() * 60;
-            p.style.setProperty('--dx', Math.cos(angle * Math.PI/180) * dist + 'px');
-            p.style.setProperty('--dy', Math.sin(angle * Math.PI/180) * dist + 'px');
-            p.style.animationDelay = (0.1 + i * 0.07) + 's';
-            p.style.animationDuration = '0.7s';
-            wrap.appendChild(p);
-            setTimeout(() => p.remove(), 1500);
-        });
 
         cart = {}; creditDiscount = 0; cupomDesconto = 0; cupomId = null; cupomDescontoPct = 0; render();
         btn.disabled = false;
-
-        setTimeout(() => {
-            window.location.href = 'https://jefferson8564.github.io/itens/';
-        }, 1800);
 
     } catch(err) {
         console.error('Erro ao salvar pedido:', err);
@@ -2474,28 +2717,48 @@ async function confirmOrder() {
 }
 
 function roboEstado(estado) {
-    const inner = document.getElementById('roboInner');
-    const badge = document.getElementById('roboBadge');
-    const titulo = document.getElementById('roboTitulo');
-    const sub = document.getElementById('roboSub');
-    inner.className = 'robo-state-' + estado;
+    const modal = document.getElementById('modalRoboConfirm');
+    const eSalvando = document.getElementById('estadoSalvando');
+    const eSim = document.getElementById('estadoSim');
+    const eNao = document.getElementById('estadoNao');
+
+    eSalvando.style.display = 'none';
+    eSim.style.display = 'none';
+    eNao.style.display = 'none';
+    modal.className = '';
+
     if (estado === 'salvando') {
-        badge.style.display = 'none';
-        titulo.textContent = 'Salvando pedido...';
-        sub.textContent = '☁️ Aguarde um segundo!';
-        sub.style.color = 'rgba(255,255,255,0.75)';
+        eSalvando.style.display = 'block';
+        // Reinicia barra
+        const b = document.getElementById('salvanBarra');
+        if (b) { b.style.animation = 'none'; void b.offsetWidth; b.style.animation = 'barraCarregar 2.5s ease forwards'; }
     } else if (estado === 'sim') {
-        badge.style.display = 'block';
-        badge.textContent = '✅';
-        titulo.textContent = 'Pedido confirmado!';
-        sub.textContent = 'Redirecionando... 🚀';
-        sub.style.color = 'rgba(255,255,255,0.75)';
+        eSim.style.display = 'block';
+        eSim.style.animation = 'none'; void eSim.offsetWidth; eSim.style.animation = 'ticketEntrar 0.55s cubic-bezier(0.34,1.3,0.64,1) both';
+        modal.classList.add('estado-sim');
+        // Preencher dados do ticket
+        if (user) document.getElementById('ticketCliente').textContent = user.name || '—';
+        const agora = new Date();
+        document.getElementById('ticketHora').textContent = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const totalItens = Object.values(cart).reduce((a, b) => a + (parseInt(b) || 0), 0);
+        document.getElementById('ticketItens').textContent = totalItens + (totalItens === 1 ? ' item' : ' itens');
+        document.getElementById('ticketTotal').textContent = 'R$ ' + currentOrderTotal.toFixed(2).replace('.', ',');
+        // Coxinhas caindo
+        const emojis = ['🍗','🍗','🍗','⭐','✨','🎉','🍗','🎊'];
+        emojis.forEach((e, i) => {
+            const el = document.createElement('div');
+            el.className = 'coxinha-particle';
+            el.textContent = e;
+            el.style.left = (10 + Math.random() * 80) + 'vw';
+            el.style.top = '-40px';
+            el.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+            el.style.animationDelay = (i * 0.12) + 's';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3500);
+        });
     } else if (estado === 'nao') {
-        badge.style.display = 'block';
-        badge.textContent = '❌';
-        titulo.textContent = 'Não consegui salvar!';
-        sub.textContent = 'Verifique sua internet e tente de novo.';
-        sub.style.color = 'rgba(255,120,120,0.95)';
+        eNao.style.display = 'block';
+        modal.classList.add('estado-nao');
     }
 }
 
@@ -2722,7 +2985,7 @@ function fecharPainelControle() {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     z-index: 3000;
-    background: linear-gradient(180deg, #120220 0%, #0d0118 100%);
+    background: #0c0b0a;
     transform: translateX(-100%);
     transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
     display: flex;
@@ -2867,7 +3130,7 @@ function fecharPainelControle() {
     position: fixed;
     inset: 0;
     z-index: 3000;
-    background: linear-gradient(180deg, #120220 0%, #0d0118 100%);
+    background: #0c0b0a;
     transform: translateY(-100%);
     transition: transform 0.4s cubic-bezier(0.34,1.1,0.64,1);
     display: flex;
@@ -3381,6 +3644,31 @@ function urlBase64ToUint8Array(base64String) {
     const rawData = atob(base64);
     return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
+
+// ===== SCROLL HIDE/SHOW HEADER + CAT-BAR =====
+(function() {
+    let lastY = 0;
+    let ticking = false;
+
+    window.addEventListener('scroll', function() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function() {
+            const currentY = window.scrollY;
+            const header = document.querySelector('.header');
+
+            if (currentY > lastY && currentY > 60) {
+                // Scrollando para baixo: esconde header
+                if (header) header.classList.add('hidden');
+            } else {
+                // Scrollando para cima: mostra header
+                if (header) header.classList.remove('hidden');
+            }
+            lastY = currentY;
+            ticking = false;
+        });
+    }, { passive: true });
+})();
 
 async function registrarPushCliente(phone) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
